@@ -41,8 +41,8 @@ struct MainWindowView: View {
         }
     }
 
-    @Environment(AppModel.self) private var appModel
-    @Environment(AppEnvironment.self) private var environment
+    @EnvironmentObject private var appModel: AppModel
+    @EnvironmentObject private var environment: AppEnvironment
     @State private var createPairViewModel = CreatePairViewModel(
         folderPicker: FolderPickerBridge(),
         pairService: PairService()
@@ -75,7 +75,9 @@ struct MainWindowView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button("pair.new") {
-                        presentCreatePairSheet()
+                        Task {
+                            await presentCreatePairSheet()
+                        }
                     }
                     .accessibilityIdentifier("pair.new")
                 }
@@ -132,9 +134,9 @@ struct MainWindowView: View {
                 PairDetailView(
                     pair: appModel.selectedPair,
                     viewModel: environment.pairDetailViewModel,
-                    onSyncNow: { runSelectedPairAction(.syncNow) },
-                    onCheckYandex: { runSelectedPairAction(.checkYandex) },
-                    onPullFromYandex: { runSelectedPairAction(.pullFromYandex) }
+                    onSyncNow: { runActivePairAction(.syncNow) },
+                    onCheckYandex: { runActivePairAction(.checkYandex) },
+                    onPullFromYandex: { runActivePairAction(.pullFromYandex) }
                 )
             }
         }
@@ -156,10 +158,13 @@ struct MainWindowView: View {
     }
 
     @MainActor
-    private func presentCreatePairSheet() {
+    private func presentCreatePairSheet() async {
+        let defaultScheduleMinutes = (try? await environment.preferencesStore.load())?.defaultScheduleMinutes
+            ?? AppPreferences.defaults.defaultScheduleMinutes
         createPairViewModel = CreatePairViewModel(
             folderPicker: FolderPickerBridge(),
-            pairService: PairService()
+            pairService: PairService(),
+            defaultScheduleMinutes: defaultScheduleMinutes
         )
         appModel.isCreatePairSheetPresented = true
     }
@@ -173,9 +178,9 @@ struct MainWindowView: View {
 
         do {
             let pairs = try await environment.pairRepository.load()
+            let events = try await environment.activityRepository.load()
             await MainActor.run {
-                appModel.pairs = pairs
-                appModel.refreshStatusSummary(using: environment.statusService)
+                appModel.applyPersistedState(pairs: pairs, events: events.sorted { $0.date > $1.date }, using: environment.statusService)
                 configureQuickActions()
             }
         } catch {
@@ -196,29 +201,30 @@ struct MainWindowView: View {
         appModel.isCreatePairSheetPresented = false
         appModel.refreshStatusSummary(using: environment.statusService)
         configureQuickActions()
+        appModel.refreshBackgroundState()
     }
 
     @MainActor
     private func configureQuickActions() {
         appModel.runSyncNowForSelectedPair = {
-            runSelectedPairAction(.syncNow)
+            runActivePairAction(.syncNow)
         }
         appModel.runCheckForSelectedPair = {
-            runSelectedPairAction(.checkYandex)
+            runActivePairAction(.checkYandex)
         }
         appModel.runPullForSelectedPair = {
-            runSelectedPairAction(.pullFromYandex)
+            runActivePairAction(.pullFromYandex)
         }
     }
 
     @MainActor
-    private func runSelectedPairAction(_ operation: PairOperationKind) {
-        guard let selectedPair = appModel.selectedPair else {
+    private func runActivePairAction(_ operation: PairOperationKind) {
+        guard let activePair = appModel.activePair else {
             return
         }
 
         Task {
-            await run(operation, for: selectedPair)
+            await run(operation, for: activePair)
         }
     }
 
@@ -243,6 +249,9 @@ struct MainWindowView: View {
                 ),
                 latestSeverity: updatedPair.lastKnownSeverity
             )
+            await MainActor.run {
+                appModel.refreshBackgroundState()
+            }
         } catch {
             var failedPair = pair
             failedPair.lastKnownSeverity = .alarm
@@ -261,6 +270,7 @@ struct MainWindowView: View {
             )
             await MainActor.run {
                 environment.pairDetailViewModel.setError(failureMessage)
+                appModel.refreshBackgroundState()
             }
         }
 
@@ -276,6 +286,7 @@ struct MainWindowView: View {
         case .syncNow:
             try await syncService.push(pair)
             updatedPair.lastKnownSeverity = .healthy
+            updatedPair.lastSyncAt = Date()
         case .checkYandex:
             updatedPair.lastKnownSeverity = try await syncService.check(pair)
         case .pullFromYandex:

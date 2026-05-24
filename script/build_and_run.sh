@@ -7,7 +7,7 @@ SCHEME="Macyad"
 PROJECT="Macyad.xcodeproj"
 BUNDLE_ID="me.orloff.macyad"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="$ROOT_DIR/.build/macos"
+BUILD_DIR="${MACYAD_BUILD_DIR:-$HOME/Library/Caches/MacYaD/Build}"
 APP_BUNDLE="$BUILD_DIR/Build/Products/Debug/$APP_NAME.app"
 PROJECT_PATH="$ROOT_DIR/$PROJECT"
 

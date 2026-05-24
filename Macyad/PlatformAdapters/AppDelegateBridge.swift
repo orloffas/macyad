@@ -3,6 +3,7 @@ import AppKit
 @MainActor
 final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private weak var mainWindow: NSWindow?
+    private var didApplyInitialLaunchBehavior = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -12,10 +13,17 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         false
     }
 
-    func attachMainWindow(_ window: NSWindow) {
+    func attachMainWindow(_ window: NSWindow, hideOnInitialLaunch: Bool) {
         guard mainWindow !== window else { return }
         mainWindow = window
         window.delegate = self
+
+        guard hideOnInitialLaunch, !didApplyInitialLaunchBehavior else {
+            return
+        }
+
+        didApplyInitialLaunchBehavior = true
+        window.orderOut(nil)
     }
 
     func showMainWindow() {

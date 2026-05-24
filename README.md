@@ -16,6 +16,8 @@
 ./script/build_and_run.sh
 ```
 
+`build_and_run.sh` складывает build artifacts в `~/Library/Caches/MacYaD/Build`, чтобы запуск не запрашивал доступ к `Documents`, если сам репозиторий лежит внутри `~/Documents`.
+
 ## Verification
 
 ```bash

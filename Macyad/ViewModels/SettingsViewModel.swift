@@ -1,13 +1,12 @@
+import Combine
 import MacyadCore
-import Observation
 
 @MainActor
-@Observable
-final class SettingsViewModel {
-    var selectedLanguage = AppPreferences.defaults.selectedLanguage
-    var launchAtLogin = AppPreferences.defaults.launchAtLoginEnabled
-    var defaultScheduleMinutes = AppPreferences.defaults.defaultScheduleMinutes
-    var errorMessage: String?
+final class SettingsViewModel: ObservableObject {
+    @Published var selectedLanguage = AppPreferences.defaults.selectedLanguage
+    @Published var launchAtLogin = AppPreferences.defaults.launchAtLoginEnabled
+    @Published var defaultScheduleMinutes = AppPreferences.defaults.defaultScheduleMinutes
+    @Published var errorMessage: String?
 
     private let preferencesStore: AppPreferencesStore
     private let loginItemService: LoginItemControlling

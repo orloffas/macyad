@@ -14,6 +14,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
     public var scheduleMinutes: Int
     public var deletePolicy: DeletePolicy
     public var lastKnownSeverity: Severity
+    public var lastSyncAt: Date?
 
     public init(
         id: UUID,
@@ -23,7 +24,8 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         remotePath: String,
         scheduleMinutes: Int,
         deletePolicy: DeletePolicy,
-        lastKnownSeverity: Severity
+        lastKnownSeverity: Severity,
+        lastSyncAt: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -33,5 +35,6 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         self.scheduleMinutes = scheduleMinutes
         self.deletePolicy = deletePolicy
         self.lastKnownSeverity = lastKnownSeverity
+        self.lastSyncAt = lastSyncAt
     }
 }

@@ -2,8 +2,8 @@ import MacyadCore
 import SwiftUI
 
 struct OnboardingView: View {
-    @Environment(AppEnvironment.self) private var environment
-    @Environment(AppModel.self) private var appModel
+    @EnvironmentObject private var environment: AppEnvironment
+    @EnvironmentObject private var appModel: AppModel
     @ObservedObject var viewModel: OnboardingViewModel
 
     var body: some View {
@@ -70,7 +70,7 @@ struct OnboardingView: View {
 
     private func refresh() async {
         await viewModel.retry()
-        appModel.onboardingState = viewModel.state
-        appModel.refreshStatusSummary(using: environment.statusService)
+        appModel.applyOnboardingState(viewModel.state, using: environment.statusService)
+        appModel.refreshBackgroundState()
     }
 }

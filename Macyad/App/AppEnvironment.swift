@@ -1,10 +1,20 @@
+import Combine
 import Foundation
 import MacyadCore
-import Observation
 
-@Observable
 @MainActor
-final class AppEnvironment {
+final class AppEnvironment: ObservableObject {
+    private enum BackgroundSyncBootstrapError: LocalizedError {
+        case rcloneUnavailable
+
+        var errorDescription: String? {
+            switch self {
+            case .rcloneUnavailable:
+                "rclone не найден для scheduled sync."
+            }
+        }
+    }
+
     enum LaunchMode: Sendable, Equatable {
         case normal
         case uiTestOnboardingMissingRclone
@@ -68,6 +78,10 @@ final class AppEnvironment {
         func setEnabled(_ enabled: Bool) throws {}
     }
 
+    private struct NoopUserNotificationClient: UserNotificationSending {
+        func send(title: String, body: String) async throws {}
+    }
+
     let launchMode: LaunchMode
     let paths: AppPaths
     let rcloneLocator: RcloneLocating
@@ -79,6 +93,7 @@ final class AppEnvironment {
     let settingsViewModel: SettingsViewModel
     let activityRepository: ActivityRepository
     let pairDetailViewModel: PairDetailViewModel
+    let notificationClient: UserNotificationSending
 
     init(
         launchMode: LaunchMode,
@@ -89,7 +104,8 @@ final class AppEnvironment {
         pairRepository: PairRepository,
         preferencesStore: AppPreferencesStore,
         loginItemService: LoginItemControlling,
-        activityRepository: ActivityRepository
+        activityRepository: ActivityRepository,
+        notificationClient: UserNotificationSending
     ) {
         self.launchMode = launchMode
         self.paths = paths
@@ -99,6 +115,7 @@ final class AppEnvironment {
         self.pairRepository = pairRepository
         self.preferencesStore = preferencesStore
         self.activityRepository = activityRepository
+        self.notificationClient = notificationClient
         self.onboardingViewModel = OnboardingViewModel(
             service: onboardingService,
             pasteboard: PasteboardBridge()
@@ -147,7 +164,28 @@ final class AppEnvironment {
             pairRepository: pairRepository,
             preferencesStore: preferencesStore,
             loginItemService: launchMode.usesEphemeralPaths ? NoopLoginItemService() : LoginItemService(),
-            activityRepository: activityRepository
+            activityRepository: activityRepository,
+            notificationClient: launchMode.usesEphemeralPaths ? NoopUserNotificationClient() : UserNotificationClient()
+        )
+    }
+
+    func makeBackgroundSyncController(
+        stateDidChange: @escaping BackgroundSyncController.StateDidChange
+    ) -> BackgroundSyncController {
+        let scheduler = SchedulerService(syncServiceProvider: { [rcloneLocator] in
+            guard let executablePath = try await rcloneLocator.locate() else {
+                throw BackgroundSyncBootstrapError.rcloneUnavailable
+            }
+
+            return SyncService(processClient: RcloneProcessClient(executablePath: executablePath))
+        })
+
+        return BackgroundSyncController(
+            scheduler: scheduler,
+            pairStore: pairRepository,
+            activityStore: activityRepository,
+            notificationClient: notificationClient,
+            stateDidChange: stateDidChange
         )
     }
 
