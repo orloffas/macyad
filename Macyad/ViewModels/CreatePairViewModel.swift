@@ -24,9 +24,14 @@ public final class CreatePairViewModel: ObservableObject {
         !remotePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    public init(folderPicker: FolderPicking, pairService: PairService) {
+    public init(
+        folderPicker: FolderPicking,
+        pairService: PairService,
+        defaultScheduleMinutes: Int = AppPreferences.defaults.defaultScheduleMinutes
+    ) {
         self.folderPicker = folderPicker
         self.pairService = pairService
+        self.scheduleMinutes = defaultScheduleMinutes
     }
 
     public func chooseFolder() {

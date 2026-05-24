@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Bindable var viewModel: SettingsViewModel
+    @ObservedObject var viewModel: SettingsViewModel
 
     var body: some View {
         Form {

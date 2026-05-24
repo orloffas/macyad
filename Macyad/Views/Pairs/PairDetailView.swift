@@ -55,6 +55,16 @@ struct PairDetailView: View {
                                     .foregroundStyle(.secondary)
                                 Text(deletePolicyTitle(pair.deletePolicy))
                             }
+                            GridRow {
+                                Text("Последний sync")
+                                    .foregroundStyle(.secondary)
+                                Text(lastSyncTitle(for: pair))
+                            }
+                            GridRow {
+                                Text("Следующий scheduled sync")
+                                    .foregroundStyle(.secondary)
+                                Text(nextScheduledSyncTitle(for: pair))
+                            }
                         }
                         .font(.callout)
 
@@ -99,5 +109,22 @@ struct PairDetailView: View {
         case .keepRemoteDeletesManual:
             "Keep remote deletes manual"
         }
+    }
+
+    private func lastSyncTitle(for pair: SyncPair) -> String {
+        guard let lastSyncAt = pair.lastSyncAt else {
+            return "Ещё не выполнялся"
+        }
+
+        return lastSyncAt.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private func nextScheduledSyncTitle(for pair: SyncPair) -> String {
+        guard let lastSyncAt = pair.lastSyncAt else {
+            return "Сразу после первого удачного Sync Now"
+        }
+
+        let nextRun = lastSyncAt.addingTimeInterval(TimeInterval(pair.scheduleMinutes * 60))
+        return nextRun.formatted(date: .abbreviated, time: .shortened)
     }
 }

@@ -17,4 +17,14 @@ final class CreatePairViewModelTests: XCTestCase {
         XCTAssertEqual(model.localFolderDisplayPath, "/Users/test/Work Docs")
         XCTAssertEqual(model.localFolderBookmark, Data("bookmark".utf8))
     }
+
+    func testInitUsesProvidedDefaultSchedule() {
+        let model = CreatePairViewModel(
+            folderPicker: StubFolderPicker(),
+            pairService: PairService(),
+            defaultScheduleMinutes: 45
+        )
+
+        XCTAssertEqual(model.scheduleMinutes, 45)
+    }
 }

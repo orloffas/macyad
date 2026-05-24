@@ -22,7 +22,15 @@ public struct StatusService: Sendable {
 
         let alarmCount = pairs.filter { $0.lastKnownSeverity == .alarm }.count
         let warningCount = pairs.filter { $0.lastKnownSeverity == .warning }.count
-        let title = alarmCount > 0 ? "Attention required" : "Ready"
+        let title: String
+
+        if alarmCount > 0 {
+            title = "Attention required"
+        } else if warningCount > 0 {
+            title = "Review warnings"
+        } else {
+            title = "Ready"
+        }
 
         return MenuBarSummary(title: title, alarmCount: alarmCount, warningCount: warningCount)
     }

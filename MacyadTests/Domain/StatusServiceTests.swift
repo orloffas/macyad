@@ -43,4 +43,26 @@ final class StatusServiceTests: XCTestCase {
         XCTAssertEqual(summary.alarmCount, 1)
         XCTAssertEqual(summary.warningCount, 1)
     }
+
+    func testWarningTitleWhenWarningsExistWithoutAlarms() {
+        let service = StatusService()
+        let pairs = [
+            SyncPair(
+                id: UUID(),
+                name: "Docs",
+                localFolderBookmark: Data(),
+                localFolderDisplayPath: "/tmp/Docs",
+                remotePath: "yd:/Docs",
+                scheduleMinutes: 30,
+                deletePolicy: .mirrorToYandex,
+                lastKnownSeverity: .warning
+            )
+        ]
+
+        let summary = service.makeSummary(onboardingStep: .complete, pairs: pairs)
+
+        XCTAssertEqual(summary.title, "Review warnings")
+        XCTAssertEqual(summary.alarmCount, 0)
+        XCTAssertEqual(summary.warningCount, 1)
+    }
 }
