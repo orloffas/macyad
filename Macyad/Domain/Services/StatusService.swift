@@ -16,7 +16,7 @@ public struct StatusService: Sendable {
     public init() {}
 
     public func makeSummary(onboardingStep: OnboardingState.Step, pairs: [SyncPair]) -> MenuBarSummary {
-        guard onboardingStep == .complete else {
+        guard onboardingStep == .complete || !pairs.isEmpty else {
             return MenuBarSummary(title: "Setup required", alarmCount: 0, warningCount: 0)
         }
 

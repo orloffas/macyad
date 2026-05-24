@@ -1,3 +1,5 @@
+import Foundation
+
 enum AppRoute: String, CaseIterable, Hashable {
     case onboarding
     case overview
@@ -19,4 +21,9 @@ enum AppRoute: String, CaseIterable, Hashable {
             "square.grid.2x2"
         }
     }
+}
+
+enum SidebarSelection: Hashable {
+    case route(AppRoute)
+    case pair(UUID)
 }
