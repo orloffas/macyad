@@ -1,8 +1,12 @@
 import Foundation
 
 public struct RcloneCommandBuilder {
-    public static func remoteCreateCommand(configPath: String, remoteName: String) -> String {
-        "rclone config create \(remoteName) yandex --config \(shellEscape(configPath))"
+    public static func remoteCreateCommand(remoteName: String) -> String {
+        "rclone config create \(remoteName) yandex"
+    }
+
+    public static func remoteCreateCommand(configPath _: String, remoteName: String) -> String {
+        remoteCreateCommand(remoteName: remoteName)
     }
 
     public static func syncArguments(for pair: SyncPair) -> [String] {
@@ -17,7 +21,4 @@ public struct RcloneCommandBuilder {
         ["copy", pair.remotePath, pair.localFolderDisplayPath]
     }
 
-    private static func shellEscape(_ value: String) -> String {
-        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
-    }
 }

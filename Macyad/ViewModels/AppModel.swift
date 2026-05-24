@@ -15,7 +15,7 @@ final class AppModel: ObservableObject {
     )
     @Published var pairs: [SyncPair] = []
     @Published var recentEvents: [ActivityEvent] = []
-    @Published var statusSummary = MenuBarSummary(title: "Setup required", alarmCount: 0, warningCount: 0)
+    @Published var statusSummary = MenuBarSummary(title: "Требуется настройка", alarmCount: 0, warningCount: 0)
     var openMainWindow: () -> Void = {}
     var openSettings: () -> Void = {}
     var quitApplication: () -> Void = {}
@@ -23,6 +23,7 @@ final class AppModel: ObservableObject {
     var runSyncNowForSelectedPair: () -> Void = {}
     var runCheckForSelectedPair: () -> Void = {}
     var runPullForSelectedPair: () -> Void = {}
+    private var didAutoSelectInitialPair = false
 
     var route: AppRoute {
         get {
@@ -81,6 +82,10 @@ final class AppModel: ObservableObject {
         }
 
         refreshStatusSummary(using: service)
+        if !didAutoSelectInitialPair, let firstPair = pairs.first, case .route(.onboarding) = sidebarSelection, !shouldKeepOnboardingVisible {
+            sidebarSelection = .pair(firstPair.id)
+            didAutoSelectInitialPair = true
+        }
         normalizeSelection()
     }
 
@@ -90,23 +95,21 @@ final class AppModel: ObservableObject {
             return
         }
 
-        if case .route(.onboarding) = sidebarSelection {
-            if let firstPair = pairs.first {
-                sidebarSelection = .pair(firstPair.id)
-            } else {
-                sidebarSelection = .route(.overview)
-            }
+        if case let .pair(id) = sidebarSelection, !pairs.contains(where: { $0.id == id }) {
+            sidebarSelection = pairs.first.map { .pair($0.id) } ?? .route(.overview)
         }
     }
 
     private var shouldKeepOnboardingVisible: Bool {
+        guard pairs.isEmpty else {
+            return false
+        }
+
         switch onboardingState.step {
-        case .installRclone, .configureRemote:
-            true
-        case .createFirstPair:
-            pairs.isEmpty
+        case .installRclone, .configureRemote, .createFirstPair:
+            return true
         case .complete:
-            false
+            return false
         }
     }
 }

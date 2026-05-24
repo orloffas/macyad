@@ -15,49 +15,6 @@ final class AppEnvironment: ObservableObject {
         }
     }
 
-    enum LaunchMode: Sendable, Equatable {
-        case normal
-        case uiTestOnboardingMissingRclone
-        case uiTestReadyState
-
-        init(arguments: [String]) {
-            if arguments.contains("UITEST_ONBOARDING_MISSING_RCLONE") {
-                self = .uiTestOnboardingMissingRclone
-            } else if arguments.contains("UITEST_READY_STATE") {
-                self = .uiTestReadyState
-            } else {
-                self = .normal
-            }
-        }
-
-        var shouldForceForegroundWindow: Bool {
-            switch self {
-            case .normal:
-                false
-            case .uiTestOnboardingMissingRclone, .uiTestReadyState:
-                true
-            }
-        }
-
-        var stubbedRcloneLocation: String? {
-            switch self {
-            case .normal, .uiTestOnboardingMissingRclone:
-                nil
-            case .uiTestReadyState:
-                "/opt/homebrew/bin/rclone"
-            }
-        }
-
-        var usesEphemeralPaths: Bool {
-            switch self {
-            case .normal:
-                false
-            case .uiTestOnboardingMissingRclone, .uiTestReadyState:
-                true
-            }
-        }
-    }
-
     private struct StubRcloneLocator: RcloneLocating {
         let location: String?
 
@@ -82,7 +39,7 @@ final class AppEnvironment: ObservableObject {
         func send(title: String, body: String) async throws {}
     }
 
-    let launchMode: LaunchMode
+    let launchMode: AppLaunchMode
     let paths: AppPaths
     let rcloneLocator: RcloneLocating
     let statusService: StatusService
@@ -96,7 +53,7 @@ final class AppEnvironment: ObservableObject {
     let notificationClient: UserNotificationSending
 
     init(
-        launchMode: LaunchMode,
+        launchMode: AppLaunchMode,
         paths: AppPaths,
         rcloneLocator: RcloneLocating,
         statusService: StatusService = StatusService(),
@@ -128,7 +85,7 @@ final class AppEnvironment: ObservableObject {
     }
 
     static func bootstrap(arguments: [String] = ProcessInfo.processInfo.arguments) throws -> AppEnvironment {
-        let launchMode = LaunchMode(arguments: arguments)
+        let launchMode = AppLaunchMode(arguments: arguments)
         let paths = try makePaths(for: launchMode)
         let rcloneLocator: RcloneLocating
 
@@ -190,7 +147,7 @@ final class AppEnvironment: ObservableObject {
     }
 
     private static func makePaths(
-        for launchMode: LaunchMode,
+        for launchMode: AppLaunchMode,
         fileManager: FileManager = .default
     ) throws -> AppPaths {
         guard launchMode.usesEphemeralPaths else {

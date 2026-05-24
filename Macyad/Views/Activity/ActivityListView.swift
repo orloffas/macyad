@@ -5,34 +5,41 @@ struct ActivityListView: View {
     let events: [ActivityEvent]
 
     var body: some View {
-        GroupBox("Activity") {
+        GroupBox("Журнал") {
             if events.isEmpty {
-                ContentUnavailableView(
-                    "Пока пусто",
-                    systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90",
-                    description: Text("События этой pair появятся после `Sync`, `Check` или `Pull`.")
-                )
-                .frame(maxWidth: .infinity, minHeight: 160)
+                Label("События появятся после синхронизации, проверки или загрузки.", systemImage: "clock")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 6)
             } else {
-                List(events) { event in
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: symbolName(for: event.severity))
-                            .foregroundStyle(color(for: event.severity))
-                            .frame(width: 14)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(events) { event in
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: symbolName(for: event.severity))
+                                    .foregroundStyle(color(for: event.severity))
+                                    .frame(width: 14)
 
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(event.message)
-                                .lineLimit(2)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(event.message)
+                                        .lineLimit(nil)
+                                        .textSelection(.enabled)
 
-                            Text(event.date.formatted(date: .abbreviated, time: .shortened))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                    Text(event.date.formatted(date: .abbreviated, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.vertical, 7)
+
+                            if event.id != events.last?.id {
+                                Divider()
+                            }
                         }
                     }
-                    .padding(.vertical, 2)
                 }
-                .listStyle(.plain)
-                .frame(minHeight: 180)
+                .frame(minHeight: 96, idealHeight: 150, maxHeight: 220)
             }
         }
     }

@@ -35,7 +35,7 @@ xcodebuild \
   build
 
 open_app() {
-  /usr/bin/open -n "$APP_BUNDLE"
+  /usr/bin/open -n "$APP_BUNDLE" --args --force-foreground
 }
 
 launched_app_asn() {

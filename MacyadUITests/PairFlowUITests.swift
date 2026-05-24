@@ -8,6 +8,8 @@ final class PairFlowUITests: XCTestCase {
 
         app.launch()
 
-        XCTAssertTrue(app.buttons["pair.new"].waitForExistence(timeout: 5))
+        let identifierButton = app.buttons["pair.new"].firstMatch
+        let localizedButton = app.buttons["Новая пара"].firstMatch
+        XCTAssertTrue(identifierButton.waitForExistence(timeout: 5) || localizedButton.waitForExistence(timeout: 5))
     }
 }

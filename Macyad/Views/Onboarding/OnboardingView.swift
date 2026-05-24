@@ -8,14 +8,14 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("onboarding.title")
+            Text("Подключение")
                 .font(.title2)
                 .fontWeight(.semibold)
 
             switch viewModel.state.step {
             case .installRclone:
                 CommandCopyRowView(
-                    title: "onboarding.install_rclone",
+                    title: "Установить rclone",
                     command: viewModel.state.brewInstallCommand,
                     copied: viewModel.lastCopiedCommand == viewModel.state.brewInstallCommand,
                     accessibilityIdentifier: "onboarding.copyCommand"
@@ -30,7 +30,7 @@ struct OnboardingView: View {
                 }
 
                 CommandCopyRowView(
-                    title: "onboarding.create_remote",
+                    title: "Создать remote yd для Yandex",
                     command: viewModel.state.remoteCreateCommand,
                     copied: viewModel.lastCopiedCommand == viewModel.state.remoteCreateCommand,
                     accessibilityIdentifier: nil
@@ -40,21 +40,22 @@ struct OnboardingView: View {
 
             case .createFirstPair:
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("onboarding.create_pair_hint")
+                    Text("Создайте первую пару после настройки remote.")
+                        .textSelection(.enabled)
                         .foregroundStyle(.secondary)
 
-                    Button("pair.new") {
+                    Button("Новая пара") {
                         appModel.isCreatePairSheetPresented = true
                     }
                     .accessibilityIdentifier("pair.new")
                 }
 
             case .complete:
-                Text("onboarding.complete")
+                Text("Настройка завершена.")
                     .foregroundStyle(.secondary)
             }
 
-            Button("onboarding.retry") {
+            Button("Проверить снова") {
                 Task { await refresh() }
             }
             .accessibilityIdentifier("onboarding.retry")

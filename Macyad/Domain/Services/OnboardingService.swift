@@ -5,20 +5,21 @@ public protocol OnboardingServicing: Sendable {
 }
 
 public struct OnboardingService: OnboardingServicing {
-    private static let managedRemoteName = "yd-app"
+    private static let managedRemoteName = "yd"
 
     public let locator: RcloneLocating
     public let paths: AppPaths
+    private let configURL: URL
 
-    public init(locator: RcloneLocating, paths: AppPaths) {
+    public init(locator: RcloneLocating, paths: AppPaths, configURL: URL? = nil) {
         self.locator = locator
         self.paths = paths
+        self.configURL = configURL ?? Self.defaultConfigURL()
     }
 
     public func refresh() async throws -> OnboardingState {
         let location = try await locator.locate()
-        let configPath = paths.appSupportRoot.appendingPathComponent("rclone.conf")
-        let hasConfiguredRemote = configuredRemoteExists(at: configPath)
+        let hasConfiguredRemote = configuredRemoteExists(at: configURL)
         let step: OnboardingState.Step
 
         if location == nil {
@@ -33,11 +34,13 @@ public struct OnboardingService: OnboardingServicing {
             step: step,
             rcloneLocation: location,
             brewInstallCommand: "brew install rclone",
-            remoteCreateCommand: RcloneCommandBuilder.remoteCreateCommand(
-                configPath: configPath.path,
-                remoteName: Self.managedRemoteName
-            )
+            remoteCreateCommand: RcloneCommandBuilder.remoteCreateCommand(remoteName: Self.managedRemoteName)
         )
+    }
+
+    private static func defaultConfigURL() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/rclone/rclone.conf", isDirectory: false)
     }
 
     private func configuredRemoteExists(at configPath: URL) -> Bool {
