@@ -9,11 +9,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/macos"
 APP_BUNDLE="$BUILD_DIR/Build/Products/Debug/$APP_NAME.app"
 APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+PROJECT_PATH="$ROOT_DIR/$PROJECT"
+
+cd "$ROOT_DIR"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 xcodebuild \
-  -project "$PROJECT" \
+  -project "$PROJECT_PATH" \
   -scheme "$SCHEME" \
   -configuration Debug \
   -derivedDataPath "$BUILD_DIR" \

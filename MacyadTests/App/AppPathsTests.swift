@@ -9,5 +9,7 @@ final class AppPathsTests: XCTestCase {
         XCTAssertEqual(paths.appSupportRoot, rootURL)
         XCTAssertEqual(paths.workspaceRoot, rootURL.appendingPathComponent("Workspace", isDirectory: true))
         XCTAssertEqual(paths.pairsFile, rootURL.appendingPathComponent("pairs.json"))
+        XCTAssertEqual(paths.preferencesFile, rootURL.appendingPathComponent("preferences.json"))
+        XCTAssertEqual(paths.activityFile, rootURL.appendingPathComponent("activity.json"))
     }
 }
