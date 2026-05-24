@@ -1,14 +1,14 @@
 import Foundation
 
-protocol RcloneLocating: Sendable {
+public protocol RcloneLocating: Sendable {
     func locate() async throws -> String?
 }
 
-struct RcloneLocator: RcloneLocating {
+public struct RcloneLocator: RcloneLocating {
     private let candidates: [String]
     private let fileExists: @Sendable (String) -> Bool
 
-    init(
+    public init(
         candidates: [String] = [
             "/opt/homebrew/bin/rclone",
             "/usr/local/bin/rclone",
@@ -22,7 +22,7 @@ struct RcloneLocator: RcloneLocating {
         self.fileExists = fileExists
     }
 
-    func locate() async throws -> String? {
+    public func locate() async throws -> String? {
         candidates.first(where: fileExists)
     }
 }
