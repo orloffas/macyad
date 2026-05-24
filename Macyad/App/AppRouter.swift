@@ -1,4 +1,22 @@
-enum AppRoute: Hashable {
+enum AppRoute: String, CaseIterable, Hashable {
     case onboarding
     case overview
+
+    var title: String {
+        switch self {
+        case .onboarding:
+            "Onboarding"
+        case .overview:
+            "Overview"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .onboarding:
+            "checklist"
+        case .overview:
+            "square.grid.2x2"
+        }
+    }
 }

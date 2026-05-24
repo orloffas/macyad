@@ -25,6 +25,8 @@ targets:
       - path: Macyad/App/AppEnvironment.swift
       - path: Macyad/App/AppRouter.swift
       - path: Macyad/App/MacyadApp.swift
+      - path: Macyad/PlatformAdapters
+      - path: Macyad/ViewModels
       - path: Macyad/Views
     resources:
       - path: Macyad/Resources

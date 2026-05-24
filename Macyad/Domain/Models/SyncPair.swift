@@ -1,17 +1,37 @@
 import Foundation
 
-struct SyncPair: Codable, Equatable, Identifiable, Sendable {
-    enum DeletePolicy: String, Codable, Sendable {
+public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
+    public enum DeletePolicy: String, Codable, Sendable {
         case mirrorToYandex
         case keepRemoteDeletesManual
     }
 
-    let id: UUID
-    var name: String
-    var localFolderBookmark: Data
-    var localFolderDisplayPath: String
-    var remotePath: String
-    var scheduleMinutes: Int
-    var deletePolicy: DeletePolicy
-    var lastKnownSeverity: Severity
+    public let id: UUID
+    public var name: String
+    public var localFolderBookmark: Data
+    public var localFolderDisplayPath: String
+    public var remotePath: String
+    public var scheduleMinutes: Int
+    public var deletePolicy: DeletePolicy
+    public var lastKnownSeverity: Severity
+
+    public init(
+        id: UUID,
+        name: String,
+        localFolderBookmark: Data,
+        localFolderDisplayPath: String,
+        remotePath: String,
+        scheduleMinutes: Int,
+        deletePolicy: DeletePolicy,
+        lastKnownSeverity: Severity
+    ) {
+        self.id = id
+        self.name = name
+        self.localFolderBookmark = localFolderBookmark
+        self.localFolderDisplayPath = localFolderDisplayPath
+        self.remotePath = remotePath
+        self.scheduleMinutes = scheduleMinutes
+        self.deletePolicy = deletePolicy
+        self.lastKnownSeverity = lastKnownSeverity
+    }
 }
