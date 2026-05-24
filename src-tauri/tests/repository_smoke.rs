@@ -1,6 +1,6 @@
 use macyad_lib::{
     db::Repository,
-    models::{DeletePolicy, PairSeverity, SyncPairDraft},
+    models::{validate_local_relative_path, DeletePolicy, PairSeverity, SyncPairDraft},
 };
 
 #[test]
@@ -34,4 +34,22 @@ fn creates_and_reads_sync_pair() {
 
     let pairs = repo.list_sync_pairs().unwrap();
     assert_eq!(pairs.len(), 1);
+}
+
+#[test]
+fn updates_ui_language_setting() {
+    let dir = tempfile::tempdir().unwrap();
+    let repo = Repository::open(dir.path().join("macyad.db")).unwrap();
+
+    repo.update_ui_language("en").unwrap();
+
+    let settings = repo.load_settings().unwrap();
+    assert_eq!(settings.ui_language, "en");
+}
+
+#[test]
+fn rejects_paths_that_escape_managed_workspace() {
+    assert!(validate_local_relative_path("../outside").is_err());
+    assert!(validate_local_relative_path("/tmp/outside").is_err());
+    assert!(validate_local_relative_path("Nested/Docs").is_ok());
 }

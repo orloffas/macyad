@@ -2,7 +2,7 @@ use tauri::State;
 
 use crate::{
     app_state::AppState,
-    models::{DeletePolicy, SyncPairDraft, SyncPairSummaryDto},
+    models::{validate_local_relative_path, DeletePolicy, SyncPairDraft, SyncPairSummaryDto},
 };
 
 #[tauri::command]
@@ -14,6 +14,8 @@ pub fn create_sync_pair(
     schedule_minutes: u32,
     delete_policy: String,
 ) -> Result<i64, String> {
+    validate_local_relative_path(&local_relative_path).map_err(|err| err.to_string())?;
+
     let policy = match delete_policy.as_str() {
         "KeepRemoteDeletesSafe" => DeletePolicy::KeepRemoteDeletesSafe,
         "RequireConfirmation" => DeletePolicy::RequireConfirmation,

@@ -7,6 +7,7 @@ import {
   runCheckYandex,
   runPullFromYandex,
   runSyncNow,
+  setUiLanguage,
   type OnboardingStatus,
 } from './api/tauri';
 import { EventList } from './components/EventList';
@@ -24,6 +25,7 @@ export default function App() {
     'dashboard' | 'onboarding' | 'settings' | 'pair-detail'
   >('dashboard');
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
+  const [selectedPairId, setSelectedPairId] = useState<number | null>(null);
   const overview = useAppStore((state) => state.overview);
   const loadOverview = useAppStore((state) => state.loadOverview);
   const [draft, setDraft] = useState({
@@ -48,6 +50,19 @@ export default function App() {
     }
   }, [i18n, overview?.ui_language]);
 
+  useEffect(() => {
+    if (!overview?.pairs.length) {
+      setSelectedPairId(null);
+      return;
+    }
+
+    if (selectedPairId && overview.pairs.some((pair) => pair.id === selectedPairId)) {
+      return;
+    }
+
+    setSelectedPairId(overview.pairs[0].id);
+  }, [overview?.pairs, selectedPairId]);
+
   if (!overview || !status) {
     return <main className="app-shell">{t('app.loading')}</main>;
   }
@@ -57,7 +72,8 @@ export default function App() {
   }
 
   const currentLanguage = i18n.resolvedLanguage === 'en' ? 'en' : 'ru';
-  const firstPair = overview.pairs[0] ?? null;
+  const selectedPair =
+    overview.pairs.find((pair) => pair.id === selectedPairId) ?? overview.pairs[0] ?? null;
   const runAndRefresh = async (action: () => Promise<void>) => {
     await action();
     await loadOverview();
@@ -69,7 +85,7 @@ export default function App() {
         <button onClick={() => setView('dashboard')}>Dashboard</button>
         <button onClick={() => setView('onboarding')}>Onboarding</button>
         <button onClick={() => setView('settings')}>Settings</button>
-        {firstPair ? (
+        {selectedPair ? (
           <button onClick={() => setView('pair-detail')}>{t('app.openDetails')}</button>
         ) : null}
       </nav>
@@ -87,25 +103,32 @@ export default function App() {
 
           <QuickActions
             onSyncNow={() => {
-              if (firstPair) {
-                void runAndRefresh(() => runSyncNow(firstPair.id));
+              if (selectedPair) {
+                void runAndRefresh(() => runSyncNow(selectedPair.id));
               }
             }}
             onCheckYandex={() => {
-              if (firstPair) {
-                void runAndRefresh(() => runCheckYandex(firstPair.id));
+              if (selectedPair) {
+                void runAndRefresh(() => runCheckYandex(selectedPair.id));
               }
             }}
             onPullFromYandex={() => {
-              if (firstPair) {
-                void runAndRefresh(() => runPullFromYandex(firstPair.id));
+              if (selectedPair) {
+                void runAndRefresh(() => runPullFromYandex(selectedPair.id));
               }
             }}
           />
 
           <section className="pair-grid">
             {overview.pairs.map((pair) => (
-              <SyncPairCard key={pair.id} pair={pair} onOpen={() => setView('pair-detail')} />
+              <SyncPairCard
+                key={pair.id}
+                pair={pair}
+                onOpen={(id) => {
+                  setSelectedPairId(id);
+                  setView('pair-detail');
+                }}
+              />
             ))}
           </section>
 
@@ -113,7 +136,10 @@ export default function App() {
             className="create-pair-form"
             onSubmit={(event) => {
               event.preventDefault();
-              void createSyncPair(draft).then(loadOverview);
+              void createSyncPair(draft).then(async (pairId) => {
+                setSelectedPairId(pairId);
+                await loadOverview();
+              });
             }}
           >
             <input
@@ -150,16 +176,21 @@ export default function App() {
         <SettingsView
           language={currentLanguage}
           onLanguageChange={(lang) => {
-            void i18n.changeLanguage(lang);
+            void setUiLanguage(lang)
+              .then(async () => {
+                await i18n.changeLanguage(lang);
+                await loadOverview();
+              })
+              .catch(() => undefined);
           }}
         />
       ) : null}
 
-      {view === 'pair-detail' && firstPair ? (
+      {view === 'pair-detail' && selectedPair ? (
         <PairDetailView
-          pair={firstPair}
+          pair={selectedPair}
           onPullFromYandex={() => {
-            void runAndRefresh(() => runPullFromYandex(firstPair.id));
+            void runAndRefresh(() => runPullFromYandex(selectedPair.id));
           }}
         />
       ) : null}

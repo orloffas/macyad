@@ -17,6 +17,10 @@ export function getOnboardingStatus(): Promise<OnboardingStatus> {
   return invoke<OnboardingStatus>('get_onboarding_status');
 }
 
+export function setUiLanguage(language: 'ru' | 'en') {
+  return invoke<void>('set_ui_language', { language });
+}
+
 export function createSyncPair(payload: {
   name: string;
   local_relative_path: string;

@@ -36,15 +36,19 @@ impl RcloneResolver {
 
     pub fn resolve(&self) -> Result<ResolvedRclone, AppError> {
         if let Some(path) = &self.existing_path {
-            return Ok(ResolvedRclone {
-                binary: RcloneBinary::ExistingPath(path.clone()),
-            });
+            if path.exists() {
+                return Ok(ResolvedRclone {
+                    binary: RcloneBinary::ExistingPath(path.clone()),
+                });
+            }
         }
 
         if let Some(path) = &self.managed_path {
-            return Ok(ResolvedRclone {
-                binary: RcloneBinary::ManagedDownload(path.clone()),
-            });
+            if path.exists() {
+                return Ok(ResolvedRclone {
+                    binary: RcloneBinary::ManagedDownload(path.clone()),
+                });
+            }
         }
 
         Ok(ResolvedRclone {
