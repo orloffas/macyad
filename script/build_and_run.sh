@@ -41,8 +41,9 @@ case "$MODE" in
     ;;
   --verify|verify)
     "$APP_EXECUTABLE" >/dev/null 2>&1 &
+    APP_PID=$!
     sleep 1
-    pgrep -x "$APP_NAME" >/dev/null
+    kill -0 "$APP_PID"
     ;;
   *)
     echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
