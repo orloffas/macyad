@@ -3,9 +3,14 @@ import XCTest
 
 final class PairRepositoryTests: XCTestCase {
     func testSaveAndReloadPairsRoundTrips() async throws {
+        let fileManager = FileManager.default
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString)
         let paths = AppPaths.makeForTesting(rootURL: root)
         let repository = PairRepository(store: JSONFileStore(url: paths.pairsFile))
+
+        defer {
+            try? fileManager.removeItem(at: root)
+        }
 
         let pair = SyncPair(
             id: UUID(),
