@@ -8,6 +8,7 @@ PROJECT="Macyad.xcodeproj"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/macos"
 APP_BUNDLE="$BUILD_DIR/Build/Products/Debug/$APP_NAME.app"
+APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
@@ -28,7 +29,7 @@ case "$MODE" in
     open_app
     ;;
   --debug|debug)
-    lldb -- "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+    lldb -- "$APP_EXECUTABLE"
     ;;
   --logs|logs)
     open_app
@@ -39,7 +40,7 @@ case "$MODE" in
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"me.orloff.macyad\""
     ;;
   --verify|verify)
-    open_app
+    "$APP_EXECUTABLE" >/dev/null 2>&1 &
     sleep 1
     pgrep -x "$APP_NAME" >/dev/null
     ;;
