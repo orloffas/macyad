@@ -14,6 +14,7 @@ targets:
       - path: Macyad/App/AppPaths.swift
       - path: Macyad/Domain
       - path: Macyad/Infrastructure
+      - path: Macyad/ViewModels/CreatePairViewModel.swift
       - path: Macyad/ViewModels/OnboardingViewModel.swift
     settings:
       base:

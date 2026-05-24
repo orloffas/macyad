@@ -1,15 +1,19 @@
-actor PairRepository {
+public actor PairRepository {
     private let store: JSONFileStore<[SyncPair]>
 
     init(store: JSONFileStore<[SyncPair]>) {
         self.store = store
     }
 
-    func load() async throws -> [SyncPair] {
+    public init(paths: AppPaths) {
+        self.store = JSONFileStore(url: paths.pairsFile)
+    }
+
+    public func load() async throws -> [SyncPair] {
         try await store.load(default: [])
     }
 
-    func save(_ pairs: [SyncPair]) async throws {
+    public func save(_ pairs: [SyncPair]) async throws {
         try await store.save(pairs)
     }
 }
