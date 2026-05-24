@@ -2,12 +2,12 @@ import SwiftUI
 
 @main
 struct MacyadApp: App {
-    @StateObject private var environment = MacyadApp.bootstrapEnvironment()
+    @State private var environment = MacyadApp.bootstrapEnvironment()
 
     var body: some Scene {
         WindowGroup("Macyad") {
             MainWindowView()
-                .environmentObject(environment)
+                .environment(environment)
         }
 
         Settings {

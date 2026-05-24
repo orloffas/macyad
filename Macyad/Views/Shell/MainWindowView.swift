@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MainWindowView: View {
-    @EnvironmentObject private var environment: AppEnvironment
+    @Environment(AppEnvironment.self) private var environment
 
     var body: some View {
         NavigationSplitView {
