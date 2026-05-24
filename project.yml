@@ -40,3 +40,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad.uitests
     dependencies:
       - target: Macyad
+schemes:
+  Macyad:
+    build:
+      targets:
+        Macyad: all
+        MacyadTests: [test]
+        MacyadUITests: [test]
+    test:
+      targets:
+        - name: MacyadTests
