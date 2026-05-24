@@ -1,13 +1,13 @@
 import Foundation
 
-struct AppPaths: Sendable {
-    let appSupportRoot: URL
-    let workspaceRoot: URL
-    let pairsFile: URL
-    let preferencesFile: URL
-    let activityFile: URL
+public struct AppPaths: Sendable {
+    public let appSupportRoot: URL
+    public let workspaceRoot: URL
+    public let pairsFile: URL
+    public let preferencesFile: URL
+    public let activityFile: URL
 
-    static func live(fileManager: FileManager = .default) throws -> AppPaths {
+    public static func live(fileManager: FileManager = .default) throws -> AppPaths {
         let appSupportDirectory = try fileManager.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
@@ -17,7 +17,7 @@ struct AppPaths: Sendable {
         return try live(appSupportDirectory: appSupportDirectory, fileManager: fileManager)
     }
 
-    static func live(appSupportDirectory: URL, fileManager: FileManager = .default) throws -> AppPaths {
+    public static func live(appSupportDirectory: URL, fileManager: FileManager = .default) throws -> AppPaths {
         let appSupportRoot = appSupportDirectory.appendingPathComponent("Macyad", isDirectory: true)
         let paths = makeForTesting(rootURL: appSupportRoot)
 
@@ -27,7 +27,7 @@ struct AppPaths: Sendable {
         return paths
     }
 
-    static func makeForTesting(rootURL: URL) -> AppPaths {
+    public static func makeForTesting(rootURL: URL) -> AppPaths {
         AppPaths(
             appSupportRoot: rootURL,
             workspaceRoot: rootURL.appendingPathComponent("Workspace", isDirectory: true),
