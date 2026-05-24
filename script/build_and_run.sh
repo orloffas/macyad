@@ -5,6 +5,7 @@ MODE="${1:-run}"
 APP_NAME="Macyad"
 SCHEME="Macyad"
 PROJECT="Macyad.xcodeproj"
+BUNDLE_ID="me.orloff.macyad"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/macos"
 APP_BUNDLE="$BUILD_DIR/Build/Products/Debug/$APP_NAME.app"
@@ -14,6 +15,8 @@ PROJECT_PATH="$ROOT_DIR/$PROJECT"
 cd "$ROOT_DIR"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+
+xcodegen generate
 
 xcodebuild \
   -project "$PROJECT_PATH" \
@@ -25,6 +28,20 @@ xcodebuild \
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
+}
+
+verify_launched_app() {
+  local attempt app_list
+
+  for attempt in {1..10}; do
+    app_list="$(/usr/bin/lsappinfo list 2>/dev/null || true)"
+    if [[ "$app_list" == *"bundle path=\"$APP_BUNDLE\""* ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  return 1
 }
 
 case "$MODE" in
@@ -43,10 +60,8 @@ case "$MODE" in
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"me.orloff.macyad\""
     ;;
   --verify|verify)
-    "$APP_EXECUTABLE" >/dev/null 2>&1 &
-    APP_PID=$!
-    sleep 1
-    kill -0 "$APP_PID"
+    open_app
+    verify_launched_app
     ;;
   *)
     echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
