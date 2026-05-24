@@ -62,13 +62,13 @@ public actor BackgroundSyncController {
             await controller.refreshState()
 
             while !Task.isCancelled {
-                await controller.runCycle()
-
                 do {
                     try await sleep(.seconds(60))
                 } catch {
                     break
                 }
+
+                await controller.runCycle()
             }
         }
     }
@@ -104,7 +104,7 @@ public actor BackgroundSyncController {
 
             if case let .failed(message) = result.disposition {
                 try? await notificationClient.send(
-                    title: "MacYaD: scheduled sync failed",
+                    title: "MacYaD: плановая синхронизация не выполнена",
                     body: "\(result.pair.name): \(message)"
                 )
             }
@@ -132,13 +132,13 @@ public actor BackgroundSyncController {
 
         switch result.disposition {
         case .pushed:
-            message = "Scheduled sync completed"
+            message = "Плановая синхронизация завершена"
             severity = .healthy
         case let .failed(errorMessage):
-            message = "Scheduled sync failed: \(errorMessage)"
+            message = "Плановая синхронизация не выполнена: \(errorMessage)"
             severity = .alarm
         case .skippedByPolicy, .skippedNotDue:
-            message = "Scheduled sync skipped"
+            message = "Плановая синхронизация пропущена"
             severity = result.pair.lastKnownSeverity
         }
 

@@ -6,12 +6,12 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                Picker("settings.language", selection: languageBinding) {
+                Picker("Язык", selection: languageBinding) {
                     Text("Русский").tag("ru")
                     Text("English").tag("en")
                 }
 
-                Toggle("settings.launchAtLogin", isOn: launchAtLoginBinding)
+                Toggle("Запускать при входе", isOn: launchAtLoginBinding)
 
                 Stepper(value: scheduleBinding, in: 5 ... 240, step: 5) {
                     Text(scheduleTitle)
@@ -56,9 +56,6 @@ struct SettingsView: View {
     }
 
     private var scheduleTitle: String {
-        String(
-            format: String(localized: "settings.defaultScheduleFormat"),
-            viewModel.defaultScheduleMinutes
-        )
+        "Интервал по умолчанию: \(viewModel.defaultScheduleMinutes) мин"
     }
 }

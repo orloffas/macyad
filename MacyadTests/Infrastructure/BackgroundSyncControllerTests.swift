@@ -32,7 +32,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertEqual(savedPairs[0].lastKnownSeverity, .healthy)
         XCTAssertEqual(events.count, 1)
         XCTAssertEqual(events[0].severity, .healthy)
-        XCTAssertTrue(events[0].message.contains("Scheduled sync completed"))
+        XCTAssertTrue(events[0].message.contains("Плановая синхронизация завершена"))
         XCTAssertTrue(sentNotifications.isEmpty)
     }
 
@@ -65,10 +65,39 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertNil(savedPairs[0].lastSyncAt)
         XCTAssertEqual(events.count, 1)
         XCTAssertEqual(events[0].severity, .alarm)
-        XCTAssertTrue(events[0].message.contains("Scheduled sync failed"))
+        XCTAssertTrue(events[0].message.contains("Плановая синхронизация не выполнена"))
         XCTAssertEqual(sentNotifications.count, 1)
-        XCTAssertEqual(sentNotifications[0].title, "MacYaD: scheduled sync failed")
+        XCTAssertEqual(sentNotifications[0].title, "MacYaD: плановая синхронизация не выполнена")
         XCTAssertTrue(sentNotifications[0].body.contains("Photos"))
+    }
+
+    func testStartDoesNotRunScheduledSyncBeforeFirstInterval() async throws {
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Docs", lastSyncAt: now.addingTimeInterval(-4_000))
+        let pairStore = InMemoryPairStore(pairs: [pair])
+        let activityStore = InMemoryActivityStore()
+        let scheduler = SchedulerService(
+            policy: PushEligibilityPolicy(),
+            syncService: SyncService(processClient: RecordingProcessClient())
+        )
+        let controller = BackgroundSyncController(
+            scheduler: scheduler,
+            pairStore: pairStore,
+            activityStore: activityStore,
+            notificationClient: RecordingNotificationClient(),
+            now: { now },
+            sleep: { _ in throw CancellationError() }
+        )
+
+        await controller.start()
+        try await Task.sleep(for: .milliseconds(50))
+        await controller.stop()
+
+        let savedPairs = try await pairStore.load()
+        let events = try await activityStore.load()
+
+        XCTAssertEqual(savedPairs[0].lastSyncAt, pair.lastSyncAt)
+        XCTAssertTrue(events.isEmpty)
     }
 
     private func makePair(name: String, lastSyncAt: Date?) -> SyncPair {

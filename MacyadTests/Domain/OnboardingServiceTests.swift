@@ -25,35 +25,40 @@ final class OnboardingServiceTests: XCTestCase {
 
     func testDetectedRcloneProducesRemoteSetupStep() async throws {
         let locator = StubRcloneLocator(location: "/opt/homebrew/bin/rclone")
+        let configURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: false)
         let service = OnboardingService(
             locator: locator,
-            paths: .makeForTesting(rootURL: URL(fileURLWithPath: "/tmp/MacyadTests", isDirectory: true))
+            paths: .makeForTesting(rootURL: URL(fileURLWithPath: "/tmp/MacyadTests", isDirectory: true)),
+            configURL: configURL
         )
 
         let state = try await service.refresh()
 
         XCTAssertEqual(state.step, .configureRemote)
         XCTAssertEqual(state.rcloneLocation, "/opt/homebrew/bin/rclone")
-        XCTAssertTrue(state.remoteCreateCommand.contains("rclone config create"))
+        XCTAssertEqual(state.remoteCreateCommand, "rclone config create yd yandex")
+        XCTAssertFalse(state.remoteCreateCommand.contains("--config"))
     }
 
-    func testDetectedRcloneWithConfiguredRemoteProducesCreateFirstPairStep() async throws {
+    func testDetectedRcloneWithStandardConfiguredRemoteProducesCreateFirstPairStep() async throws {
         let fileManager = FileManager.default
         let rootURL = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let configURL = rootURL.appendingPathComponent(".config/rclone/rclone.conf")
         let paths = AppPaths.makeForTesting(rootURL: rootURL)
         let locator = StubRcloneLocator(location: "/opt/homebrew/bin/rclone")
-        let service = OnboardingService(locator: locator, paths: paths)
+        let service = OnboardingService(locator: locator, paths: paths, configURL: configURL)
 
         defer {
             try? fileManager.removeItem(at: rootURL)
         }
 
-        try fileManager.createDirectory(at: paths.appSupportRoot, withIntermediateDirectories: true, attributes: nil)
+        try fileManager.createDirectory(at: configURL.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: nil)
         try """
-        [yd-app]
+        [yd]
         type = yandex
         """.write(
-            to: paths.appSupportRoot.appendingPathComponent("rclone.conf"),
+            to: configURL,
             atomically: true,
             encoding: .utf8
         )

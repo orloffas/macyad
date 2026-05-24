@@ -7,9 +7,9 @@ enum AppRoute: String, CaseIterable, Hashable {
     var title: String {
         switch self {
         case .onboarding:
-            "Onboarding"
+            "Подключение"
         case .overview:
-            "Overview"
+            "Обзор"
         }
     }
 

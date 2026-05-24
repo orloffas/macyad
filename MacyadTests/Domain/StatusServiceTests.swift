@@ -7,7 +7,7 @@ final class StatusServiceTests: XCTestCase {
 
         let summary = service.makeSummary(onboardingStep: .installRclone, pairs: [])
 
-        XCTAssertEqual(summary.title, "Setup required")
+        XCTAssertEqual(summary.title, "Требуется настройка")
         XCTAssertEqual(summary.alarmCount, 0)
         XCTAssertEqual(summary.warningCount, 0)
     }
@@ -39,7 +39,7 @@ final class StatusServiceTests: XCTestCase {
 
         let summary = service.makeSummary(onboardingStep: .complete, pairs: pairs)
 
-        XCTAssertEqual(summary.title, "Attention required")
+        XCTAssertEqual(summary.title, "Требуется внимание")
         XCTAssertEqual(summary.alarmCount, 1)
         XCTAssertEqual(summary.warningCount, 1)
     }
@@ -61,7 +61,7 @@ final class StatusServiceTests: XCTestCase {
 
         let summary = service.makeSummary(onboardingStep: .complete, pairs: pairs)
 
-        XCTAssertEqual(summary.title, "Review warnings")
+        XCTAssertEqual(summary.title, "Есть предупреждения")
         XCTAssertEqual(summary.alarmCount, 0)
         XCTAssertEqual(summary.warningCount, 1)
     }

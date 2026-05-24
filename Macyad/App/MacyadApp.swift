@@ -21,9 +21,6 @@ struct MacyadApp: App {
                             window,
                             hideOnInitialLaunch: !environment.launchMode.shouldForceForegroundWindow
                         )
-                        if environment.launchMode.shouldForceForegroundWindow {
-                            appDelegate.showMainWindow()
-                        }
                     }
                 )
                 .onAppear {
@@ -33,6 +30,7 @@ struct MacyadApp: App {
                     startBackgroundSyncIfNeeded()
                 }
         }
+        .defaultSize(width: 1180, height: 760)
 
         Settings {
             SettingsView(viewModel: environment.settingsViewModel)

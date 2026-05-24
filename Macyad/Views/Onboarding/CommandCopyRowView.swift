@@ -25,8 +25,8 @@ struct CommandCopyRowView: View {
                     .foregroundStyle(copied ? .green : .secondary)
             }
             .buttonStyle(.borderless)
-            .help(copied ? String(localized: "common.copied") : String(localized: "common.copy"))
-            .accessibilityLabel(copied ? String(localized: "common.copied") : String(localized: "common.copy"))
+            .help(copied ? "Скопировано" : "Скопировать")
+            .accessibilityLabel(copied ? "Скопировано" : "Скопировать")
             .accessibilityIdentifier(accessibilityIdentifier ?? "")
         }
         .padding(10)

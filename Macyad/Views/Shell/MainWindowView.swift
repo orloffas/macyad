@@ -10,22 +10,22 @@ struct MainWindowView: View {
         var successMessage: String {
             switch self {
             case .syncNow:
-                "Sync Now завершён"
+                "Синхронизация завершена"
             case .checkYandex:
                 "Проверка Yandex завершена"
             case .pullFromYandex:
-                "Pull From Yandex завершён"
+                "Загрузка из Yandex завершена"
             }
         }
 
         var failurePrefix: String {
             switch self {
             case .syncNow:
-                "Не удалось выполнить Sync Now"
+                "Не удалось синхронизировать"
             case .checkYandex:
-                "Не удалось выполнить Check Yandex"
+                "Не удалось проверить Yandex"
             case .pullFromYandex:
-                "Не удалось выполнить Pull From Yandex"
+                "Не удалось загрузить из Yandex"
             }
         }
     }
@@ -64,7 +64,7 @@ struct MainWindowView: View {
                     }
                 }
 
-                Section("Pairs") {
+                Section("Пары") {
                     ForEach(appModel.pairs) { pair in
                         PairListRowView(pair: pair)
                             .tag(SidebarSelection.pair(pair.id))
@@ -74,7 +74,7 @@ struct MainWindowView: View {
             .listStyle(.sidebar)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("pair.new") {
+                    Button("Новая пара", systemImage: "plus") {
                         Task {
                             await presentCreatePairSheet()
                         }
@@ -123,9 +123,9 @@ struct MainWindowView: View {
                         .font(.title2)
                         .fontWeight(.semibold)
 
-                    LabeledContent("Status", value: appModel.statusSummary.title)
-                    LabeledContent("Workspace", value: environment.paths.workspaceRoot.path)
-                    LabeledContent("Pairs", value: "\(appModel.pairs.count)")
+                    LabeledContent("Статус", value: appModel.statusSummary.title)
+                    LabeledContent("Рабочая папка", value: environment.paths.workspaceRoot.path)
+                    LabeledContent("Пары", value: "\(appModel.pairs.count)")
 
                     Spacer()
                 }
@@ -145,11 +145,11 @@ struct MainWindowView: View {
 
     private var inspectorPane: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Inspector")
+            Text("Инспектор")
                 .font(.headline)
 
-            LabeledContent("Warnings", value: "\(appModel.statusSummary.warningCount)")
-            LabeledContent("Alarms", value: "\(appModel.statusSummary.alarmCount)")
+            LabeledContent("Предупреждения", value: "\(appModel.statusSummary.warningCount)")
+            LabeledContent("Аварии", value: "\(appModel.statusSummary.alarmCount)")
 
             Spacer()
         }

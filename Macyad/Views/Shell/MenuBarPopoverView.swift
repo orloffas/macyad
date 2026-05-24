@@ -10,7 +10,7 @@ struct MenuBarPopoverView: View {
                 Text(appModel.statusSummary.title)
                     .font(.headline)
 
-                Text("Warnings \(appModel.statusSummary.warningCount) · Alarms \(appModel.statusSummary.alarmCount)")
+                Text("Предупреждения \(appModel.statusSummary.warningCount) · Аварии \(appModel.statusSummary.alarmCount)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -21,15 +21,15 @@ struct MenuBarPopoverView: View {
                         .font(.subheadline.weight(.semibold))
 
                     HStack(spacing: 8) {
-                        Button("Sync Now") {
+                        Button("Синхр.") {
                             appModel.runSyncNowForSelectedPair()
                         }
 
-                        Button("Check") {
+                        Button("Проверить") {
                             appModel.runCheckForSelectedPair()
                         }
 
-                        Button("Pull") {
+                        Button("Загрузить") {
                             appModel.runPullForSelectedPair()
                         }
                     }
@@ -38,7 +38,7 @@ struct MenuBarPopoverView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Recent Activity")
+                Text("Последние события")
                     .font(.subheadline.weight(.semibold))
 
                 if appModel.recentEvents.isEmpty {
@@ -69,16 +69,16 @@ struct MenuBarPopoverView: View {
 
             Divider()
 
-            Button("Open Main Window") {
+            Button("Открыть главное окно") {
                 appModel.openMainWindow()
             }
             .keyboardShortcut(.defaultAction)
 
-            Button("Settings") {
-                appModel.openSettings()
+            SettingsLink {
+                Label("Настройки", systemImage: "gearshape")
             }
 
-            Button("Quit MacYaD") {
+            Button("Завершить MacYaD") {
                 appModel.quitApplication()
             }
         }

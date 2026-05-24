@@ -11,12 +11,12 @@ struct CreatePairSheetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Новая pair")
+            Text("Новая пара")
                 .font(.title3)
                 .fontWeight(.semibold)
 
             Form {
-                TextField("Имя pair", text: $viewModel.name)
+                TextField("Имя пары", text: $viewModel.name)
 
                 HStack {
                     Text(viewModel.localFolderDisplayPath ?? "Локальная папка не выбрана")
@@ -30,13 +30,13 @@ struct CreatePairSheetView: View {
                     }
                 }
 
-                TextField("Remote path", text: $viewModel.remotePath)
+                TextField("Путь на Yandex", text: $viewModel.remotePath)
 
                 Stepper("Интервал: \(viewModel.scheduleMinutes) мин", value: $viewModel.scheduleMinutes, in: 5...240, step: 5)
 
-                Picker("Delete policy", selection: $viewModel.deletePolicy) {
-                    Text("Mirror to Yandex").tag(SyncPair.DeletePolicy.mirrorToYandex)
-                    Text("Keep remote deletes manual").tag(SyncPair.DeletePolicy.keepRemoteDeletesManual)
+                Picker("Политика удаления", selection: $viewModel.deletePolicy) {
+                    Text("Зеркалить в Yandex").tag(SyncPair.DeletePolicy.mirrorToYandex)
+                    Text("Удаления на Yandex вручную").tag(SyncPair.DeletePolicy.keepRemoteDeletesManual)
                 }
 
                 Section {
@@ -60,7 +60,7 @@ struct CreatePairSheetView: View {
                     dismiss()
                 }
 
-                Button("Сохранить pair") {
+                Button("Сохранить пару") {
                     Task { await save() }
                 }
                 .keyboardShortcut(.defaultAction)
