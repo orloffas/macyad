@@ -9,8 +9,16 @@ BUNDLE_ID="me.orloff.macyad"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/macos"
 APP_BUNDLE="$BUILD_DIR/Build/Products/Debug/$APP_NAME.app"
-APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 PROJECT_PATH="$ROOT_DIR/$PROJECT"
+
+case "$MODE" in
+  run|--debug|debug|--logs|logs|--telemetry|telemetry|--verify|verify)
+    ;;
+  *)
+    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
+    exit 2
+    ;;
+esac
 
 cd "$ROOT_DIR"
 
@@ -30,6 +38,10 @@ open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
 }
 
+launched_app_asn() {
+  /usr/bin/lsappinfo find "bundleid=$BUNDLE_ID" 2>/dev/null | head -n 1 | sed -E 's/^ASN:([^:]+):$/\1/'
+}
+
 verify_launched_app() {
   local attempt app_list
 
@@ -44,12 +56,32 @@ verify_launched_app() {
   return 1
 }
 
+launched_app_pid() {
+  local asn app_info
+
+  asn="$(launched_app_asn)"
+  if [[ -z "$asn" ]]; then
+    return 1
+  fi
+
+  app_info="$(/usr/bin/lsappinfo info -app "$asn" 2>/dev/null || true)"
+  sed -nE 's/.*pid = ([0-9]+).*/\1/p' <<<"$app_info" | head -n 1
+}
+
 case "$MODE" in
   run)
     open_app
     ;;
   --debug|debug)
-    lldb -- "$APP_EXECUTABLE"
+    APP_PID=""
+    open_app
+    verify_launched_app
+    APP_PID="$(launched_app_pid)"
+    if [[ -z "$APP_PID" ]]; then
+      echo "failed to resolve $APP_NAME PID from LaunchServices" >&2
+      exit 1
+    fi
+    lldb -p "$APP_PID"
     ;;
   --logs|logs)
     open_app
@@ -62,9 +94,5 @@ case "$MODE" in
   --verify|verify)
     open_app
     verify_launched_app
-    ;;
-  *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
-    exit 2
     ;;
 esac
