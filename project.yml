@@ -7,11 +7,25 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     SWIFT_VERSION: 6.0
 targets:
+  MacyadCore:
+    type: framework
+    platform: macOS
+    sources:
+      - path: Macyad/App/AppPaths.swift
+      - path: Macyad/Domain
+      - path: Macyad/Infrastructure
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad.core
+        PRODUCT_NAME: MacyadCore
   Macyad:
     type: application
     platform: macOS
     sources:
-      - path: Macyad
+      - path: Macyad/App/AppEnvironment.swift
+      - path: Macyad/App/AppRouter.swift
+      - path: Macyad/App/MacyadApp.swift
+      - path: Macyad/Views
     resources:
       - path: Macyad/Resources
     settings:
@@ -20,6 +34,8 @@ targets:
         PRODUCT_NAME: Macyad
         INFOPLIST_KEY_CFBundleDisplayName: Macyad
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+    dependencies:
+      - target: MacyadCore
   MacyadTests:
     type: bundle.unit-test
     platform: macOS
@@ -29,7 +45,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad.tests
     dependencies:
-      - target: Macyad
+      - target: MacyadCore
   MacyadUITests:
     type: bundle.ui-testing
     platform: macOS
@@ -44,9 +60,17 @@ schemes:
   Macyad:
     build:
       targets:
+        MacyadCore: all
         Macyad: all
         MacyadTests: [test]
-        MacyadUITests: [test]
+    test:
+      targets:
+        - name: MacyadTests
+  MacyadCore:
+    build:
+      targets:
+        MacyadCore: all
+        MacyadTests: [test]
     test:
       targets:
         - name: MacyadTests

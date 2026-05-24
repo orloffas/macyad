@@ -7,4 +7,5 @@ src-tauri/target/
 coverage/
 Macyad.xcodeproj/
 .build/
+.derived-data-*/
 *.profraw

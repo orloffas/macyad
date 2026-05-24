@@ -1,5 +1,5 @@
 import XCTest
-@testable import Macyad
+@testable import MacyadCore
 
 final class AppPathsTests: XCTestCase {
     func testMakeForTestingBuildsCanonicalPaths() {
