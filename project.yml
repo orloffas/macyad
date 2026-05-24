@@ -26,18 +26,23 @@ targets:
     platform: macOS
     sources:
       - path: Macyad/App/AppEnvironment.swift
+      - path: Macyad/App/AppMetadata.swift
       - path: Macyad/App/AppRouter.swift
       - path: Macyad/App/MacyadApp.swift
+      - path: Macyad/Infrastructure/System/LoginItemService.swift
+        group: Macyad/Infrastructure/System
       - path: Macyad/PlatformAdapters
       - path: Macyad/ViewModels/AppModel.swift
+      - path: Macyad/ViewModels/SettingsViewModel.swift
       - path: Macyad/Views
     resources:
       - path: Macyad/Resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad
-        PRODUCT_NAME: Macyad
-        INFOPLIST_KEY_CFBundleDisplayName: Macyad
+        PRODUCT_NAME: MacYaD
+        INFOPLIST_KEY_CFBundleDisplayName: MacYaD
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
     dependencies:
       - target: MacyadCore
@@ -68,9 +73,11 @@ schemes:
         MacyadCore: all
         Macyad: all
         MacyadTests: [test]
+        MacyadUITests: [test]
     test:
       targets:
         - name: MacyadTests
+        - name: MacyadUITests
   MacyadCore:
     build:
       targets:

@@ -17,7 +17,8 @@ struct OnboardingView: View {
                 CommandCopyRowView(
                     title: "onboarding.install_rclone",
                     command: viewModel.state.brewInstallCommand,
-                    copied: viewModel.lastCopiedCommand == viewModel.state.brewInstallCommand
+                    copied: viewModel.lastCopiedCommand == viewModel.state.brewInstallCommand,
+                    accessibilityIdentifier: "onboarding.copyCommand"
                 ) {
                     viewModel.copy(viewModel.state.brewInstallCommand)
                 }
@@ -31,14 +32,22 @@ struct OnboardingView: View {
                 CommandCopyRowView(
                     title: "onboarding.create_remote",
                     command: viewModel.state.remoteCreateCommand,
-                    copied: viewModel.lastCopiedCommand == viewModel.state.remoteCreateCommand
+                    copied: viewModel.lastCopiedCommand == viewModel.state.remoteCreateCommand,
+                    accessibilityIdentifier: nil
                 ) {
                     viewModel.copy(viewModel.state.remoteCreateCommand)
                 }
 
             case .createFirstPair:
-                Text("onboarding.create_pair_hint")
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("onboarding.create_pair_hint")
+                        .foregroundStyle(.secondary)
+
+                    Button("pair.new") {
+                        appModel.isCreatePairSheetPresented = true
+                    }
+                    .accessibilityIdentifier("pair.new")
+                }
 
             case .complete:
                 Text("onboarding.complete")
@@ -48,6 +57,7 @@ struct OnboardingView: View {
             Button("onboarding.retry") {
                 Task { await refresh() }
             }
+            .accessibilityIdentifier("onboarding.retry")
             .disabled(viewModel.isRefreshing)
 
             Spacer()

@@ -21,7 +21,9 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
     func showMainWindow() {
         guard let mainWindow else { return }
         NSApp.activate(ignoringOtherApps: true)
+        mainWindow.deminiaturize(nil)
         mainWindow.makeKeyAndOrderFront(nil)
+        mainWindow.orderFrontRegardless()
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {

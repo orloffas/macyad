@@ -10,13 +10,16 @@ struct MacyadApp: App {
     @State private var statusBarBridge: StatusBarBridge?
 
     var body: some Scene {
-        WindowGroup("Macyad") {
+        WindowGroup(AppMetadata.displayName) {
             MainWindowView()
                 .environment(environment)
                 .environment(appModel)
                 .background(
                     WindowAccessor { window in
                         appDelegate.attachMainWindow(window)
+                        if environment.launchMode.shouldForceForegroundWindow {
+                            appDelegate.showMainWindow()
+                        }
                     }
                 )
                 .onAppear {
@@ -39,8 +42,7 @@ struct MacyadApp: App {
         }
 
         Settings {
-            Text("Settings will land in Task 8.")
-                .padding()
+            SettingsView(viewModel: environment.settingsViewModel)
         }
     }
 

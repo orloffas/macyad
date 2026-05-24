@@ -18,7 +18,7 @@ public struct AppPaths: Sendable {
     }
 
     public static func live(appSupportDirectory: URL, fileManager: FileManager = .default) throws -> AppPaths {
-        let appSupportRoot = appSupportDirectory.appendingPathComponent("Macyad", isDirectory: true)
+        let appSupportRoot = appSupportDirectory.appendingPathComponent("MacYaD", isDirectory: true)
         let paths = makeForTesting(rootURL: appSupportRoot)
 
         try fileManager.createDirectory(at: paths.appSupportRoot, withIntermediateDirectories: true, attributes: nil)
