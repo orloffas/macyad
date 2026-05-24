@@ -277,9 +277,10 @@ Inspector показывает:
 3. Добавить `Dock` icon.
 4. Добавить `menu bar` icon.
 5. Исправить `bundle identifier` с `com.orloff.macyad` на `me.orloff.macyad`.
-6. Сделать copy affordance для команд и подобных значений с нативным visual feedback.
-7. Исправить close behavior: закрытие окна не должно завершать приложение.
-8. Привести project docs и QA-артефакты к русскому default, включая текущие английские документы вроде `qa-macyad-mvp-checklist.md`.
+6. Переименовать product-facing app name из `Macyad` в `MacYaD` во всех user-facing местах native версии.
+7. Сделать copy affordance для команд и подобных значений с нативным visual feedback.
+8. Исправить close behavior: закрытие окна не должно завершать приложение.
+9. Привести project docs и QA-артефакты к русскому default, включая текущие английские документы вроде `qa-macyad-mvp-checklist.md`.
 
 ## App lifecycle и scene model
 

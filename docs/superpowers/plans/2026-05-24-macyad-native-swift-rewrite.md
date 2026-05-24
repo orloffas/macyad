@@ -1854,7 +1854,7 @@ git add Macyad/ViewModels/SettingsViewModel.swift Macyad/Views/Settings/Settings
 git commit -m "feat: add settings localization and ui automation"
 ```
 
-### Task 9: Добавить branding/assets, перевести QA docs и удалить legacy `Tauri`/`React` код
+### Task 9: Добавить branding/assets, переименовать `Macyad` в `MacYaD`, перевести QA docs и удалить legacy `Tauri`/`React` код
 
 **Files:**
 - Create: `Macyad/App/AppMetadata.swift`
@@ -1873,13 +1873,13 @@ git commit -m "feat: add settings localization and ui automation"
 - Delete: `src/**`
 - Delete: `src-tauri/**`
 
-- [ ] **Step 1: Добавить explicit app metadata и bundle identifier constants**
+- [ ] **Step 1: Добавить explicit app metadata, bundle identifier constants и новый product-facing app name**
 
 ```swift
 // Macyad/App/AppMetadata.swift
 enum AppMetadata {
     static let bundleIdentifier = "me.orloff.macyad"
-    static let displayName = "Macyad"
+    static let displayName = "MacYaD"
     static let loggingSubsystem = "me.orloff.macyad"
 }
 ```
@@ -1893,10 +1893,11 @@ targets:
   Macyad:
     settings:
       base:
+        INFOPLIST_KEY_CFBundleDisplayName: MacYaD
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 ```
 
-- [ ] **Step 2: Перевести QA checklist и README на новую native reality**
+- [ ] **Step 2: Перевести QA checklist и README на новую native reality и зафиксировать rename `Macyad` -> `MacYaD` во всех user-facing местах**
 
 ```md
 # README.md
