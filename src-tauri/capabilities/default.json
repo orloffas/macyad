@@ -1,0 +1,13 @@
+{
+  "identifier": "default",
+  "description": "Default desktop capabilities for Macyad",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "autostart:allow-disable",
+    "autostart:allow-enable",
+    "autostart:allow-is-enabled",
+    "dialog:default",
+    "notification:default"
+  ]
+}

@@ -9,3 +9,17 @@
 Даже если исходные материалы, задачи, сообщения или prompt'ы приходят на английском языке, все ответы, внутренняя рабочая коммуникация и проектная документация должны вестись на русском языке.
 
 Устоявшиеся professional terms, product names, команды, пути, code entities и другие технические идентификаторы можно оставлять без перевода, если это нужно для точности.
+
+## Development
+
+```bash
+npm install
+npm run tauri:dev
+```
+
+## Tests
+
+```bash
+npm run test
+cargo test --manifest-path src-tauri/Cargo.toml
+```

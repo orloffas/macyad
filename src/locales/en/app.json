@@ -1,0 +1,25 @@
+{
+  "app": {
+    "title": "Macyad",
+    "syncNow": "Sync Now",
+    "checkYandex": "Check Yandex",
+    "pullFromYandex": "Pull From Yandex",
+    "needsAttention": "Needs Attention",
+    "onboardingTitle": "Onboarding",
+    "rcloneDetected": "Rclone detected",
+    "rcloneMissing": "Rclone is missing",
+    "pushBlocked": "Push blocked",
+    "loading": "Loading…",
+    "rcloneReady": "Rclone ready",
+    "rcloneNotConfiguredYet": "Rclone not configured yet",
+    "settingsTitle": "Settings",
+    "languageRu": "Russian",
+    "languageEn": "English",
+    "openDetails": "Open Details",
+    "recentEvents": "Recent Events",
+    "createPair": "Create Pair",
+    "bootstrapComplete": "Initial bootstrap complete",
+    "startAtLoginEnable": "Enable start at login",
+    "startAtLoginDisable": "Disable start at login"
+  }
+}
