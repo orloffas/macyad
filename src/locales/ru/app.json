@@ -1,0 +1,25 @@
+{
+  "app": {
+    "title": "Macyad",
+    "syncNow": "Синхронизировать сейчас",
+    "checkYandex": "Проверить Яндекс",
+    "pullFromYandex": "Загрузить из Яндекса",
+    "needsAttention": "Требует внимания",
+    "onboardingTitle": "Подключение",
+    "rcloneDetected": "Rclone найден",
+    "rcloneMissing": "Rclone не найден",
+    "pushBlocked": "Push заблокирован",
+    "loading": "Загрузка…",
+    "rcloneReady": "Rclone готов",
+    "rcloneNotConfiguredYet": "Rclone пока не настроен",
+    "settingsTitle": "Настройки",
+    "languageRu": "Русский",
+    "languageEn": "English",
+    "openDetails": "Открыть детали",
+    "recentEvents": "Последние события",
+    "createPair": "Создать пару",
+    "bootstrapComplete": "Начальная инициализация завершена",
+    "startAtLoginEnable": "Включить запуск при входе",
+    "startAtLoginDisable": "Выключить запуск при входе"
+  }
+}
