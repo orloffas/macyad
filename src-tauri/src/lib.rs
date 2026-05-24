@@ -8,7 +8,7 @@ pub mod services;
 use crate::{
     app_state::AppState,
     commands::{
-        app::get_app_overview,
+        app::{get_app_overview, set_ui_language},
         onboarding::{get_onboarding_status, import_existing_remote, install_managed_rclone},
         pairs::{create_sync_pair, list_sync_pairs},
         sync::{check_yandex, pull_from_yandex, sync_now},
@@ -40,7 +40,8 @@ pub fn run() {
             list_sync_pairs,
             sync_now,
             check_yandex,
-            pull_from_yandex
+            pull_from_yandex,
+            set_ui_language
         ])
         .setup(|app| {
             let app_root = app.path().app_data_dir()?.join("macyad");

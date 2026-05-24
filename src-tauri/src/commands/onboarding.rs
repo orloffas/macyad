@@ -10,10 +10,12 @@ use crate::{
 
 #[tauri::command]
 pub fn get_onboarding_status(state: State<'_, AppState>) -> OnboardingStatus {
+    let managed_path = state.paths.managed_bin_dir.join("rclone");
+
     onboarding_status(
         state.paths.rclone_config_path.clone(),
         which::which("rclone").ok(),
-        Some(state.paths.managed_bin_dir.join("rclone")),
+        managed_path.exists().then_some(managed_path),
     )
 }
 

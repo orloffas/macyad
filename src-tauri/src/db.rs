@@ -66,6 +66,8 @@ impl Repository {
     }
 
     pub fn insert_sync_pair(&self, draft: SyncPairDraft) -> Result<i64, AppError> {
+        draft.validate()?;
+
         self.conn.execute(
       "insert into sync_pairs (name, local_relative_path, remote_path, schedule_minutes, delete_policy, severity) values (?1, ?2, ?3, ?4, ?5, ?6)",
       params![
@@ -79,6 +81,15 @@ impl Repository {
     )?;
 
         Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn update_ui_language(&self, language: &str) -> Result<(), AppError> {
+        self.conn.execute(
+            "update app_settings set ui_language = ?1 where id = 1",
+            [language],
+        )?;
+
+        Ok(())
     }
 
     pub fn get_sync_pair(&self, id: i64) -> Result<Option<SyncPair>, AppError> {

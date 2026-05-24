@@ -1,19 +1,27 @@
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 use macyad_lib::services::rclone::{RcloneBinary, RcloneResolver};
 
 #[test]
 fn prefers_existing_binary_over_managed_download() {
-    let resolver = RcloneResolver::for_tests(
-        Some(PathBuf::from("/opt/homebrew/bin/rclone")),
-        Some(PathBuf::from("/tmp/macyad/bin/rclone")),
-    );
+    let temp = tempfile::tempdir().unwrap();
+    let existing = temp.path().join("existing-rclone");
+    let managed = temp.path().join("managed-rclone");
+    fs::write(&existing, "binary").unwrap();
+    fs::write(&managed, "binary").unwrap();
+
+    let resolver = RcloneResolver::for_tests(Some(existing.clone()), Some(managed));
 
     let resolved = resolver.resolve().unwrap();
-    assert_eq!(
-        resolved.binary,
-        RcloneBinary::ExistingPath(PathBuf::from("/opt/homebrew/bin/rclone"))
-    );
+    assert_eq!(resolved.binary, RcloneBinary::ExistingPath(existing));
+}
+
+#[test]
+fn ignores_missing_managed_binary_path() {
+    let resolver = RcloneResolver::for_tests(None, Some(PathBuf::from("/tmp/macyad/bin/rclone")));
+
+    let resolved = resolver.resolve().unwrap();
+    assert_eq!(resolved.binary, RcloneBinary::Missing);
 }
 
 #[test]

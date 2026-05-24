@@ -24,3 +24,17 @@ pub fn get_app_overview(state: State<'_, AppState>) -> AppOverview {
         pairs,
     }
 }
+
+#[tauri::command]
+pub fn set_ui_language(state: State<'_, AppState>, language: String) -> Result<(), String> {
+    if !matches!(language.as_str(), "ru" | "en") {
+        return Err("unsupported language".into());
+    }
+
+    state
+        .repo
+        .lock()
+        .unwrap()
+        .update_ui_language(&language)
+        .map_err(|err| err.to_string())
+}
