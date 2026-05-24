@@ -1,5 +1,10 @@
 # Macyad MVP Implementation Plan
 
+> [!WARNING]
+> Этот план сохранён как исторический артефакт ранней реализации на `Tauri`/`React`.
+> Он больше не является актуальным implementation plan для репозитория.
+> Актуальный нативный план находится в [2026-05-24-macyad-native-swift-rewrite.md](2026-05-24-macyad-native-swift-rewrite.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Собрать рабочее macOS `menu bar` приложение `Macyad`, которое использует `rclone` как execution engine для managed-workspace sync-пар Yandex Disk с manual pull, scheduled push, drift check, `info/warning/alarm` и базовой `ru/en` локализацией.

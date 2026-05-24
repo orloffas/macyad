@@ -1,5 +1,10 @@
 # Design: Macyad MVP Menu Bar Sync App For Yandex Disk On macOS
 
+> [!WARNING]
+> Этот документ сохранён как исторический артефакт раннего `MVP`-подхода на `Tauri`/`React`.
+> Он больше не является актуальным design source of truth для репозитория.
+> Актуальный нативный дизайн находится в [2026-05-24-macyad-native-swift-rewrite-design.md](2026-05-24-macyad-native-swift-rewrite-design.md).
+
 ## Контекст
 
 Пользователь хочет получить трудоспособное приложение для macOS, которое заменяет нативный клиент Yandex Disk в конкретном рабочем сценарии:
