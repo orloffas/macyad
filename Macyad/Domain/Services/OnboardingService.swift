@@ -1,14 +1,19 @@
 import Foundation
 
-protocol OnboardingServicing: Sendable {
+public protocol OnboardingServicing: Sendable {
     func refresh() async throws -> OnboardingState
 }
 
-struct OnboardingService: OnboardingServicing {
-    let locator: RcloneLocating
-    let paths: AppPaths
+public struct OnboardingService: OnboardingServicing {
+    public let locator: RcloneLocating
+    public let paths: AppPaths
 
-    func refresh() async throws -> OnboardingState {
+    public init(locator: RcloneLocating, paths: AppPaths) {
+        self.locator = locator
+        self.paths = paths
+    }
+
+    public func refresh() async throws -> OnboardingState {
         let location = try await locator.locate()
 
         return OnboardingState(

@@ -30,18 +30,25 @@ struct MainWindowView: View {
     }
 
     private var contentPane: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(appModel.route.title)
-                .font(.title2)
-                .fontWeight(.semibold)
+        Group {
+            switch appModel.route {
+            case .onboarding:
+                OnboardingView(viewModel: environment.onboardingViewModel)
+            case .overview:
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(appModel.route.title)
+                        .font(.title2)
+                        .fontWeight(.semibold)
 
-            LabeledContent("Status", value: appModel.statusSummary.title)
-            LabeledContent("Workspace", value: environment.paths.workspaceRoot.path)
-            LabeledContent("Pairs", value: "\(appModel.pairs.count)")
+                    LabeledContent("Status", value: appModel.statusSummary.title)
+                    LabeledContent("Workspace", value: environment.paths.workspaceRoot.path)
+                    LabeledContent("Pairs", value: "\(appModel.pairs.count)")
 
-            Spacer()
+                    Spacer()
+                }
+                .padding(20)
+            }
         }
-        .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 

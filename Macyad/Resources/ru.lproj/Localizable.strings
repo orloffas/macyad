@@ -1,0 +1,9 @@
+"common.copy" = "Скопировать";
+"common.copied" = "Скопировано";
+"onboarding.title" = "Подключение";
+"onboarding.install_rclone" = "Установить rclone";
+"onboarding.create_remote" = "Создать remote для Yandex";
+"onboarding.retry" = "Проверить снова";
+"onboarding.create_pair_hint" = "Создайте первую пару в sidebar после настройки remote.";
+"onboarding.complete" = "Настройка завершена.";
+"onboarding.rclone_detected" = "rclone обнаружен по пути %1$@";
