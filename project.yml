@@ -4,7 +4,6 @@ options:
 settings:
   base:
     GENERATE_INFOPLIST_FILE: YES
-    PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     SWIFT_VERSION: 6.0
 targets:
@@ -17,6 +16,7 @@ targets:
       - path: Macyad/Resources
     settings:
       base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad
         PRODUCT_NAME: Macyad
         INFOPLIST_KEY_CFBundleDisplayName: Macyad
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
@@ -25,6 +25,9 @@ targets:
     platform: macOS
     sources:
       - path: MacyadTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad.tests
     dependencies:
       - target: Macyad
   MacyadUITests:
@@ -32,5 +35,8 @@ targets:
     platform: macOS
     sources:
       - path: MacyadUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad.uitests
     dependencies:
       - target: Macyad
