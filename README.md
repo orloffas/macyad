@@ -1,6 +1,6 @@
 # macyad
 
-Начальная структура репозитория и базовые проектные соглашения.
+Нативное `macOS` приложение `MacYaD` на `Swift` и `SwiftUI` для orchestration поверх `rclone` и sync-pair workflow для Yandex Disk.
 
 ## Language Policy
 
@@ -10,16 +10,16 @@
 
 Устоявшиеся professional terms, product names, команды, пути, code entities и другие технические идентификаторы можно оставлять без перевода, если это нужно для точности.
 
-## Development
+## Запуск
 
 ```bash
-npm install
-npm run tauri:dev
+./script/build_and_run.sh
 ```
 
-## Tests
+## Verification
 
 ```bash
-npm run test
-cargo test --manifest-path src-tauri/Cargo.toml
+xcodegen generate
+xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
+./script/build_and_run.sh --verify
 ```

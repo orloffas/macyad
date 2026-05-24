@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 
+@MainActor
 public protocol FolderPicking {
     func pickFolder() -> (bookmark: Data, displayPath: String)?
 }

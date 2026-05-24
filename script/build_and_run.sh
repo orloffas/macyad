@@ -2,7 +2,7 @@
 set -euo pipefail
 
 MODE="${1:-run}"
-APP_NAME="Macyad"
+APP_NAME="MacYaD"
 SCHEME="Macyad"
 PROJECT="Macyad.xcodeproj"
 BUNDLE_ID="me.orloff.macyad"
@@ -89,7 +89,7 @@ case "$MODE" in
     ;;
   --telemetry|telemetry)
     open_app
-    /usr/bin/log stream --info --style compact --predicate "subsystem == \"me.orloff.macyad\""
+    /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
   --verify|verify)
     open_app

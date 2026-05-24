@@ -25,7 +25,7 @@ final class AppPathsTests: XCTestCase {
         try fileManager.createDirectory(at: tempRoot, withIntermediateDirectories: true, attributes: nil)
 
         let paths = try AppPaths.live(appSupportDirectory: appSupportDirectory, fileManager: fileManager)
-        let expectedAppSupportRoot = appSupportDirectory.appendingPathComponent("Macyad", isDirectory: true)
+        let expectedAppSupportRoot = appSupportDirectory.appendingPathComponent("MacYaD", isDirectory: true)
         let expectedWorkspaceRoot = expectedAppSupportRoot.appendingPathComponent("Workspace", isDirectory: true)
 
         XCTAssertEqual(paths.appSupportRoot, expectedAppSupportRoot)

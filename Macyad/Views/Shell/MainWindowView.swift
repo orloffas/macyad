@@ -74,9 +74,10 @@ struct MainWindowView: View {
             .listStyle(.sidebar)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("New Pair") {
+                    Button("pair.new") {
                         presentCreatePairSheet()
                     }
+                    .accessibilityIdentifier("pair.new")
                 }
             }
         } detail: {

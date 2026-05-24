@@ -4,6 +4,7 @@ struct CommandCopyRowView: View {
     let title: LocalizedStringKey
     let command: String
     let copied: Bool
+    let accessibilityIdentifier: String?
     let onCopy: () -> Void
 
     var body: some View {
@@ -26,6 +27,7 @@ struct CommandCopyRowView: View {
             .buttonStyle(.borderless)
             .help(copied ? String(localized: "common.copied") : String(localized: "common.copy"))
             .accessibilityLabel(copied ? String(localized: "common.copied") : String(localized: "common.copy"))
+            .accessibilityIdentifier(accessibilityIdentifier ?? "")
         }
         .padding(10)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))

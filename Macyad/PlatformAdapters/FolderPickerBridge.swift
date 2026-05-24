@@ -1,6 +1,7 @@
 import AppKit
 import MacyadCore
 
+@MainActor
 struct FolderPickerBridge: FolderPicking {
     func pickFolder() -> (bookmark: Data, displayPath: String)? {
         let panel = NSOpenPanel()

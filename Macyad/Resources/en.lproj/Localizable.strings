@@ -7,3 +7,7 @@
 "onboarding.create_pair_hint" = "Create your first pair from the sidebar after the remote is ready.";
 "onboarding.complete" = "Setup complete.";
 "onboarding.rclone_detected" = "rclone detected at %1$@";
+"pair.new" = "New Pair";
+"settings.language" = "Language";
+"settings.launchAtLogin" = "Launch at login";
+"settings.defaultScheduleFormat" = "Default schedule: %d min";
