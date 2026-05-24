@@ -5,3 +5,5 @@ src-tauri/target/
 .DS_Store
 .superpowers/
 coverage/
+Macyad.xcodeproj/
+.build/

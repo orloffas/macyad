@@ -1,0 +1,35 @@
+name: Macyad
+options:
+  minimumXcodeGenVersion: 2.38.0
+settings:
+  base:
+    GENERATE_INFOPLIST_FILE: YES
+    PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+targets:
+  Macyad:
+    type: application
+    platform: macOS
+    sources:
+      - path: Macyad
+    resources:
+      - path: Macyad/Resources
+    settings:
+      base:
+        PRODUCT_NAME: Macyad
+        INFOPLIST_KEY_CFBundleDisplayName: Macyad
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+  MacyadTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: MacyadTests
+    dependencies:
+      - target: Macyad
+  MacyadUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: MacyadUITests
+    dependencies:
+      - target: Macyad
