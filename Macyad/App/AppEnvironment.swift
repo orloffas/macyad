@@ -1,7 +1,9 @@
 import Foundation
+import Observation
 
+@Observable
 @MainActor
-final class AppEnvironment: ObservableObject {
+final class AppEnvironment {
     let paths: AppPaths
 
     init(paths: AppPaths) {
