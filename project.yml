@@ -6,6 +6,7 @@ settings:
     GENERATE_INFOPLIST_FILE: YES
     PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad
     MACOSX_DEPLOYMENT_TARGET: "14.0"
+    SWIFT_VERSION: 6.0
 targets:
   Macyad:
     type: application

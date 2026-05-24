@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct MainWindowView: View {
+    @EnvironmentObject private var environment: AppEnvironment
+
     var body: some View {
         NavigationSplitView {
             List {
@@ -8,7 +10,11 @@ struct MainWindowView: View {
             }
             .listStyle(.sidebar)
         } detail: {
-            ContentUnavailableView("Macyad", systemImage: "externaldrive.badge.icloud")
+            ContentUnavailableView(
+                "Macyad",
+                systemImage: "externaldrive.badge.icloud",
+                description: Text(environment.paths.workspaceRoot.path)
+            )
         }
     }
 }
