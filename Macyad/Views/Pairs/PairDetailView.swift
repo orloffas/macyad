@@ -3,24 +3,71 @@ import SwiftUI
 
 struct PairDetailView: View {
     let pair: SyncPair?
+    @ObservedObject var viewModel: PairDetailViewModel
+    var onSyncNow: (() -> Void)? = nil
+    var onCheckYandex: (() -> Void)? = nil
+    var onPullFromYandex: (() -> Void)? = nil
 
     var body: some View {
         Group {
             if let pair {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(pair.name)
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(pair.name)
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
 
-                    LabeledContent("Статус", value: severityTitle(pair.lastKnownSeverity))
-                    LabeledContent("Локальная папка", value: pair.localFolderDisplayPath)
-                    LabeledContent("Remote path", value: pair.remotePath)
-                    LabeledContent("Интервал", value: "\(pair.scheduleMinutes) мин")
-                    LabeledContent("Delete policy", value: deletePolicyTitle(pair.deletePolicy))
+                                Text("Последний статус: \(severityTitle(viewModel.latestSeverity))")
+                                    .foregroundStyle(.secondary)
+                            }
 
-                    Spacer()
+                            Spacer()
+
+                            HStack(spacing: 8) {
+                                Button("Sync Now") { onSyncNow?() }
+                                Button("Check Yandex") { onCheckYandex?() }
+                                Button("Pull From Yandex") { onPullFromYandex?() }
+                            }
+                            .controlSize(.small)
+                            .disabled(viewModel.isRunningOperation)
+                        }
+
+                        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 10) {
+                            GridRow {
+                                Text("Локальная папка")
+                                    .foregroundStyle(.secondary)
+                                Text(pair.localFolderDisplayPath)
+                            }
+                            GridRow {
+                                Text("Remote path")
+                                    .foregroundStyle(.secondary)
+                                Text(pair.remotePath)
+                            }
+                            GridRow {
+                                Text("Интервал")
+                                    .foregroundStyle(.secondary)
+                                Text("\(pair.scheduleMinutes) мин")
+                            }
+                            GridRow {
+                                Text("Delete policy")
+                                    .foregroundStyle(.secondary)
+                                Text(deletePolicyTitle(pair.deletePolicy))
+                            }
+                        }
+                        .font(.callout)
+
+                        if let lastErrorMessage = viewModel.lastErrorMessage {
+                            Text(lastErrorMessage)
+                                .font(.callout)
+                                .foregroundStyle(.red)
+                        }
+
+                        ActivityListView(events: viewModel.events)
+                    }
+                    .padding(20)
                 }
-                .padding(20)
             } else {
                 ContentUnavailableView(
                     "Пара не выбрана",

@@ -16,6 +16,7 @@ targets:
       - path: Macyad/Infrastructure
       - path: Macyad/ViewModels/CreatePairViewModel.swift
       - path: Macyad/ViewModels/OnboardingViewModel.swift
+      - path: Macyad/ViewModels/PairDetailViewModel.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad.core

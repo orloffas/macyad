@@ -1,13 +1,17 @@
 import Foundation
 
-protocol RcloneProcessRunning: Sendable {
+public protocol RcloneProcessRunning: Sendable {
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32)
 }
 
-struct RcloneProcessClient: RcloneProcessRunning {
-    let executablePath: String
+public struct RcloneProcessClient: RcloneProcessRunning {
+    public let executablePath: String
 
-    func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
+    public init(executablePath: String) {
+        self.executablePath = executablePath
+    }
+
+    public func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executablePath)
         process.arguments = arguments

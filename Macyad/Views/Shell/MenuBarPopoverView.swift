@@ -12,6 +12,25 @@ struct MenuBarPopoverView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
+            if let selectedPair = appModel.selectedPair {
+                Divider()
+
+                Text(selectedPair.name)
+                    .font(.subheadline.weight(.medium))
+
+                Button("Sync Now") {
+                    appModel.runSyncNowForSelectedPair()
+                }
+
+                Button("Check Yandex") {
+                    appModel.runCheckForSelectedPair()
+                }
+
+                Button("Pull From Yandex") {
+                    appModel.runPullForSelectedPair()
+                }
+            }
+
             Divider()
 
             Button("Open Main Window") {

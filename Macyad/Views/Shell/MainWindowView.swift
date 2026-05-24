@@ -2,6 +2,45 @@ import MacyadCore
 import SwiftUI
 
 struct MainWindowView: View {
+    private enum PairOperationKind {
+        case syncNow
+        case checkYandex
+        case pullFromYandex
+
+        var successMessage: String {
+            switch self {
+            case .syncNow:
+                "Sync Now завершён"
+            case .checkYandex:
+                "Проверка Yandex завершена"
+            case .pullFromYandex:
+                "Pull From Yandex завершён"
+            }
+        }
+
+        var failurePrefix: String {
+            switch self {
+            case .syncNow:
+                "Не удалось выполнить Sync Now"
+            case .checkYandex:
+                "Не удалось выполнить Check Yandex"
+            case .pullFromYandex:
+                "Не удалось выполнить Pull From Yandex"
+            }
+        }
+    }
+
+    private enum PairOperationError: LocalizedError {
+        case missingRclone
+
+        var errorDescription: String? {
+            switch self {
+            case .missingRclone:
+                "Сначала установите `rclone`, затем повторите действие."
+            }
+        }
+    }
+
     @Environment(AppModel.self) private var appModel
     @Environment(AppEnvironment.self) private var environment
     @State private var createPairViewModel = CreatePairViewModel(
@@ -62,6 +101,12 @@ struct MainWindowView: View {
         .task {
             await loadPairsIfNeeded()
         }
+        .task(id: appModel.selectedPairID) {
+            await environment.pairDetailViewModel.load(for: appModel.selectedPair)
+        }
+        .onAppear {
+            configureQuickActions()
+        }
     }
 
     private var contentPane: some View {
@@ -83,7 +128,13 @@ struct MainWindowView: View {
                 }
                 .padding(20)
             case .pair:
-                PairDetailView(pair: appModel.selectedPair)
+                PairDetailView(
+                    pair: appModel.selectedPair,
+                    viewModel: environment.pairDetailViewModel,
+                    onSyncNow: { runSelectedPairAction(.syncNow) },
+                    onCheckYandex: { runSelectedPairAction(.checkYandex) },
+                    onPullFromYandex: { runSelectedPairAction(.pullFromYandex) }
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -124,6 +175,7 @@ struct MainWindowView: View {
             await MainActor.run {
                 appModel.pairs = pairs
                 appModel.refreshStatusSummary(using: environment.statusService)
+                configureQuickActions()
             }
         } catch {
             await MainActor.run {
@@ -142,5 +194,117 @@ struct MainWindowView: View {
         appModel.sidebarSelection = .pair(pair.id)
         appModel.isCreatePairSheetPresented = false
         appModel.refreshStatusSummary(using: environment.statusService)
+        configureQuickActions()
+    }
+
+    @MainActor
+    private func configureQuickActions() {
+        appModel.runSyncNowForSelectedPair = {
+            runSelectedPairAction(.syncNow)
+        }
+        appModel.runCheckForSelectedPair = {
+            runSelectedPairAction(.checkYandex)
+        }
+        appModel.runPullForSelectedPair = {
+            runSelectedPairAction(.pullFromYandex)
+        }
+    }
+
+    @MainActor
+    private func runSelectedPairAction(_ operation: PairOperationKind) {
+        guard let selectedPair = appModel.selectedPair else {
+            return
+        }
+
+        Task {
+            await run(operation, for: selectedPair)
+        }
+    }
+
+    private func run(_ operation: PairOperationKind, for pair: SyncPair) async {
+        await MainActor.run {
+            environment.pairDetailViewModel.setOperationInFlight(true)
+            environment.pairDetailViewModel.setError(nil)
+        }
+
+        do {
+            let syncService = try await makeSyncService()
+            let updatedPair = try await perform(operation, with: syncService, for: pair)
+            try await replacePair(updatedPair)
+
+            await environment.pairDetailViewModel.record(
+                ActivityEvent(
+                    id: UUID(),
+                    date: Date(),
+                    message: operation.successMessage,
+                    severity: updatedPair.lastKnownSeverity,
+                    pairID: updatedPair.id
+                ),
+                latestSeverity: updatedPair.lastKnownSeverity
+            )
+        } catch {
+            var failedPair = pair
+            failedPair.lastKnownSeverity = .alarm
+            try? await replacePair(failedPair)
+
+            let failureMessage = "\(operation.failurePrefix): \(error.localizedDescription)"
+            await environment.pairDetailViewModel.record(
+                ActivityEvent(
+                    id: UUID(),
+                    date: Date(),
+                    message: failureMessage,
+                    severity: .alarm,
+                    pairID: pair.id
+                ),
+                latestSeverity: .alarm
+            )
+            await MainActor.run {
+                environment.pairDetailViewModel.setError(failureMessage)
+            }
+        }
+
+        await MainActor.run {
+            environment.pairDetailViewModel.setOperationInFlight(false)
+        }
+    }
+
+    private func perform(_ operation: PairOperationKind, with syncService: SyncService, for pair: SyncPair) async throws -> SyncPair {
+        var updatedPair = pair
+
+        switch operation {
+        case .syncNow:
+            try await syncService.push(pair)
+            updatedPair.lastKnownSeverity = .healthy
+        case .checkYandex:
+            updatedPair.lastKnownSeverity = try await syncService.check(pair)
+        case .pullFromYandex:
+            try await syncService.pull(pair)
+            updatedPair.lastKnownSeverity = .healthy
+        }
+
+        return updatedPair
+    }
+
+    private func replacePair(_ pair: SyncPair) async throws {
+        guard let pairIndex = await MainActor.run(body: { appModel.pairs.firstIndex(where: { $0.id == pair.id }) }) else {
+            return
+        }
+
+        var updatedPairs = await MainActor.run(body: { appModel.pairs })
+        updatedPairs[pairIndex] = pair
+        try await environment.pairRepository.save(updatedPairs)
+
+        await MainActor.run {
+            appModel.pairs = updatedPairs
+            appModel.refreshStatusSummary(using: environment.statusService)
+        }
+    }
+
+    private func makeSyncService() async throws -> SyncService {
+        guard let executablePath = try await environment.rcloneLocator.locate() else {
+            throw PairOperationError.missingRclone
+        }
+
+        return SyncService(processClient: RcloneProcessClient(executablePath: executablePath))
     }
 }
