@@ -115,6 +115,7 @@ public actor SchedulerService {
             }
 
             var updatedPair = pair
+            updatedPair.lastScheduledPushAttemptAt = now
 
             guard let syncService else {
                 updatedPair.lastKnownSeverity = .alarm
@@ -162,11 +163,11 @@ public actor SchedulerService {
     }
 
     private func isDue(_ pair: SyncPair, now: Date) -> Bool {
-        guard let lastSyncAt = pair.lastSyncAt else {
+        guard let lastScheduledReferenceAt = pair.nextScheduledReferenceAt else {
             return true
         }
 
-        return now.timeIntervalSince(lastSyncAt) >= Double(pair.scheduleMinutes * 60)
+        return now.timeIntervalSince(lastScheduledReferenceAt) >= Double(pair.scheduleMinutes * 60)
     }
 
     private func detailedMessage(for error: Error?, copy: AppCopy) -> String? {

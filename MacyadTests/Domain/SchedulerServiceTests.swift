@@ -9,9 +9,11 @@ final class SchedulerServiceTests: XCTestCase {
 
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let processClient = RecordingProcessClient()
+        let excludeFileStore = StubExcludeFileStore()
         let service = SyncService(
             processClient: processClient,
-            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            excludeFileStore: excludeFileStore
         )
         let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
         let duePair = makePair(name: "Due", severity: .healthy, lastSyncAt: now.addingTimeInterval(-2_000))
@@ -28,40 +30,8 @@ final class SchedulerServiceTests: XCTestCase {
             "sync",
             duePair.localFolderDisplayPath,
             duePair.remotePath,
-            "--exclude",
-            ".DS_Store",
-            "--exclude",
-            ".localized",
-            "--exclude",
-            "._*",
-            "--exclude",
-            ".Spotlight-V100/**",
-            "--exclude",
-            ".TemporaryItems/**",
-            "--exclude",
-            ".Trashes/**",
-            "--exclude",
-            ".fseventsd/**",
-            "--exclude",
-            "Thumbs.db",
-            "--exclude",
-            "desktop.ini",
-            "--exclude",
-            "$RECYCLE.BIN/**",
-            "--exclude",
-            "System Volume Information/**",
-            "--exclude",
-            "*.tmp",
-            "--exclude",
-            "*.temp",
-            "--exclude",
-            "*.swp",
-            "--exclude",
-            "*.swo",
-            "--exclude",
-            "*.part",
-            "--exclude",
-            "*.crdownload",
+            "--exclude-from",
+            "/tmp/sync-excludes.txt",
         ]])
     }
 
@@ -72,9 +42,11 @@ final class SchedulerServiceTests: XCTestCase {
 
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let processClient = RecordingProcessClient()
+        let excludeFileStore = StubExcludeFileStore()
         let service = SyncService(
             processClient: processClient,
-            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            excludeFileStore: excludeFileStore
         )
         let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
         let healthyPair = makePair(name: "Healthy", severity: .healthy, lastSyncAt: nil)
@@ -91,40 +63,8 @@ final class SchedulerServiceTests: XCTestCase {
             "sync",
             healthyPair.localFolderDisplayPath,
             healthyPair.remotePath,
-            "--exclude",
-            ".DS_Store",
-            "--exclude",
-            ".localized",
-            "--exclude",
-            "._*",
-            "--exclude",
-            ".Spotlight-V100/**",
-            "--exclude",
-            ".TemporaryItems/**",
-            "--exclude",
-            ".Trashes/**",
-            "--exclude",
-            ".fseventsd/**",
-            "--exclude",
-            "Thumbs.db",
-            "--exclude",
-            "desktop.ini",
-            "--exclude",
-            "$RECYCLE.BIN/**",
-            "--exclude",
-            "System Volume Information/**",
-            "--exclude",
-            "*.tmp",
-            "--exclude",
-            "*.temp",
-            "--exclude",
-            "*.swp",
-            "--exclude",
-            "*.swo",
-            "--exclude",
-            "*.part",
-            "--exclude",
-            "*.crdownload",
+            "--exclude-from",
+            "/tmp/sync-excludes.txt",
         ])
     }
 
@@ -186,6 +126,32 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertTrue(details.contains("Local folder is empty"))
     }
 
+    func testRunScheduledPushesDoesNotRepeatBlockedAttemptBeforeScheduleInterval() async {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let processClient = RecordingProcessClient()
+        let service = SyncService(
+            processClient: processClient,
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false)
+        )
+        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let pair = makePair(name: "Empty", severity: .healthy, lastSyncAt: nil)
+
+        let firstResults = await scheduler.runScheduledPushes(for: [pair], now: now)
+        let secondResults = await scheduler.runScheduledPushes(for: [firstResults[0].pair], now: now.addingTimeInterval(60))
+
+        guard case .blockedEmptyLocalFolder = firstResults[0].disposition else {
+            return XCTFail("Expected initial blocked disposition")
+        }
+
+        XCTAssertEqual(firstResults[0].pair.lastScheduledPushAttemptAt, now)
+        XCTAssertEqual(secondResults.map(\.disposition), [.skippedNotDue])
+        XCTAssertEqual(secondResults[0].pair.lastScheduledPushAttemptAt, now)
+    }
+
     func testPolicyBlocksAlarmPairsFromScheduledPush() {
         let policy = PushEligibilityPolicy()
 
@@ -205,6 +171,17 @@ final class SchedulerServiceTests: XCTestCase {
             lastKnownSeverity: severity,
             lastSyncAt: lastSyncAt
         )
+    }
+}
+
+private struct StubExcludeFileStore: RcloneExcludeFilePreparing {
+    func prepareExcludeFile(for pair: SyncPair, mode: RcloneExcludeFileMode) throws -> String? {
+        switch mode {
+        case .sync:
+            return "/tmp/sync-excludes.txt"
+        case .check:
+            return "/tmp/check-excludes.txt"
+        }
     }
 }
 

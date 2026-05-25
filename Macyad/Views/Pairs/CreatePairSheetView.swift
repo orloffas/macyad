@@ -42,16 +42,24 @@ struct CreatePairSheetView: View {
                     Text(copy.deletePolicyManualTitle).tag(SyncPair.DeletePolicy.keepRemoteDeletesManual)
                 }
 
-                Section(copy.syncExcludesTitle) {
+                Section {
                     TextEditor(text: $viewModel.syncExcludesText)
                         .font(.system(.callout, design: .monospaced))
                         .frame(minHeight: 120)
+                } header: {
+                    Text(copy.syncExcludesTitle)
+                } footer: {
+                    Text(copy.syncExcludesDescription)
                 }
 
-                Section(copy.checkAdditionalExcludesTitle) {
+                Section {
                     TextEditor(text: $viewModel.checkAdditionalExcludesText)
                         .font(.system(.callout, design: .monospaced))
                         .frame(minHeight: 92)
+                } header: {
+                    Text(copy.checkAdditionalExcludesTitle)
+                } footer: {
+                    Text(copy.checkAdditionalExcludesDescription)
                 }
 
                 Section {

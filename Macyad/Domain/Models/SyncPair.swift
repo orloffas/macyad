@@ -10,14 +10,47 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         ".DS_Store",
         ".localized",
         "._*",
+        ".AppleDouble",
+        "__MACOSX/**",
+        ".DocumentRevisions-V100/**",
         ".Spotlight-V100/**",
         ".TemporaryItems/**",
         ".Trashes/**",
         ".fseventsd/**",
+        ".VolumeIcon.icns",
+        ".com.apple.timemachine.donotpresent",
+        ".com.apple.timemachine.supported",
+        "Icon[]",
         "Thumbs.db",
         "desktop.ini",
         "$RECYCLE.BIN/**",
         "System Volume Information/**",
+        ".git/**",
+        ".hg/**",
+        ".svn/**",
+        ".jj/**",
+        "CVS/**",
+        ".venv/**",
+        "venv/**",
+        "env/**",
+        "ENV/**",
+        "env.bak/**",
+        "venv.bak/**",
+        "__pycache__/**",
+        "*.pyc",
+        "*.pyo",
+        "*.pyd",
+        ".pytest_cache/**",
+        ".mypy_cache/**",
+        ".ruff_cache/**",
+        ".pyre/**",
+        ".pytype/**",
+        ".tox/**",
+        ".nox/**",
+        ".hypothesis/**",
+        ".ipynb_checkpoints/**",
+        ".pixi/**",
+        "__pypackages__/**",
         "*.tmp",
         "*.temp",
         "*.swp",
@@ -35,6 +68,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
     public var deletePolicy: DeletePolicy
     public var lastKnownSeverity: Severity
     public var lastSyncAt: Date?
+    public var lastScheduledPushAttemptAt: Date?
     public var syncExcludes: [String]
     public var checkAdditionalExcludes: [String]
 
@@ -48,6 +82,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         deletePolicy: DeletePolicy,
         lastKnownSeverity: Severity,
         lastSyncAt: Date? = nil,
+        lastScheduledPushAttemptAt: Date? = nil,
         syncExcludes: [String] = SyncPair.defaultSyncExcludes,
         checkAdditionalExcludes: [String] = []
     ) {
@@ -60,6 +95,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         self.deletePolicy = deletePolicy
         self.lastKnownSeverity = lastKnownSeverity
         self.lastSyncAt = lastSyncAt
+        self.lastScheduledPushAttemptAt = lastScheduledPushAttemptAt
         self.syncExcludes = syncExcludes
         self.checkAdditionalExcludes = checkAdditionalExcludes
     }
@@ -74,6 +110,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         case deletePolicy
         case lastKnownSeverity
         case lastSyncAt
+        case lastScheduledPushAttemptAt
         case syncExcludes
         case checkAdditionalExcludes
     }
@@ -89,12 +126,17 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         deletePolicy = try container.decode(DeletePolicy.self, forKey: .deletePolicy)
         lastKnownSeverity = try container.decode(Severity.self, forKey: .lastKnownSeverity)
         lastSyncAt = try container.decodeIfPresent(Date.self, forKey: .lastSyncAt)
+        lastScheduledPushAttemptAt = try container.decodeIfPresent(Date.self, forKey: .lastScheduledPushAttemptAt)
         syncExcludes = try container.decodeIfPresent([String].self, forKey: .syncExcludes) ?? SyncPair.defaultSyncExcludes
         checkAdditionalExcludes = try container.decodeIfPresent([String].self, forKey: .checkAdditionalExcludes) ?? []
     }
 
     public var allCheckExcludes: [String] {
         orderedUnique(syncExcludes + checkAdditionalExcludes)
+    }
+
+    public var nextScheduledReferenceAt: Date? {
+        [lastSyncAt, lastScheduledPushAttemptAt].compactMap { $0 }.max()
     }
 
     private func orderedUnique(_ patterns: [String]) -> [String] {

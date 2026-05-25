@@ -68,6 +68,8 @@ struct PairDetailView: View {
                     }
                     .font(.callout)
 
+                    actionDescriptions
+
                     if let lastErrorMessage = viewModel.lastErrorMessage {
                         LastErrorDisclosure(message: lastErrorMessage)
                     }
@@ -122,8 +124,11 @@ struct PairDetailView: View {
 
         return HStack(spacing: 8) {
             Button(copy.syncButtonTitle) { onSyncNow?() }
+                .help(copy.pushActionDescription)
             Button(copy.checkButtonTitle) { onCheckYandex?() }
+                .help(copy.checkActionDescription)
             Button(copy.pullButtonTitle) { onPullFromYandex?() }
+                .help(copy.pullActionDescription)
         }
         .controlSize(.small)
         .disabled(viewModel.isRunningOperation)
@@ -148,6 +153,36 @@ struct PairDetailView: View {
             .help(copy.deletePairTitle)
         }
         .controlSize(.small)
+    }
+
+    private var actionDescriptions: some View {
+        let copy = appModel.copy
+
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(copy.actionsHelpTitle)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 4) {
+                GridRow {
+                    Text(copy.syncButtonTitle)
+                        .fontWeight(.medium)
+                    Text(copy.pushActionDescription)
+                }
+                GridRow {
+                    Text(copy.checkButtonTitle)
+                        .fontWeight(.medium)
+                    Text(copy.checkActionDescription)
+                }
+                GridRow {
+                    Text(copy.pullButtonTitle)
+                        .fontWeight(.medium)
+                    Text(copy.pullActionDescription)
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
     }
 
     private struct LastErrorDisclosure: View {
@@ -213,11 +248,11 @@ struct PairDetailView: View {
     private func nextScheduledSyncTitle(for pair: SyncPair) -> String {
         let copy = appModel.copy
 
-        guard let lastSyncAt = pair.lastSyncAt else {
+        guard let lastScheduledReferenceAt = pair.nextScheduledReferenceAt else {
             return copy.afterFirstSuccessfulSync
         }
 
-        let nextRun = lastSyncAt.addingTimeInterval(TimeInterval(pair.scheduleMinutes * 60))
+        let nextRun = lastScheduledReferenceAt.addingTimeInterval(TimeInterval(pair.scheduleMinutes * 60))
         return copy.formatTimestamp(nextRun)
     }
 }

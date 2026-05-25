@@ -17,7 +17,8 @@ final class RcloneCommandBuilderTests: XCTestCase {
     func testSyncArgumentsUseExplicitConfigPath() {
         let arguments = RcloneCommandBuilder.syncArguments(
             for: makePair(),
-            configPath: "/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf"
+            configPath: "/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf",
+            excludeFilePath: "/Users/test/Library/Application Support/MacYaD/rclone/filters/sync.txt"
         )
 
         XCTAssertEqual(
@@ -28,10 +29,8 @@ final class RcloneCommandBuilderTests: XCTestCase {
                 "sync",
                 "/Users/test/Work Docs",
                 "yd:/Work Docs",
-                "--exclude",
-                ".DS_Store",
-                "--exclude",
-                "Thumbs.db",
+                "--exclude-from",
+                "/Users/test/Library/Application Support/MacYaD/rclone/filters/sync.txt",
             ]
         )
     }
@@ -42,7 +41,8 @@ final class RcloneCommandBuilderTests: XCTestCase {
                 syncExcludes: [".DS_Store", "Thumbs.db"],
                 checkAdditionalExcludes: ["Desktop.ini"]
             ),
-            configPath: "/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf"
+            configPath: "/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf",
+            excludeFilePath: "/Users/test/Library/Application Support/MacYaD/rclone/filters/check.txt"
         )
 
         XCTAssertEqual(
@@ -54,12 +54,8 @@ final class RcloneCommandBuilderTests: XCTestCase {
                 "/Users/test/Work Docs",
                 "yd:/Work Docs",
                 "--one-way",
-                "--exclude",
-                ".DS_Store",
-                "--exclude",
-                "Thumbs.db",
-                "--exclude",
-                "Desktop.ini",
+                "--exclude-from",
+                "/Users/test/Library/Application Support/MacYaD/rclone/filters/check.txt",
             ]
         )
     }
@@ -67,7 +63,8 @@ final class RcloneCommandBuilderTests: XCTestCase {
     func testPullArgumentsApplySyncExcludes() {
         let arguments = RcloneCommandBuilder.pullArguments(
             for: makePair(syncExcludes: [".DS_Store", "Thumbs.db"]),
-            configPath: "/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf"
+            configPath: "/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf",
+            excludeFilePath: "/Users/test/Library/Application Support/MacYaD/rclone/filters/sync.txt"
         )
 
         XCTAssertEqual(
@@ -78,10 +75,8 @@ final class RcloneCommandBuilderTests: XCTestCase {
                 "copy",
                 "yd:/Work Docs",
                 "/Users/test/Work Docs",
-                "--exclude",
-                ".DS_Store",
-                "--exclude",
-                "Thumbs.db",
+                "--exclude-from",
+                "/Users/test/Library/Application Support/MacYaD/rclone/filters/sync.txt",
             ]
         )
     }

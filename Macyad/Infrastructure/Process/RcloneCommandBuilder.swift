@@ -5,36 +5,39 @@ public struct RcloneCommandBuilder {
         "rclone --config \(shellQuoted(configPath)) config create \(remoteName) yandex"
     }
 
-    public static func syncArguments(for pair: SyncPair, configPath: String) -> [String] {
-        withConfig(configPath, command: syncArguments(for: pair))
+    public static func syncArguments(for pair: SyncPair, configPath: String, excludeFilePath: String? = nil) -> [String] {
+        withConfig(configPath, command: syncArguments(for: pair, excludeFilePath: excludeFilePath))
     }
 
-    public static func syncArguments(for pair: SyncPair) -> [String] {
+    public static func syncArguments(for pair: SyncPair, excludeFilePath: String? = nil) -> [String] {
         withExcludes(
             ["sync", pair.localFolderDisplayPath, pair.remotePath],
-            patterns: pair.syncExcludes
+            patterns: pair.syncExcludes,
+            excludeFilePath: excludeFilePath
         )
     }
 
-    public static func checkArguments(for pair: SyncPair, configPath: String) -> [String] {
-        withConfig(configPath, command: checkArguments(for: pair))
+    public static func checkArguments(for pair: SyncPair, configPath: String, excludeFilePath: String? = nil) -> [String] {
+        withConfig(configPath, command: checkArguments(for: pair, excludeFilePath: excludeFilePath))
     }
 
-    public static func checkArguments(for pair: SyncPair) -> [String] {
+    public static func checkArguments(for pair: SyncPair, excludeFilePath: String? = nil) -> [String] {
         withExcludes(
             ["check", pair.localFolderDisplayPath, pair.remotePath, "--one-way"],
-            patterns: pair.allCheckExcludes
+            patterns: pair.allCheckExcludes,
+            excludeFilePath: excludeFilePath
         )
     }
 
-    public static func pullArguments(for pair: SyncPair, configPath: String) -> [String] {
-        withConfig(configPath, command: pullArguments(for: pair))
+    public static func pullArguments(for pair: SyncPair, configPath: String, excludeFilePath: String? = nil) -> [String] {
+        withConfig(configPath, command: pullArguments(for: pair, excludeFilePath: excludeFilePath))
     }
 
-    public static func pullArguments(for pair: SyncPair) -> [String] {
+    public static func pullArguments(for pair: SyncPair, excludeFilePath: String? = nil) -> [String] {
         withExcludes(
             ["copy", pair.remotePath, pair.localFolderDisplayPath],
-            patterns: pair.syncExcludes
+            patterns: pair.syncExcludes,
+            excludeFilePath: excludeFilePath
         )
     }
 
@@ -42,8 +45,12 @@ public struct RcloneCommandBuilder {
         ["--config", configPath] + command
     }
 
-    private static func withExcludes(_ command: [String], patterns: [String]) -> [String] {
-        command + patterns.flatMap { ["--exclude", $0] }
+    private static func withExcludes(_ command: [String], patterns: [String], excludeFilePath: String?) -> [String] {
+        if let excludeFilePath {
+            return command + ["--exclude-from", excludeFilePath]
+        }
+
+        return command + patterns.flatMap { ["--exclude", $0] }
     }
 
     private static func shellQuoted(_ value: String) -> String {
