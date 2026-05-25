@@ -109,10 +109,10 @@ public actor BackgroundSyncController {
                     title: copy.pushBlockedNotificationTitle,
                     body: "\(result.pair.name): \(copy.localFolderEmptyPushBlocked)"
                 )
-            } else if case let .failed(message) = result.disposition {
+            } else if case let .failed(summary, _) = result.disposition {
                 try? await notificationClient.send(
                     title: copy.scheduledSyncNotificationTitle,
-                    body: "\(result.pair.name): \(message)"
+                    body: "\(result.pair.name): \(summary)"
                 )
             }
         }
@@ -142,7 +142,7 @@ public actor BackgroundSyncController {
         case .pushed:
             message = copy.scheduledSyncCompleted
             severity = .healthy
-        case let .blockedEmptyLocalFolder(details):
+        case .blockedEmptyLocalFolder:
             message = copy.scheduledPushBlockedTitle
             severity = .warning
             return ActivityEvent(
@@ -151,10 +151,10 @@ public actor BackgroundSyncController {
                 message: message,
                 severity: severity,
                 pairID: result.pair.id,
-                details: details
+                details: result.disposition.details
             )
-        case let .failed(errorMessage):
-            message = copy.scheduledSyncFailed(errorMessage)
+        case let .failed(summary, _):
+            message = copy.scheduledSyncFailed(summary)
             severity = .alarm
         case .skippedByPolicy, .skippedNotDue:
             message = copy.scheduledSyncSkipped
@@ -175,8 +175,8 @@ public actor BackgroundSyncController {
 private extension ScheduledPushDisposition {
     var details: String? {
         switch self {
-        case let .failed(message), let .blockedEmptyLocalFolder(message):
-            message
+        case let .failed(_, details), let .blockedEmptyLocalFolder(_, details):
+            details
         case .pushed, .skippedByPolicy, .skippedNotDue:
             nil
         }

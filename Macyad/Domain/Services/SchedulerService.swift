@@ -4,8 +4,8 @@ public enum ScheduledPushDisposition: Equatable, Sendable {
     case pushed
     case skippedByPolicy
     case skippedNotDue
-    case blockedEmptyLocalFolder(String)
-    case failed(String)
+    case blockedEmptyLocalFolder(summary: String, details: String)
+    case failed(summary: String, details: String)
 
     var recordsActivityEvent: Bool {
         switch self {
@@ -120,7 +120,10 @@ public actor SchedulerService {
                 updatedPair.lastKnownSeverity = .alarm
                 results.append(ScheduledPushResult(
                     pair: updatedPair,
-                    disposition: .failed(syncServiceError?.localizedDescription ?? copy.scheduledSyncBootstrapFailure)
+                    disposition: .failed(
+                        summary: syncServiceError?.localizedDescription ?? copy.scheduledSyncBootstrapFailure,
+                        details: detailedMessage(for: syncServiceError, copy: copy) ?? copy.scheduledSyncBootstrapFailure
+                    )
                 ))
                 continue
             }
@@ -132,10 +135,22 @@ public actor SchedulerService {
                 results.append(ScheduledPushResult(pair: updatedPair, disposition: .pushed))
             } catch let error as SyncService.LocalFolderEmptyPushBlockedError {
                 updatedPair.lastKnownSeverity = .warning
-                results.append(ScheduledPushResult(pair: updatedPair, disposition: .blockedEmptyLocalFolder(error.localizedDescription)))
+                results.append(ScheduledPushResult(
+                    pair: updatedPair,
+                    disposition: .blockedEmptyLocalFolder(
+                        summary: error.localizedDescription,
+                        details: error.localizedDescription
+                    )
+                ))
             } catch {
                 updatedPair.lastKnownSeverity = .alarm
-                results.append(ScheduledPushResult(pair: updatedPair, disposition: .failed(error.localizedDescription)))
+                results.append(ScheduledPushResult(
+                    pair: updatedPair,
+                    disposition: .failed(
+                        summary: error.localizedDescription,
+                        details: detailedMessage(for: error, copy: copy) ?? error.localizedDescription
+                    )
+                ))
             }
         }
 
@@ -152,5 +167,17 @@ public actor SchedulerService {
         }
 
         return now.timeIntervalSince(lastSyncAt) >= Double(pair.scheduleMinutes * 60)
+    }
+
+    private func detailedMessage(for error: Error?, copy: AppCopy) -> String? {
+        guard let error else {
+            return nil
+        }
+
+        if let commandError = error as? SyncService.CommandFailedError {
+            return commandError.detailedDescription
+        }
+
+        return error.localizedDescription
     }
 }

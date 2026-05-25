@@ -2,6 +2,13 @@ import XCTest
 @testable import MacyadCore
 
 final class AppLaunchModeTests: XCTestCase {
+    func testNormalLaunchShowsMainWindowByDefault() {
+        let mode = AppLaunchMode(arguments: ["MacYaD"])
+
+        XCTAssertEqual(mode, .normal)
+        XCTAssertTrue(mode.shouldForceForegroundWindow)
+    }
+
     func testForceForegroundArgumentEnablesForegroundLaunch() {
         let mode = AppLaunchMode(arguments: ["MacYaD", "MACYAD_FORCE_FOREGROUND"])
 
