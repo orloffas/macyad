@@ -1,20 +1,23 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @EnvironmentObject private var appModel: AppModel
     @ObservedObject var viewModel: SettingsViewModel
 
     var body: some View {
+        let copy = appModel.copy
+
         Form {
             Section {
-                Picker("Язык", selection: languageBinding) {
-                    Text("Русский").tag("ru")
-                    Text("English").tag("en")
+                Picker(copy.languageLabel, selection: languageBinding) {
+                    Text(copy.englishLanguageName).tag("en")
+                    Text(copy.russianLanguageName).tag("ru")
                 }
 
-                Toggle("Запускать при входе", isOn: launchAtLoginBinding)
+                Toggle(copy.launchAtLoginLabel, isOn: launchAtLoginBinding)
 
                 Stepper(value: scheduleBinding, in: 5 ... 240, step: 5) {
-                    Text(scheduleTitle)
+                    Text(copy.defaultScheduleTitle(minutes: viewModel.defaultScheduleMinutes))
                 }
             }
 
@@ -27,6 +30,27 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding(20)
         .frame(width: 420)
+        .background(
+            WindowAccessor { window in
+                window.title = copy.settingsWindowTitle
+            }
+        )
+        .alert(
+            copy.restartPromptTitle,
+            isPresented: restartPromptBinding,
+            actions: {
+                Button(copy.restartNowButtonTitle) {
+                    ApplicationRelauncher.relaunch()
+                }
+
+                Button(copy.laterButtonTitle, role: .cancel) {
+                    viewModel.dismissRestartPrompt()
+                }
+            },
+            message: {
+                Text(copy.restartPromptMessage)
+            }
+        )
         .task {
             await viewModel.loadIfNeeded()
         }
@@ -55,7 +79,14 @@ struct SettingsView: View {
         )
     }
 
-    private var scheduleTitle: String {
-        "Интервал по умолчанию: \(viewModel.defaultScheduleMinutes) мин"
+    private var restartPromptBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.isRestartPromptPresented },
+            set: { isPresented in
+                if !isPresented {
+                    viewModel.dismissRestartPrompt()
+                }
+            }
+        )
     }
 }

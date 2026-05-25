@@ -11,6 +11,10 @@ final class AppPathsTests: XCTestCase {
         XCTAssertEqual(paths.pairsFile, rootURL.appendingPathComponent("pairs.json"))
         XCTAssertEqual(paths.preferencesFile, rootURL.appendingPathComponent("preferences.json"))
         XCTAssertEqual(paths.activityFile, rootURL.appendingPathComponent("activity.json"))
+        XCTAssertEqual(
+            paths.rcloneConfigFile,
+            rootURL.appendingPathComponent("rclone", isDirectory: true).appendingPathComponent("rclone.conf")
+        )
     }
 
     func testLiveCreatesAppSupportAndWorkspaceDirectories() throws {
@@ -32,6 +36,7 @@ final class AppPathsTests: XCTestCase {
         XCTAssertEqual(paths.workspaceRoot, expectedWorkspaceRoot)
         XCTAssertTrue(fileManager.directoryExists(at: paths.appSupportRoot))
         XCTAssertTrue(fileManager.directoryExists(at: paths.workspaceRoot))
+        XCTAssertTrue(fileManager.directoryExists(at: paths.rcloneConfigFile.deletingLastPathComponent()))
     }
 }
 

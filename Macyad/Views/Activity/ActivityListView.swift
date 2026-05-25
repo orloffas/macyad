@@ -2,12 +2,21 @@ import MacyadCore
 import SwiftUI
 
 struct ActivityListView: View {
+    @EnvironmentObject private var appModel: AppModel
     let events: [ActivityEvent]
+    @Binding var selectedEvent: ActivityEvent?
+
+    init(events: [ActivityEvent], selectedEvent: Binding<ActivityEvent?>) {
+        self.events = events
+        self._selectedEvent = selectedEvent
+    }
 
     var body: some View {
-        GroupBox("Журнал") {
+        let copy = appModel.copy
+
+        GroupBox(copy.journalTitle) {
             if events.isEmpty {
-                Label("События появятся после синхронизации, проверки или загрузки.", systemImage: "clock")
+                Label(copy.journalEmptyHint, systemImage: "clock")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -16,21 +25,13 @@ struct ActivityListView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(events) { event in
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: symbolName(for: event.severity))
-                                    .foregroundStyle(color(for: event.severity))
-                                    .frame(width: 14)
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(event.message)
-                                        .lineLimit(nil)
-                                        .textSelection(.enabled)
-
-                                    Text(event.date.formatted(date: .abbreviated, time: .shortened))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                            Button {
+                                selectedEvent = event
+                            } label: {
+                                row(for: event, copy: copy)
                             }
+                            .buttonStyle(.plain)
+                            .contentShape(Rectangle())
                             .padding(.vertical, 7)
 
                             if event.id != events.last?.id {
@@ -38,10 +39,31 @@ struct ActivityListView: View {
                             }
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(minHeight: 96, idealHeight: 150, maxHeight: 220)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func row(for event: ActivityEvent, copy: AppCopy) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbolName(for: event.severity))
+                .foregroundStyle(color(for: event.severity))
+                .frame(width: 14)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(event.message)
+                    .foregroundStyle(.primary)
+                    .lineLimit(nil)
+
+                Text(copy.formatTimestamp(event.date))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func symbolName(for severity: Severity) -> String {

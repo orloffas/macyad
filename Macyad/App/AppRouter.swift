@@ -1,15 +1,16 @@
 import Foundation
+import MacyadCore
 
 enum AppRoute: String, CaseIterable, Hashable {
     case onboarding
     case overview
 
-    var title: String {
+    func title(using copy: AppCopy) -> String {
         switch self {
         case .onboarding:
-            "Подключение"
+            copy.onboardingTitle
         case .overview:
-            "Обзор"
+            copy.overviewTitle
         }
     }
 

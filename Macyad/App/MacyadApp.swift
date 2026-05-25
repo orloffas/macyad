@@ -26,14 +26,19 @@ struct MacyadApp: App {
                 .onAppear {
                     configureAppModel()
                     configureStatusBar()
+                    syncPreferencesState()
                     refreshOnboardingState()
                     startBackgroundSyncIfNeeded()
                 }
         }
         .defaultSize(width: 1180, height: 760)
+        .commands {
+            CommandGroup(replacing: .newItem) {}
+        }
 
         Settings {
             SettingsView(viewModel: environment.settingsViewModel)
+                .environmentObject(appModel)
         }
     }
 
@@ -46,11 +51,13 @@ struct MacyadApp: App {
     }
 
     private func configureAppModel() {
+        environment.settingsViewModel.languageDidChange = { language in
+            appModel.language = language
+            AppLanguageState.update(language)
+            appModel.refreshStatusSummary(using: environment.statusService)
+        }
         appModel.openMainWindow = {
             appDelegate.showMainWindow()
-        }
-        appModel.openSettings = {
-            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
         appModel.quitApplication = {
             NSApp.terminate(nil)
@@ -67,6 +74,12 @@ struct MacyadApp: App {
             statusBarBridge.update(rootView: rootView)
         } else {
             self.statusBarBridge = StatusBarBridge(rootView: rootView)
+        }
+    }
+
+    private func syncPreferencesState() {
+        Task {
+            await environment.settingsViewModel.loadIfNeeded()
         }
     }
 

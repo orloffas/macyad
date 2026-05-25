@@ -16,8 +16,10 @@ public struct StatusService: Sendable {
     public init() {}
 
     public func makeSummary(onboardingStep: OnboardingState.Step, pairs: [SyncPair]) -> MenuBarSummary {
+        let copy = AppCopy.current
+
         guard onboardingStep == .complete || !pairs.isEmpty else {
-            return MenuBarSummary(title: "Требуется настройка", alarmCount: 0, warningCount: 0)
+            return MenuBarSummary(title: copy.statusSetupRequired, alarmCount: 0, warningCount: 0)
         }
 
         let alarmCount = pairs.filter { $0.lastKnownSeverity == .alarm }.count
@@ -25,11 +27,11 @@ public struct StatusService: Sendable {
         let title: String
 
         if alarmCount > 0 {
-            title = "Требуется внимание"
+            title = copy.statusAttentionRequired
         } else if warningCount > 0 {
-            title = "Есть предупреждения"
+            title = copy.statusWarningsPresent
         } else {
-            title = "Готово"
+            title = copy.statusReady
         }
 
         return MenuBarSummary(title: title, alarmCount: alarmCount, warningCount: warningCount)

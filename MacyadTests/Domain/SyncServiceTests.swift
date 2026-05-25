@@ -2,9 +2,61 @@ import XCTest
 @testable import MacyadCore
 
 final class SyncServiceTests: XCTestCase {
+    func testPushDoesNotRunRcloneWhenLocalFolderIsEmpty() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let processClient = StubProcessClient(result: ("", "", 0))
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false)
+        )
+
+        do {
+            try await service.push(makePair())
+            XCTFail("Expected empty local folder guard to block push")
+        } catch let error as SyncService.LocalFolderEmptyPushBlockedError {
+            XCTAssertEqual(error.pairName, "Work Docs")
+            XCTAssertEqual(
+                error.localizedDescription,
+                "Local folder is empty. Run Pull From Yandex first; Push to Yandex was blocked to avoid clearing Yandex."
+            )
+        }
+
+        let recordedArguments = await processClient.recordedArguments()
+        XCTAssertTrue(recordedArguments.isEmpty)
+    }
+
+    func testPushRunsRcloneWhenLocalFolderHasUserVisibleContent() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let processClient = StubProcessClient(result: ("", "", 0))
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+        )
+
+        try await service.push(makePair())
+
+        let recordedArguments = await processClient.recordedArguments()
+        XCTAssertEqual(
+            recordedArguments,
+            [["--config", "/tmp/macyad-rclone.conf", "sync", "/Users/test/Work Docs", "yd:/Work Docs"]]
+        )
+    }
+
     func testCheckReturnsWarningWhenRemoteChangesDetected() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let processClient = StubProcessClient(result: ("Transferred: 1 / 1, 100%", "", 0))
-        let service = SyncService(processClient: processClient)
+        let service = SyncService(processClient: processClient, configPath: "/tmp/macyad-rclone.conf")
 
         let severity = try await service.check(makePair())
 
@@ -12,13 +64,34 @@ final class SyncServiceTests: XCTestCase {
     }
 
     func testPullUsesCopyCommand() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let processClient = StubProcessClient(result: ("", "", 0))
-        let service = SyncService(processClient: processClient)
+        let service = SyncService(processClient: processClient, configPath: "/tmp/macyad-rclone.conf")
 
         try await service.pull(makePair())
 
         let recordedArguments = await processClient.recordedArguments()
-        XCTAssertEqual(recordedArguments, [["copy", "yd:/Work Docs", "/Users/test/Work Docs"]])
+        XCTAssertEqual(recordedArguments, [["--config", "/tmp/macyad-rclone.conf", "copy", "yd:/Work Docs", "/Users/test/Work Docs"]])
+    }
+
+    func testCommandFailureDescriptionUsesSelectedLanguage() {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let error = SyncService.CommandFailedError(
+            command: ["sync", "/tmp/source", "yd:/target"],
+            exitCode: 12,
+            stderr: "permission denied"
+        )
+
+        XCTAssertEqual(
+            error.localizedDescription,
+            "rclone sync /tmp/source yd:/target exited with code 12: permission denied"
+        )
     }
 
     private func makePair() -> SyncPair {
@@ -50,5 +123,13 @@ private actor StubProcessClient: RcloneProcessRunning {
 
     func recordedArguments() -> [[String]] {
         argumentsLog
+    }
+}
+
+private struct StubLocalFolderInspector: LocalFolderInspecting {
+    let containsUserVisibleContent: Bool
+
+    func containsUserVisibleContent(atPath path: String) throws -> Bool {
+        containsUserVisibleContent
     }
 }

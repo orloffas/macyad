@@ -14,7 +14,7 @@ public struct OnboardingService: OnboardingServicing {
     public init(locator: RcloneLocating, paths: AppPaths, configURL: URL? = nil) {
         self.locator = locator
         self.paths = paths
-        self.configURL = configURL ?? Self.defaultConfigURL()
+        self.configURL = configURL ?? paths.rcloneConfigFile
     }
 
     public func refresh() async throws -> OnboardingState {
@@ -34,13 +34,11 @@ public struct OnboardingService: OnboardingServicing {
             step: step,
             rcloneLocation: location,
             brewInstallCommand: "brew install rclone",
-            remoteCreateCommand: RcloneCommandBuilder.remoteCreateCommand(remoteName: Self.managedRemoteName)
+            remoteCreateCommand: RcloneCommandBuilder.remoteCreateCommand(
+                configPath: configURL.path,
+                remoteName: Self.managedRemoteName
+            )
         )
-    }
-
-    private static func defaultConfigURL() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".config/rclone/rclone.conf", isDirectory: false)
     }
 
     private func configuredRemoteExists(at configPath: URL) -> Bool {

@@ -7,10 +7,13 @@ final class SettingsViewModel: ObservableObject {
     @Published var launchAtLogin = AppPreferences.defaults.launchAtLoginEnabled
     @Published var defaultScheduleMinutes = AppPreferences.defaults.defaultScheduleMinutes
     @Published var errorMessage: String?
+    @Published var isRestartPromptPresented = false
 
     private let preferencesStore: AppPreferencesStore
     private let loginItemService: LoginItemControlling
     private var didLoad = false
+    private var loadedLanguage = AppPreferences.defaults.selectedLanguage
+    var languageDidChange: @MainActor (AppLanguage) -> Void = { _ in }
 
     init(
         preferencesStore: AppPreferencesStore,
@@ -28,14 +31,22 @@ final class SettingsViewModel: ObservableObject {
         didLoad = true
 
         do {
-            apply(try await preferencesStore.load())
+            let preferences = try await preferencesStore.load()
+            apply(preferences)
+            try loginItemService.setEnabled(preferences.launchAtLoginEnabled)
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     func updateSelectedLanguage(_ language: String) {
+        guard selectedLanguage != language else {
+            return
+        }
+
         selectedLanguage = language
+        isRestartPromptPresented = language != loadedLanguage
+        languageDidChange(selectedAppLanguage)
         Task { await persist() }
     }
 
@@ -57,6 +68,14 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
+    func dismissRestartPrompt() {
+        isRestartPromptPresented = false
+    }
+
+    var selectedAppLanguage: AppLanguage {
+        AppLanguage(code: selectedLanguage)
+    }
+
     private func persist() async {
         do {
             try await preferencesStore.save(makePreferences())
@@ -66,9 +85,11 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private func apply(_ preferences: AppPreferences) {
+        loadedLanguage = preferences.selectedLanguage
         selectedLanguage = preferences.selectedLanguage
         launchAtLogin = preferences.launchAtLoginEnabled
         defaultScheduleMinutes = preferences.defaultScheduleMinutes
+        languageDidChange(preferences.appLanguage)
     }
 
     private func makePreferences() -> AppPreferences {

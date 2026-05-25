@@ -5,12 +5,17 @@ struct MenuBarPopoverView: View {
     @EnvironmentObject private var appModel: AppModel
 
     var body: some View {
+        let copy = appModel.copy
+
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(appModel.statusSummary.title)
                     .font(.headline)
 
-                Text("Предупреждения \(appModel.statusSummary.warningCount) · Аварии \(appModel.statusSummary.alarmCount)")
+                Text(copy.warningsAndAlarmsSummary(
+                    warnings: appModel.statusSummary.warningCount,
+                    alarms: appModel.statusSummary.alarmCount
+                ))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -21,15 +26,15 @@ struct MenuBarPopoverView: View {
                         .font(.subheadline.weight(.semibold))
 
                     HStack(spacing: 8) {
-                        Button("Синхр.") {
+                        Button(copy.syncShortButtonTitle) {
                             appModel.runSyncNowForSelectedPair()
                         }
 
-                        Button("Проверить") {
+                        Button(copy.checkShortButtonTitle) {
                             appModel.runCheckForSelectedPair()
                         }
 
-                        Button("Загрузить") {
+                        Button(copy.pullShortButtonTitle) {
                             appModel.runPullForSelectedPair()
                         }
                     }
@@ -38,11 +43,11 @@ struct MenuBarPopoverView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Последние события")
+                Text(copy.recentEventsTitle)
                     .font(.subheadline.weight(.semibold))
 
                 if appModel.recentEvents.isEmpty {
-                    Text("Пока пусто")
+                    Text(copy.emptyEventsTitle)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
@@ -58,7 +63,7 @@ struct MenuBarPopoverView: View {
                                     .font(.callout)
                                     .lineLimit(2)
 
-                                Text(event.date.formatted(date: .abbreviated, time: .shortened))
+                                Text(copy.formatTimestamp(event.date))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -69,16 +74,16 @@ struct MenuBarPopoverView: View {
 
             Divider()
 
-            Button("Открыть главное окно") {
+            Button(copy.openMainWindowTitle) {
                 appModel.openMainWindow()
             }
             .keyboardShortcut(.defaultAction)
 
             SettingsLink {
-                Label("Настройки", systemImage: "gearshape")
+                Label(copy.settingsTitle, systemImage: "gearshape")
             }
 
-            Button("Завершить MacYaD") {
+            Button(copy.quitApplicationTitle) {
                 appModel.quitApplication()
             }
         }

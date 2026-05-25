@@ -7,40 +7,34 @@ struct MainWindowView: View {
         case checkYandex
         case pullFromYandex
 
-        var successMessage: String {
+        func successMessage(using copy: AppCopy) -> String {
             switch self {
             case .syncNow:
-                "Синхронизация завершена"
+                copy.manualSyncCompleted
             case .checkYandex:
-                "Проверка Yandex завершена"
+                copy.manualCheckCompleted
             case .pullFromYandex:
-                "Загрузка из Yandex завершена"
+                copy.manualPullCompleted
             }
         }
 
-        var failurePrefix: String {
+        func failurePrefix(using copy: AppCopy) -> String {
             switch self {
             case .syncNow:
-                "Не удалось синхронизировать"
+                copy.manualSyncFailedPrefix
             case .checkYandex:
-                "Не удалось проверить Yandex"
+                copy.manualCheckFailedPrefix
             case .pullFromYandex:
-                "Не удалось загрузить из Yandex"
+                copy.manualPullFailedPrefix
             }
         }
     }
 
-    private enum PairOperationError: LocalizedError {
+    private enum PairOperationError: Error {
         case missingRclone
-
-        var errorDescription: String? {
-            switch self {
-            case .missingRclone:
-                "Сначала установите `rclone`, затем повторите действие."
-            }
-        }
     }
 
+    @Environment(\.openSettings) private var openSettings
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var environment: AppEnvironment
     @State private var createPairViewModel = CreatePairViewModel(
@@ -50,6 +44,8 @@ struct MainWindowView: View {
     @State private var didLoadPairs = false
 
     var body: some View {
+        let copy = appModel.copy
+
         NavigationSplitView {
             List(
                 selection: Binding(
@@ -57,14 +53,14 @@ struct MainWindowView: View {
                     set: { appModel.sidebarSelection = $0 ?? .route(.overview) }
                 )
             ) {
-                Section("Приложение") {
+                Section(copy.applicationSectionTitle) {
                     ForEach(AppRoute.allCases, id: \.self) { route in
-                        Label(route.title, systemImage: route.systemImage)
+                        Label(route.title(using: copy), systemImage: route.systemImage)
                             .tag(SidebarSelection.route(route))
                     }
                 }
 
-                Section("Пары") {
+                Section(copy.pairsSectionTitle) {
                     ForEach(appModel.pairs) { pair in
                         PairListRowView(pair: pair)
                             .tag(SidebarSelection.pair(pair.id))
@@ -72,9 +68,15 @@ struct MainWindowView: View {
                 }
             }
             .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 280, ideal: 300, max: 360)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Новая пара", systemImage: "plus") {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    Button(copy.settingsTitle, systemImage: "gearshape") {
+                        openSettings()
+                    }
+                    .accessibilityIdentifier("settings.open")
+
+                    Button(copy.newPairButtonTitle, systemImage: "plus") {
                         Task {
                             await presentCreatePairSheet()
                         }
@@ -113,19 +115,21 @@ struct MainWindowView: View {
     }
 
     private var contentPane: some View {
-        Group {
+        let copy = appModel.copy
+
+        return Group {
             switch appModel.sidebarSelection {
             case .route(.onboarding):
                 OnboardingView(viewModel: environment.onboardingViewModel)
             case .route(.overview):
                 VStack(alignment: .leading, spacing: 14) {
-                    Text(appModel.route.title)
+                    Text(appModel.route.title(using: copy))
                         .font(.title2)
                         .fontWeight(.semibold)
 
-                    LabeledContent("Статус", value: appModel.statusSummary.title)
-                    LabeledContent("Рабочая папка", value: environment.paths.workspaceRoot.path)
-                    LabeledContent("Пары", value: "\(appModel.pairs.count)")
+                    LabeledContent(copy.overviewStatusLabel, value: appModel.statusSummary.title)
+                    LabeledContent(copy.overviewWorkspaceLabel, value: environment.paths.workspaceRoot.path)
+                    LabeledContent(copy.overviewPairsLabel, value: "\(appModel.pairs.count)")
 
                     Spacer()
                 }
@@ -144,12 +148,14 @@ struct MainWindowView: View {
     }
 
     private var inspectorPane: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Инспектор")
+        let copy = appModel.copy
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(copy.inspectorTitle)
                 .font(.headline)
 
-            LabeledContent("Предупреждения", value: "\(appModel.statusSummary.warningCount)")
-            LabeledContent("Аварии", value: "\(appModel.statusSummary.alarmCount)")
+            LabeledContent(copy.warningsLabel, value: "\(appModel.statusSummary.warningCount)")
+            LabeledContent(copy.alarmsLabel, value: "\(appModel.statusSummary.alarmCount)")
 
             Spacer()
         }
@@ -238,14 +244,16 @@ struct MainWindowView: View {
             let syncService = try await makeSyncService()
             let updatedPair = try await perform(operation, with: syncService, for: pair)
             try await replacePair(updatedPair)
+            let copy = AppCopy.current
 
             await environment.pairDetailViewModel.record(
                 ActivityEvent(
                     id: UUID(),
                     date: Date(),
-                    message: operation.successMessage,
+                    message: operation.successMessage(using: copy),
                     severity: updatedPair.lastKnownSeverity,
-                    pairID: updatedPair.id
+                    pairID: updatedPair.id,
+                    details: successDetails(for: operation, pair: updatedPair, copy: copy)
                 ),
                 latestSeverity: updatedPair.lastKnownSeverity
             )
@@ -253,24 +261,55 @@ struct MainWindowView: View {
                 appModel.refreshBackgroundState()
             }
         } catch {
-            var failedPair = pair
-            failedPair.lastKnownSeverity = .alarm
-            try? await replacePair(failedPair)
+            let copy = AppCopy.current
+            let localizedError = localizedMessage(for: error, copy: copy)
 
-            let failureMessage = "\(operation.failurePrefix): \(error.localizedDescription)"
-            await environment.pairDetailViewModel.record(
-                ActivityEvent(
-                    id: UUID(),
-                    date: Date(),
-                    message: failureMessage,
-                    severity: .alarm,
-                    pairID: pair.id
-                ),
-                latestSeverity: .alarm
-            )
-            await MainActor.run {
-                environment.pairDetailViewModel.setError(failureMessage)
-                appModel.refreshBackgroundState()
+            if case .syncNow = operation,
+               error is SyncService.LocalFolderEmptyPushBlockedError {
+                var blockedPair = pair
+                blockedPair.lastKnownSeverity = .warning
+                try? await replacePair(blockedPair)
+
+                await environment.pairDetailViewModel.record(
+                    ActivityEvent(
+                        id: UUID(),
+                        date: Date(),
+                        message: copy.manualPushBlockedTitle,
+                        severity: .warning,
+                        pairID: pair.id,
+                        details: localizedError
+                    ),
+                    latestSeverity: .warning
+                )
+                try? await environment.notificationClient.send(
+                    title: copy.pushBlockedNotificationTitle,
+                    body: "\(pair.name): \(localizedError)"
+                )
+                await MainActor.run {
+                    environment.pairDetailViewModel.setError(localizedError)
+                    appModel.refreshBackgroundState()
+                }
+            } else {
+                var failedPair = pair
+                failedPair.lastKnownSeverity = .alarm
+                try? await replacePair(failedPair)
+
+                let failureMessage = "\(operation.failurePrefix(using: copy)): \(localizedError)"
+                await environment.pairDetailViewModel.record(
+                    ActivityEvent(
+                        id: UUID(),
+                        date: Date(),
+                        message: operation.failurePrefix(using: copy),
+                        severity: .alarm,
+                        pairID: pair.id,
+                        details: localizedError
+                    ),
+                    latestSeverity: .alarm
+                )
+                await MainActor.run {
+                    environment.pairDetailViewModel.setError(failureMessage)
+                    appModel.refreshBackgroundState()
+                }
             }
         }
 
@@ -297,6 +336,23 @@ struct MainWindowView: View {
         return updatedPair
     }
 
+    private func successDetails(for operation: PairOperationKind, pair: SyncPair, copy: AppCopy) -> String? {
+        switch operation {
+        case .checkYandex where pair.lastKnownSeverity == .warning:
+            copy.checkWarningDetails
+        case .syncNow, .checkYandex, .pullFromYandex:
+            nil
+        }
+    }
+
+    private func localizedMessage(for error: Error, copy: AppCopy) -> String {
+        if let pairError = error as? PairOperationError, case .missingRclone = pairError {
+            return copy.missingRcloneForManualAction
+        }
+
+        return error.localizedDescription
+    }
+
     private func replacePair(_ pair: SyncPair) async throws {
         guard let pairIndex = await MainActor.run(body: { appModel.pairs.firstIndex(where: { $0.id == pair.id }) }) else {
             return
@@ -317,6 +373,9 @@ struct MainWindowView: View {
             throw PairOperationError.missingRclone
         }
 
-        return SyncService(processClient: RcloneProcessClient(executablePath: executablePath))
+        return SyncService(
+            processClient: RcloneProcessClient(executablePath: executablePath),
+            configPath: environment.paths.rcloneConfigFile.path
+        )
     }
 }

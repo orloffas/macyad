@@ -3,16 +3,24 @@ import XCTest
 
 final class StatusServiceTests: XCTestCase {
     func testSetupRequiredWhenOnboardingNotComplete() {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let service = StatusService()
 
         let summary = service.makeSummary(onboardingStep: .installRclone, pairs: [])
 
-        XCTAssertEqual(summary.title, "Требуется настройка")
+        XCTAssertEqual(summary.title, "Setup required")
         XCTAssertEqual(summary.alarmCount, 0)
         XCTAssertEqual(summary.warningCount, 0)
     }
 
     func testAttentionRequiredWhenAnyPairIsInAlarm() {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let service = StatusService()
         let pairs = [
             SyncPair(
@@ -39,12 +47,16 @@ final class StatusServiceTests: XCTestCase {
 
         let summary = service.makeSummary(onboardingStep: .complete, pairs: pairs)
 
-        XCTAssertEqual(summary.title, "Требуется внимание")
+        XCTAssertEqual(summary.title, "Attention required")
         XCTAssertEqual(summary.alarmCount, 1)
         XCTAssertEqual(summary.warningCount, 1)
     }
 
     func testWarningTitleWhenWarningsExistWithoutAlarms() {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let service = StatusService()
         let pairs = [
             SyncPair(
@@ -61,7 +73,7 @@ final class StatusServiceTests: XCTestCase {
 
         let summary = service.makeSummary(onboardingStep: .complete, pairs: pairs)
 
-        XCTAssertEqual(summary.title, "Есть предупреждения")
+        XCTAssertEqual(summary.title, "Warnings present")
         XCTAssertEqual(summary.alarmCount, 0)
         XCTAssertEqual(summary.warningCount, 1)
     }

@@ -10,12 +10,11 @@ final class StatusBarBridge: NSObject {
     init(rootView: AnyView) {
         super.init()
 
-        item.button?.image = NSImage(
-            named: "MenuBarTemplate"
-        ) ?? NSImage(
-            systemSymbolName: "externaldrive.badge.icloud",
-            accessibilityDescription: AppMetadata.displayName
-        )
+        item.button?.image = NSImage(named: "MenuBarTemplate")
+            ?? NSImage(
+                systemSymbolName: "externaldrive.badge.icloud",
+                accessibilityDescription: AppMetadata.displayName
+            )
         item.button?.image?.isTemplate = true
         item.button?.target = self
         item.button?.action = #selector(togglePopover(_:))

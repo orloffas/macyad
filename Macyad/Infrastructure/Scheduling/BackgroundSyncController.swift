@@ -79,6 +79,8 @@ public actor BackgroundSyncController {
     }
 
     public func runCycle() async {
+        let copy = AppCopy.current
+
         guard let pairs = try? await pairStore.load() else {
             return
         }
@@ -102,9 +104,14 @@ public actor BackgroundSyncController {
             let event = makeEvent(for: result, at: now())
             try? await activityStore.append(event)
 
-            if case let .failed(message) = result.disposition {
+            if case .blockedEmptyLocalFolder = result.disposition {
                 try? await notificationClient.send(
-                    title: "MacYaD: плановая синхронизация не выполнена",
+                    title: copy.pushBlockedNotificationTitle,
+                    body: "\(result.pair.name): \(copy.localFolderEmptyPushBlocked)"
+                )
+            } else if case let .failed(message) = result.disposition {
+                try? await notificationClient.send(
+                    title: copy.scheduledSyncNotificationTitle,
                     body: "\(result.pair.name): \(message)"
                 )
             }
@@ -127,18 +134,30 @@ public actor BackgroundSyncController {
     }
 
     private func makeEvent(for result: ScheduledPushResult, at date: Date) -> ActivityEvent {
+        let copy = AppCopy.current
         let message: String
         let severity: Severity
 
         switch result.disposition {
         case .pushed:
-            message = "Плановая синхронизация завершена"
+            message = copy.scheduledSyncCompleted
             severity = .healthy
+        case let .blockedEmptyLocalFolder(details):
+            message = copy.scheduledPushBlockedTitle
+            severity = .warning
+            return ActivityEvent(
+                id: UUID(),
+                date: date,
+                message: message,
+                severity: severity,
+                pairID: result.pair.id,
+                details: details
+            )
         case let .failed(errorMessage):
-            message = "Плановая синхронизация не выполнена: \(errorMessage)"
+            message = copy.scheduledSyncFailed(errorMessage)
             severity = .alarm
         case .skippedByPolicy, .skippedNotDue:
-            message = "Плановая синхронизация пропущена"
+            message = copy.scheduledSyncSkipped
             severity = result.pair.lastKnownSeverity
         }
 
@@ -147,7 +166,19 @@ public actor BackgroundSyncController {
             date: date,
             message: message,
             severity: severity,
-            pairID: result.pair.id
+            pairID: result.pair.id,
+            details: result.disposition.details
         )
+    }
+}
+
+private extension ScheduledPushDisposition {
+    var details: String? {
+        switch self {
+        case let .failed(message), let .blockedEmptyLocalFolder(message):
+            message
+        case .pushed, .skippedByPolicy, .skippedNotDue:
+            nil
+        }
     }
 }

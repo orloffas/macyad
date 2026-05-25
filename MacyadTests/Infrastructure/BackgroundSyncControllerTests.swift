@@ -3,6 +3,10 @@ import XCTest
 
 final class BackgroundSyncControllerTests: XCTestCase {
     func testRunCyclePersistsSuccessfulScheduledSyncAndAppendsActivity() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let pair = makePair(name: "Docs", lastSyncAt: now.addingTimeInterval(-4_000))
         let pairStore = InMemoryPairStore(pairs: [pair])
@@ -10,7 +14,10 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let notificationClient = RecordingNotificationClient()
         let scheduler = SchedulerService(
             policy: PushEligibilityPolicy(),
-            syncService: SyncService(processClient: RecordingProcessClient())
+            syncService: SyncService(
+                processClient: RecordingProcessClient(),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+            )
         )
         let controller = BackgroundSyncController(
             scheduler: scheduler,
@@ -32,11 +39,15 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertEqual(savedPairs[0].lastKnownSeverity, .healthy)
         XCTAssertEqual(events.count, 1)
         XCTAssertEqual(events[0].severity, .healthy)
-        XCTAssertTrue(events[0].message.contains("Плановая синхронизация завершена"))
+        XCTAssertTrue(events[0].message.contains("Scheduled Push to Yandex completed"))
         XCTAssertTrue(sentNotifications.isEmpty)
     }
 
     func testRunCycleRecordsFailureAndSendsNotification() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let pair = makePair(name: "Photos", lastSyncAt: nil)
         let pairStore = InMemoryPairStore(pairs: [pair])
@@ -44,7 +55,10 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let notificationClient = RecordingNotificationClient()
         let scheduler = SchedulerService(
             policy: PushEligibilityPolicy(),
-            syncService: SyncService(processClient: FailingProcessClient())
+            syncService: SyncService(
+                processClient: FailingProcessClient(),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+            )
         )
         let controller = BackgroundSyncController(
             scheduler: scheduler,
@@ -65,20 +79,70 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertNil(savedPairs[0].lastSyncAt)
         XCTAssertEqual(events.count, 1)
         XCTAssertEqual(events[0].severity, .alarm)
-        XCTAssertTrue(events[0].message.contains("Плановая синхронизация не выполнена"))
+        XCTAssertTrue(events[0].message.contains("Scheduled Push to Yandex failed"))
         XCTAssertEqual(sentNotifications.count, 1)
-        XCTAssertEqual(sentNotifications[0].title, "MacYaD: плановая синхронизация не выполнена")
+        XCTAssertEqual(sentNotifications[0].title, "MacYaD: scheduled Push to Yandex failed")
         XCTAssertTrue(sentNotifications[0].body.contains("Photos"))
     }
 
+    func testRunCycleRecordsEmptyLocalFolderBlockAndSendsNotification() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Empty", lastSyncAt: nil)
+        let pairStore = InMemoryPairStore(pairs: [pair])
+        let activityStore = InMemoryActivityStore()
+        let notificationClient = RecordingNotificationClient()
+        let scheduler = SchedulerService(
+            policy: PushEligibilityPolicy(),
+            syncService: SyncService(
+                processClient: RecordingProcessClient(),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false)
+            )
+        )
+        let controller = BackgroundSyncController(
+            scheduler: scheduler,
+            pairStore: pairStore,
+            activityStore: activityStore,
+            notificationClient: notificationClient,
+            now: { now },
+            sleep: { _ in }
+        )
+
+        await controller.runCycle()
+
+        let savedPairs = try await pairStore.load()
+        let events = try await activityStore.load()
+        let sentNotifications = await notificationClient.sentNotifications()
+
+        XCTAssertEqual(savedPairs[0].lastKnownSeverity, .warning)
+        XCTAssertNil(savedPairs[0].lastSyncAt)
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events[0].severity, .warning)
+        XCTAssertEqual(events[0].message, "Scheduled Push to Yandex blocked")
+        XCTAssertTrue(events[0].details?.contains("Local folder is empty") == true)
+        XCTAssertEqual(sentNotifications.count, 1)
+        XCTAssertEqual(sentNotifications[0].title, "MacYaD: Push to Yandex blocked")
+        XCTAssertTrue(sentNotifications[0].body.contains("Empty"))
+    }
+
     func testStartDoesNotRunScheduledSyncBeforeFirstInterval() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let pair = makePair(name: "Docs", lastSyncAt: now.addingTimeInterval(-4_000))
         let pairStore = InMemoryPairStore(pairs: [pair])
         let activityStore = InMemoryActivityStore()
         let scheduler = SchedulerService(
             policy: PushEligibilityPolicy(),
-            syncService: SyncService(processClient: RecordingProcessClient())
+            syncService: SyncService(
+                processClient: RecordingProcessClient(),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+            )
         )
         let controller = BackgroundSyncController(
             scheduler: scheduler,
@@ -164,5 +228,13 @@ private actor RecordingProcessClient: RcloneProcessRunning {
 private actor FailingProcessClient: RcloneProcessRunning {
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
         ("", "permission denied", 12)
+    }
+}
+
+private struct StubLocalFolderInspector: LocalFolderInspecting {
+    let containsUserVisibleContent: Bool
+
+    func containsUserVisibleContent(atPath path: String) throws -> Bool {
+        containsUserVisibleContent
     }
 }

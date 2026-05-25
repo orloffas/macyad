@@ -8,15 +8,17 @@ public struct PairService: Sendable {
         case invalidSchedule
 
         public var errorDescription: String? {
-            switch self {
+            let copy = AppCopy.current
+
+            return switch self {
             case .emptyName:
-                "Введите имя пары."
+                copy.pairValidationEmptyName
             case .missingLocalFolder:
-                "Выберите локальную папку."
+                copy.pairValidationMissingLocalFolder
             case .emptyRemotePath:
-                "Укажите remote path."
+                copy.pairValidationEmptyRemotePath
             case .invalidSchedule:
-                "Интервал синхронизации должен быть больше нуля."
+                copy.pairValidationInvalidSchedule
             }
         }
     }

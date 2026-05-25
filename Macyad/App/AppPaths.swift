@@ -3,6 +3,7 @@ import Foundation
 public struct AppPaths: Sendable {
     public let appSupportRoot: URL
     public let workspaceRoot: URL
+    public let rcloneConfigFile: URL
     public let pairsFile: URL
     public let preferencesFile: URL
     public let activityFile: URL
@@ -23,6 +24,11 @@ public struct AppPaths: Sendable {
 
         try fileManager.createDirectory(at: paths.appSupportRoot, withIntermediateDirectories: true, attributes: nil)
         try fileManager.createDirectory(at: paths.workspaceRoot, withIntermediateDirectories: true, attributes: nil)
+        try fileManager.createDirectory(
+            at: paths.rcloneConfigFile.deletingLastPathComponent(),
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
 
         return paths
     }
@@ -31,6 +37,7 @@ public struct AppPaths: Sendable {
         AppPaths(
             appSupportRoot: rootURL,
             workspaceRoot: rootURL.appendingPathComponent("Workspace", isDirectory: true),
+            rcloneConfigFile: rootURL.appendingPathComponent("rclone", isDirectory: true).appendingPathComponent("rclone.conf"),
             pairsFile: rootURL.appendingPathComponent("pairs.json"),
             preferencesFile: rootURL.appendingPathComponent("preferences.json"),
             activityFile: rootURL.appendingPathComponent("activity.json")
