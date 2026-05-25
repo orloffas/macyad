@@ -35,13 +35,14 @@ targets:
       - path: Macyad/ViewModels/AppModel.swift
       - path: Macyad/ViewModels/SettingsViewModel.swift
       - path: Macyad/Views
-    resources:
       - path: Macyad/Resources
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad
         PRODUCT_NAME: MacYaD
         INFOPLIST_KEY_CFBundleDisplayName: MacYaD
+        INFOPLIST_KEY_CFBundleIconName: AppIcon
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
     dependencies:

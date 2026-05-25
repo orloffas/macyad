@@ -4,11 +4,12 @@ public enum ScheduledPushDisposition: Equatable, Sendable {
     case pushed
     case skippedByPolicy
     case skippedNotDue
+    case blockedEmptyLocalFolder(String)
     case failed(String)
 
     var recordsActivityEvent: Bool {
         switch self {
-        case .pushed, .failed:
+        case .pushed, .blockedEmptyLocalFolder, .failed:
             true
         case .skippedByPolicy, .skippedNotDue:
             false
@@ -80,6 +81,7 @@ public actor SchedulerService {
     }
 
     public func runScheduledPushes(for pairs: [SyncPair], now: Date = Date()) async -> [ScheduledPushResult] {
+        let copy = AppCopy.current
         let dueEligiblePairs = pairs.filter { policy.canRunScheduledPush(for: $0) && isDue($0, now: now) }
 
         let syncService: SyncService?
@@ -118,7 +120,7 @@ public actor SchedulerService {
                 updatedPair.lastKnownSeverity = .alarm
                 results.append(ScheduledPushResult(
                     pair: updatedPair,
-                    disposition: .failed(syncServiceError?.localizedDescription ?? "Не удалось инициализировать scheduled sync.")
+                    disposition: .failed(syncServiceError?.localizedDescription ?? copy.scheduledSyncBootstrapFailure)
                 ))
                 continue
             }
@@ -128,6 +130,9 @@ public actor SchedulerService {
                 updatedPair.lastKnownSeverity = .healthy
                 updatedPair.lastSyncAt = now
                 results.append(ScheduledPushResult(pair: updatedPair, disposition: .pushed))
+            } catch let error as SyncService.LocalFolderEmptyPushBlockedError {
+                updatedPair.lastKnownSeverity = .warning
+                results.append(ScheduledPushResult(pair: updatedPair, disposition: .blockedEmptyLocalFolder(error.localizedDescription)))
             } catch {
                 updatedPair.lastKnownSeverity = .alarm
                 results.append(ScheduledPushResult(pair: updatedPair, disposition: .failed(error.localizedDescription)))

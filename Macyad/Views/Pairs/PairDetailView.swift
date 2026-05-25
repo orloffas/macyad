@@ -2,75 +2,82 @@ import MacyadCore
 import SwiftUI
 
 struct PairDetailView: View {
+    @EnvironmentObject private var appModel: AppModel
     let pair: SyncPair?
     @ObservedObject var viewModel: PairDetailViewModel
     var onSyncNow: (() -> Void)? = nil
     var onCheckYandex: (() -> Void)? = nil
     var onPullFromYandex: (() -> Void)? = nil
+    @State private var selectedActivityEvent: ActivityEvent?
 
     var body: some View {
+        let copy = appModel.copy
+
         Group {
             if let pair {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        ViewThatFits(in: .horizontal) {
-                            header(pair: pair)
-                            VStack(alignment: .leading, spacing: 10) {
-                                titleBlock(pair: pair)
-                                actionButtons
-                            }
+                VStack(alignment: .leading, spacing: 14) {
+                    ViewThatFits(in: .horizontal) {
+                        header(pair: pair)
+                        VStack(alignment: .leading, spacing: 10) {
+                            titleBlock(pair: pair)
+                            actionButtons
                         }
-
-                        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 8) {
-                            GridRow {
-                                Text("Локальная папка")
-                                    .foregroundStyle(.secondary)
-                                Text(pair.localFolderDisplayPath)
-                                    .textSelection(.enabled)
-                                    .lineLimit(2)
-                            }
-                            GridRow {
-                                Text("Путь на Yandex")
-                                    .foregroundStyle(.secondary)
-                                Text(pair.remotePath)
-                                    .textSelection(.enabled)
-                            }
-                            GridRow {
-                                Text("Интервал")
-                                    .foregroundStyle(.secondary)
-                                Text("\(pair.scheduleMinutes) мин")
-                            }
-                            GridRow {
-                                Text("Политика удаления")
-                                    .foregroundStyle(.secondary)
-                                Text(deletePolicyTitle(pair.deletePolicy))
-                            }
-                            GridRow {
-                                Text("Последняя синхронизация")
-                                    .foregroundStyle(.secondary)
-                                Text(lastSyncTitle(for: pair))
-                            }
-                            GridRow {
-                                Text("Следующая синхронизация")
-                                    .foregroundStyle(.secondary)
-                                Text(nextScheduledSyncTitle(for: pair))
-                            }
-                        }
-                        .font(.callout)
-
-                        if let lastErrorMessage = viewModel.lastErrorMessage {
-                            LastErrorDisclosure(message: lastErrorMessage)
-                        }
-
-                        ActivityListView(events: viewModel.events)
                     }
-                    .padding(16)
+
+                    Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 8) {
+                        GridRow {
+                            Text(copy.localFolderTitle)
+                                .foregroundStyle(.secondary)
+                            Text(pair.localFolderDisplayPath)
+                                .textSelection(.enabled)
+                                .lineLimit(2)
+                        }
+                        GridRow {
+                            Text(copy.remotePathTitle)
+                                .foregroundStyle(.secondary)
+                            Text(pair.remotePath)
+                                .textSelection(.enabled)
+                        }
+                        GridRow {
+                            Text(copy.scheduleFieldTitle)
+                                .foregroundStyle(.secondary)
+                            Text(copy.minutesValue(pair.scheduleMinutes))
+                        }
+                        GridRow {
+                            Text(copy.deletePolicyFieldTitle)
+                                .foregroundStyle(.secondary)
+                            Text(deletePolicyTitle(pair.deletePolicy))
+                        }
+                        GridRow {
+                            Text(copy.lastSyncTitle)
+                                .foregroundStyle(.secondary)
+                            Text(lastSyncTitle(for: pair))
+                        }
+                        GridRow {
+                            Text(copy.nextSyncTitle)
+                                .foregroundStyle(.secondary)
+                            Text(nextScheduledSyncTitle(for: pair))
+                        }
+                    }
+                    .font(.callout)
+
+                    if let lastErrorMessage = viewModel.lastErrorMessage {
+                        LastErrorDisclosure(message: lastErrorMessage)
+                    }
+
+                    ActivityListView(events: viewModel.events, selectedEvent: $selectedActivityEvent)
+                        .frame(maxHeight: .infinity)
+                }
+                .padding(16)
+                .sheet(item: $selectedActivityEvent) { event in
+                    ActivityDetailView(event: event, pair: pair)
+                        .environmentObject(appModel)
                 }
             } else {
                 ContentUnavailableView(
-                    "Пара не выбрана",
+                    copy.noPairTitle,
                     systemImage: "folder.badge.plus",
-                    description: Text("Выберите существующую пару в боковой панели или создайте новую.")
+                    description: Text(copy.noPairDescription)
                 )
             }
         }
@@ -88,21 +95,25 @@ struct PairDetailView: View {
     }
 
     private func titleBlock(pair: SyncPair) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+        let copy = appModel.copy
+
+        return VStack(alignment: .leading, spacing: 5) {
             Text(pair.name)
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("Последний статус: \(severityTitle(viewModel.latestSeverity))")
+            Text(copy.lastStatusTitle(severityTitle(viewModel.latestSeverity)))
                 .foregroundStyle(.secondary)
         }
     }
 
     private var actionButtons: some View {
-        HStack(spacing: 8) {
-            Button("Синхронизировать") { onSyncNow?() }
-            Button("Проверить Yandex") { onCheckYandex?() }
-            Button("Загрузить из Yandex") { onPullFromYandex?() }
+        let copy = appModel.copy
+
+        return HStack(spacing: 8) {
+            Button(copy.syncButtonTitle) { onSyncNow?() }
+            Button(copy.checkButtonTitle) { onCheckYandex?() }
+            Button(copy.pullButtonTitle) { onPullFromYandex?() }
         }
         .controlSize(.small)
         .disabled(viewModel.isRunningOperation)
@@ -125,7 +136,7 @@ struct PairDetailView: View {
                 .frame(maxHeight: 120)
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             } label: {
-                Label("Последняя ошибка", systemImage: "xmark.octagon.fill")
+                Label(AppCopy.current.lastErrorTitle, systemImage: "xmark.octagon.fill")
                     .foregroundStyle(.red)
                     .font(.callout.weight(.semibold))
             }
@@ -133,41 +144,49 @@ struct PairDetailView: View {
     }
 
     private func severityTitle(_ severity: Severity) -> String {
+        let copy = appModel.copy
+
         switch severity {
         case .healthy:
-            "Норма"
+            return copy.severityHealthy
         case .info:
-            "Информация"
+            return copy.severityInfo
         case .warning:
-            "Предупреждение"
+            return copy.severityWarning
         case .alarm:
-            "Авария"
+            return copy.severityAlarm
         }
     }
 
     private func deletePolicyTitle(_ policy: SyncPair.DeletePolicy) -> String {
+        let copy = appModel.copy
+
         switch policy {
         case .mirrorToYandex:
-            "Зеркалить в Yandex"
+            return copy.deletePolicyMirrorTitle
         case .keepRemoteDeletesManual:
-            "Удаления на Yandex вручную"
+            return copy.deletePolicyManualTitle
         }
     }
 
     private func lastSyncTitle(for pair: SyncPair) -> String {
+        let copy = appModel.copy
+
         guard let lastSyncAt = pair.lastSyncAt else {
-            return "Ещё не выполнялась"
+            return copy.neverSynced
         }
 
-        return lastSyncAt.formatted(date: .abbreviated, time: .shortened)
+        return copy.formatTimestamp(lastSyncAt)
     }
 
     private func nextScheduledSyncTitle(for pair: SyncPair) -> String {
+        let copy = appModel.copy
+
         guard let lastSyncAt = pair.lastSyncAt else {
-            return "После первой успешной синхронизации"
+            return copy.afterFirstSuccessfulSync
         }
 
         let nextRun = lastSyncAt.addingTimeInterval(TimeInterval(pair.scheduleMinutes * 60))
-        return nextRun.formatted(date: .abbreviated, time: .shortened)
+        return copy.formatTimestamp(nextRun)
     }
 }

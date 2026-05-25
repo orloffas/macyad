@@ -35,7 +35,11 @@ xcodebuild \
   build
 
 open_app() {
-  /usr/bin/open -n "$APP_BUNDLE" --args --force-foreground
+  if [[ "${1:-}" == "foreground" ]]; then
+    /usr/bin/open -n "$APP_BUNDLE" --args --force-foreground
+  else
+    /usr/bin/open -g -n "$APP_BUNDLE"
+  fi
 }
 
 launched_app_asn() {
@@ -74,7 +78,7 @@ case "$MODE" in
     ;;
   --debug|debug)
     APP_PID=""
-    open_app
+    open_app foreground
     verify_launched_app
     APP_PID="$(launched_app_pid)"
     if [[ -z "$APP_PID" ]]; then

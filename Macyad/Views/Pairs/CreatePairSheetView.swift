@@ -3,6 +3,7 @@ import SwiftUI
 
 struct CreatePairSheetView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appModel: AppModel
     @ObservedObject var viewModel: CreatePairViewModel
     let onSave: @MainActor (SyncPair) async throws -> Void
 
@@ -10,33 +11,35 @@ struct CreatePairSheetView: View {
     @State private var isSaving = false
 
     var body: some View {
+        let copy = appModel.copy
+
         VStack(alignment: .leading, spacing: 14) {
-            Text("Новая пара")
+            Text(copy.createPairTitle)
                 .font(.title3)
                 .fontWeight(.semibold)
 
             Form {
-                TextField("Имя пары", text: $viewModel.name)
+                TextField(copy.pairNamePlaceholder, text: $viewModel.name)
 
                 HStack {
-                    Text(viewModel.localFolderDisplayPath ?? "Локальная папка не выбрана")
+                    Text(viewModel.localFolderDisplayPath ?? copy.localFolderNotSelected)
                         .foregroundStyle(viewModel.localFolderDisplayPath == nil ? .secondary : .primary)
                         .lineLimit(1)
 
                     Spacer()
 
-                    Button("Выбрать папку") {
+                    Button(copy.chooseFolderButtonTitle) {
                         viewModel.chooseFolder()
                     }
                 }
 
-                TextField("Путь на Yandex", text: $viewModel.remotePath)
+                TextField(copy.remotePathPlaceholder, text: $viewModel.remotePath)
 
-                Stepper("Интервал: \(viewModel.scheduleMinutes) мин", value: $viewModel.scheduleMinutes, in: 5...240, step: 5)
+                Stepper(copy.intervalTitle(minutes: viewModel.scheduleMinutes), value: $viewModel.scheduleMinutes, in: 5...240, step: 5)
 
-                Picker("Политика удаления", selection: $viewModel.deletePolicy) {
-                    Text("Зеркалить в Yandex").tag(SyncPair.DeletePolicy.mirrorToYandex)
-                    Text("Удаления на Yandex вручную").tag(SyncPair.DeletePolicy.keepRemoteDeletesManual)
+                Picker(copy.deletePolicyLabel, selection: $viewModel.deletePolicy) {
+                    Text(copy.deletePolicyMirrorTitle).tag(SyncPair.DeletePolicy.mirrorToYandex)
+                    Text(copy.deletePolicyManualTitle).tag(SyncPair.DeletePolicy.keepRemoteDeletesManual)
                 }
 
                 Section {
@@ -56,11 +59,11 @@ struct CreatePairSheetView: View {
             HStack {
                 Spacer()
 
-                Button("Отмена") {
+                Button(copy.cancelButtonTitle) {
                     dismiss()
                 }
 
-                Button("Сохранить пару") {
+                Button(copy.savePairButtonTitle) {
                     Task { await save() }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -72,8 +75,13 @@ struct CreatePairSheetView: View {
     }
 
     private var summaryText: String {
-        let folder = viewModel.localFolderDisplayPath ?? "не выбрана"
-        return "Будет синхронизация \(folder) -> \(viewModel.remotePath) каждые \(viewModel.scheduleMinutes) мин."
+        let copy = appModel.copy
+        let folder = viewModel.localFolderDisplayPath ?? copy.localFolderNotSelectedCompact
+        return copy.createPairSummary(
+            folder: folder,
+            remotePath: viewModel.remotePath,
+            scheduleMinutes: viewModel.scheduleMinutes
+        )
     }
 
     @MainActor

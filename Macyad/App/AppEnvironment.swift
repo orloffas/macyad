@@ -10,7 +10,7 @@ final class AppEnvironment: ObservableObject {
         var errorDescription: String? {
             switch self {
             case .rcloneUnavailable:
-                "rclone не найден для scheduled sync."
+                AppCopy.current.backgroundSyncRcloneUnavailable
             }
         }
     }
@@ -129,12 +129,15 @@ final class AppEnvironment: ObservableObject {
     func makeBackgroundSyncController(
         stateDidChange: @escaping BackgroundSyncController.StateDidChange
     ) -> BackgroundSyncController {
-        let scheduler = SchedulerService(syncServiceProvider: { [rcloneLocator] in
+        let scheduler = SchedulerService(syncServiceProvider: { [rcloneLocator, configPath = paths.rcloneConfigFile.path] in
             guard let executablePath = try await rcloneLocator.locate() else {
                 throw BackgroundSyncBootstrapError.rcloneUnavailable
             }
 
-            return SyncService(processClient: RcloneProcessClient(executablePath: executablePath))
+            return SyncService(
+                processClient: RcloneProcessClient(executablePath: executablePath),
+                configPath: configPath
+            )
         })
 
         return BackgroundSyncController(
@@ -161,6 +164,11 @@ final class AppEnvironment: ObservableObject {
 
         try fileManager.createDirectory(at: paths.appSupportRoot, withIntermediateDirectories: true, attributes: nil)
         try fileManager.createDirectory(at: paths.workspaceRoot, withIntermediateDirectories: true, attributes: nil)
+        try fileManager.createDirectory(
+            at: paths.rcloneConfigFile.deletingLastPathComponent(),
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
 
         return paths
     }

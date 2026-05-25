@@ -3,9 +3,16 @@ import XCTest
 
 final class SchedulerServiceTests: XCTestCase {
     func testRunScheduledPushesRespectsScheduleInterval() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let processClient = RecordingProcessClient()
-        let service = SyncService(processClient: processClient)
+        let service = SyncService(
+            processClient: processClient,
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+        )
         let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
         let duePair = makePair(name: "Due", severity: .healthy, lastSyncAt: now.addingTimeInterval(-2_000))
         let notDuePair = makePair(name: "NotDue", severity: .healthy, lastSyncAt: now.addingTimeInterval(-300))
@@ -21,9 +28,16 @@ final class SchedulerServiceTests: XCTestCase {
     }
 
     func testRunScheduledPushesSkipsAlarmPairs() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let processClient = RecordingProcessClient()
-        let service = SyncService(processClient: processClient)
+        let service = SyncService(
+            processClient: processClient,
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+        )
         let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
         let healthyPair = makePair(name: "Healthy", severity: .healthy, lastSyncAt: nil)
         let alarmPair = makePair(name: "Alarm", severity: .alarm, lastSyncAt: nil)
@@ -39,9 +53,16 @@ final class SchedulerServiceTests: XCTestCase {
     }
 
     func testRunScheduledPushesMarksFailuresAsAlarm() async {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let processClient = FailingProcessClient()
-        let service = SyncService(processClient: processClient)
+        let service = SyncService(
+            processClient: processClient,
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+        )
         let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
         let pair = makePair(name: "Broken", severity: .healthy, lastSyncAt: nil)
 
@@ -55,7 +76,36 @@ final class SchedulerServiceTests: XCTestCase {
             return XCTFail("Expected failed disposition")
         }
 
-        XCTAssertTrue(message.contains("завершился с кодом 9"))
+        XCTAssertTrue(message.contains("exited with code 9"))
+    }
+
+    func testRunScheduledPushesBlocksEmptyLocalFolderAsWarning() async {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let processClient = RecordingProcessClient()
+        let service = SyncService(
+            processClient: processClient,
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false)
+        )
+        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let pair = makePair(name: "Empty", severity: .healthy, lastSyncAt: nil)
+
+        let results = await scheduler.runScheduledPushes(for: [pair], now: now)
+        let recordedArguments = await processClient.recordedArguments()
+
+        XCTAssertTrue(recordedArguments.isEmpty)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].pair.lastKnownSeverity, .warning)
+        XCTAssertNil(results[0].pair.lastSyncAt)
+
+        guard case let .blockedEmptyLocalFolder(message) = results[0].disposition else {
+            return XCTFail("Expected empty local folder block")
+        }
+
+        XCTAssertTrue(message.contains("Local folder is empty"))
     }
 
     func testPolicyBlocksAlarmPairsFromScheduledPush() {
@@ -96,5 +146,13 @@ private actor RecordingProcessClient: RcloneProcessRunning {
 private actor FailingProcessClient: RcloneProcessRunning {
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
         ("", "network exploded", 9)
+    }
+}
+
+private struct StubLocalFolderInspector: LocalFolderInspecting {
+    let containsUserVisibleContent: Bool
+
+    func containsUserVisibleContent(atPath path: String) throws -> Bool {
+        containsUserVisibleContent
     }
 }

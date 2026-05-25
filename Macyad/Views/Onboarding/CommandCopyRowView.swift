@@ -1,13 +1,16 @@
 import SwiftUI
 
 struct CommandCopyRowView: View {
-    let title: LocalizedStringKey
+    @EnvironmentObject private var appModel: AppModel
+    let title: String
     let command: String
     let copied: Bool
     let accessibilityIdentifier: String?
     let onCopy: () -> Void
 
     var body: some View {
+        let copy = appModel.copy
+
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -25,8 +28,8 @@ struct CommandCopyRowView: View {
                     .foregroundStyle(copied ? .green : .secondary)
             }
             .buttonStyle(.borderless)
-            .help(copied ? "Скопировано" : "Скопировать")
-            .accessibilityLabel(copied ? "Скопировано" : "Скопировать")
+            .help(copied ? copy.copiedButtonTitle : copy.copyButtonTitle)
+            .accessibilityLabel(copied ? copy.copiedButtonTitle : copy.copyButtonTitle)
             .accessibilityIdentifier(accessibilityIdentifier ?? "")
         }
         .padding(10)

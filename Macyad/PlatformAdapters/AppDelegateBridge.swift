@@ -4,10 +4,21 @@ import AppKit
 final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private weak var mainWindow: NSWindow?
     private var didApplyInitialLaunchBehavior = false
-    private var foregroundActivationTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        false
+    }
+
+    func application(_ application: NSApplication, shouldSaveApplicationState coder: NSCoder) -> Bool {
+        false
+    }
+
+    func application(_ application: NSApplication, shouldRestoreApplicationState coder: NSCoder) -> Bool {
+        false
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -15,10 +26,12 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
     }
 
     func attachMainWindow(_ window: NSWindow, hideOnInitialLaunch: Bool) {
-        guard mainWindow !== window else { return }
-        mainWindow = window
-        window.delegate = self
         applyMainWindowSizePolicy(to: window)
+
+        if mainWindow !== window {
+            mainWindow = window
+            window.delegate = self
+        }
 
         guard !didApplyInitialLaunchBehavior else {
             return
@@ -26,7 +39,7 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
 
         didApplyInitialLaunchBehavior = true
         if hideOnInitialLaunch {
-            window.orderOut(nil)
+            hideMainWindow(window)
         } else {
             showMainWindow()
         }
@@ -34,29 +47,40 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
 
     func showMainWindow() {
         guard let mainWindow else { return }
-        foregroundActivationTask?.cancel()
-        presentMainWindow(mainWindow)
 
-        foregroundActivationTask = Task { @MainActor [weak self, weak mainWindow] in
-            try? await Task.sleep(nanoseconds: 250_000_000)
-            guard !Task.isCancelled, let self, let mainWindow, self.mainWindow === mainWindow else { return }
-            self.presentMainWindow(mainWindow)
+        NSApp.setActivationPolicy(.regular)
+
+        if mainWindow.isMiniaturized {
+            mainWindow.deminiaturize(nil)
         }
+
+        mainWindow.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showMainWindow()
-        return true
+        return false
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
-        sender.orderOut(nil)
-        return false
+        if sender === mainWindow {
+            hideMainWindow(sender)
+            return false
+        }
+
+        return true
+    }
+
+    private func hideMainWindow(_ window: NSWindow) {
+        window.orderOut(nil)
+        NSApp.setActivationPolicy(.accessory)
     }
 
     private func applyMainWindowSizePolicy(to window: NSWindow) {
         let minimumSize = NSSize(width: 980, height: 680)
         window.minSize = minimumSize
+        window.isRestorable = false
 
         guard window.frame.width < minimumSize.width || window.frame.height < minimumSize.height else {
             return
@@ -66,19 +90,5 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         frame.size.width = max(frame.width, minimumSize.width)
         frame.size.height = max(frame.height, minimumSize.height)
         window.setFrame(frame, display: true)
-    }
-
-    private func presentMainWindow(_ window: NSWindow) {
-        NSApp.setActivationPolicy(.regular)
-
-        if window.isMiniaturized {
-            window.deminiaturize(nil)
-        }
-
-        window.makeKeyAndOrderFront(nil)
-        window.orderFrontRegardless()
-        NSRunningApplication.current.activate(options: [.activateAllWindows])
-        NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
     }
 }

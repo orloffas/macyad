@@ -35,4 +35,16 @@ final class PairServiceTests: XCTestCase {
             XCTAssertEqual(error as? PairService.ValidationError, .missingLocalFolder)
         }
     }
+
+    func testValidationErrorMessagesFollowSelectedLanguage() {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        XCTAssertEqual(PairService.ValidationError.emptyName.localizedDescription, "Enter a pair name.")
+
+        AppLanguageState.update(.russian)
+
+        XCTAssertEqual(PairService.ValidationError.emptyName.localizedDescription, "Введите имя пары.")
+    }
 }
