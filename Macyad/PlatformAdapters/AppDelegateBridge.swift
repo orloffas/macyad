@@ -8,6 +8,7 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let launchMode = AppLaunchMode(arguments: ProcessInfo.processInfo.arguments)
+        applyApplicationIcon()
         NSApp.setActivationPolicy(launchMode.shouldForceForegroundWindow ? .regular : .accessory)
     }
 
@@ -29,6 +30,7 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
 
     func attachMainWindow(_ window: NSWindow, hideOnInitialLaunch: Bool) {
         applyMainWindowSizePolicy(to: window)
+        applyApplicationIcon()
 
         if mainWindow !== window {
             mainWindow = window
@@ -50,6 +52,7 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
     func showMainWindow() {
         guard let mainWindow else { return }
 
+        applyApplicationIcon()
         NSApp.setActivationPolicy(.regular)
 
         if mainWindow.isMiniaturized {
@@ -75,6 +78,7 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
     }
 
     private func hideMainWindow(_ window: NSWindow) {
+        applyApplicationIcon()
         window.orderOut(nil)
         NSApp.setActivationPolicy(.accessory)
     }
@@ -92,5 +96,26 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         frame.size.width = max(frame.width, minimumSize.width)
         frame.size.height = max(frame.height, minimumSize.height)
         window.setFrame(frame, display: true)
+    }
+
+    private func applyApplicationIcon() {
+        guard let iconImage = makeApplicationIcon() else {
+            return
+        }
+
+        iconImage.isTemplate = false
+        NSApp.applicationIconImage = iconImage
+        NSApp.dockTile.display()
+    }
+
+    private func makeApplicationIcon() -> NSImage? {
+        if let bundledImage = NSImage(named: "MenuBarTemplate")?.copy() as? NSImage {
+            return bundledImage
+        }
+
+        return NSImage(
+            systemSymbolName: "externaldrive.badge.icloud",
+            accessibilityDescription: AppMetadata.displayName
+        )?.copy() as? NSImage
     }
 }

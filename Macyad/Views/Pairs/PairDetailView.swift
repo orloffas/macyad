@@ -4,10 +4,13 @@ import SwiftUI
 struct PairDetailView: View {
     @EnvironmentObject private var appModel: AppModel
     let pair: SyncPair?
+    let displaySeverity: Severity
     @ObservedObject var viewModel: PairDetailViewModel
     var onSyncNow: (() -> Void)? = nil
     var onCheckYandex: (() -> Void)? = nil
     var onPullFromYandex: (() -> Void)? = nil
+    var onEditPair: (() -> Void)? = nil
+    var onDeletePair: (() -> Void)? = nil
     @State private var selectedActivityEvent: ActivityEvent?
 
     var body: some View {
@@ -20,7 +23,11 @@ struct PairDetailView: View {
                         header(pair: pair)
                         VStack(alignment: .leading, spacing: 10) {
                             titleBlock(pair: pair)
-                            actionButtons
+                            HStack(spacing: 10) {
+                                actionButtons
+                                Spacer(minLength: 0)
+                                managementButtons
+                            }
                         }
                     }
 
@@ -90,7 +97,10 @@ struct PairDetailView: View {
 
             Spacer(minLength: 12)
 
-            actionButtons
+            VStack(alignment: .trailing, spacing: 8) {
+                actionButtons
+                managementButtons
+            }
         }
     }
 
@@ -102,7 +112,7 @@ struct PairDetailView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text(copy.lastStatusTitle(severityTitle(viewModel.latestSeverity)))
+            Text(copy.lastStatusTitle(severityTitle(displaySeverity)))
                 .foregroundStyle(.secondary)
         }
     }
@@ -117,6 +127,27 @@ struct PairDetailView: View {
         }
         .controlSize(.small)
         .disabled(viewModel.isRunningOperation)
+    }
+
+    private var managementButtons: some View {
+        let copy = appModel.copy
+
+        return HStack(spacing: 8) {
+            Button {
+                onEditPair?()
+            } label: {
+                Image(systemName: "pencil")
+            }
+            .help(copy.editPairTitle)
+
+            Button(role: .destructive) {
+                onDeletePair?()
+            } label: {
+                Image(systemName: "trash")
+            }
+            .help(copy.deletePairTitle)
+        }
+        .controlSize(.small)
     }
 
     private struct LastErrorDisclosure: View {

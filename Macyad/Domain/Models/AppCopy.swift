@@ -202,7 +202,7 @@ public struct AppCopy: Sendable {
     }
 
     public var pullShortButtonTitle: String {
-        isRussian ? "Загрузить из Yandex" : "Pull from Yandex"
+        "Pull from Yandex"
     }
 
     public var recentEventsTitle: String {
@@ -267,6 +267,10 @@ public struct AppCopy: Sendable {
         isRussian ? "Новая пара" : "New Pair"
     }
 
+    public var editPairTitle: String {
+        isRussian ? "Изменить пару" : "Edit Pair"
+    }
+
     public var pairNamePlaceholder: String {
         isRussian ? "Имя пары" : "Pair name"
     }
@@ -309,6 +313,38 @@ public struct AppCopy: Sendable {
 
     public var savePairButtonTitle: String {
         isRussian ? "Сохранить пару" : "Save pair"
+    }
+
+    public var savePairChangesButtonTitle: String {
+        isRussian ? "Сохранить изменения" : "Save changes"
+    }
+
+    public var deletePairTitle: String {
+        isRussian ? "Удалить пару" : "Delete pair"
+    }
+
+    public var deletePairConfirmationTitle: String {
+        isRussian ? "Удалить пару?" : "Delete pair?"
+    }
+
+    public func deletePairConfirmationMessage(_ pairName: String) -> String {
+        if isRussian {
+            return "Пара \(pairName) и её activity будут удалены."
+        }
+
+        return "The pair \(pairName) and its activity will be deleted."
+    }
+
+    public var deletePairConfirmButtonTitle: String {
+        isRussian ? "Удалить" : "Delete"
+    }
+
+    public var syncExcludesTitle: String {
+        isRussian ? "Sync excludes" : "Sync excludes"
+    }
+
+    public var checkAdditionalExcludesTitle: String {
+        isRussian ? "Additional check excludes" : "Additional check excludes"
     }
 
     public func createPairSummary(folder: String, remotePath: String, scheduleMinutes: Int) -> String {
@@ -370,7 +406,7 @@ public struct AppCopy: Sendable {
     }
 
     public var pullButtonTitle: String {
-        isRussian ? "Загрузить из Yandex" : "Pull from Yandex"
+        "Pull from Yandex"
     }
 
     public var lastErrorTitle: String {

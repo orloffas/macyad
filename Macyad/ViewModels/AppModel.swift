@@ -15,6 +15,7 @@ final class AppModel: ObservableObject {
         remoteCreateCommand: ""
     )
     @Published var pairs: [SyncPair] = []
+    @Published private(set) var activityEvents: [ActivityEvent] = []
     @Published var recentEvents: [ActivityEvent] = []
     @Published var statusSummary = MenuBarSummary(title: AppCopy.current.statusSetupRequired, alarmCount: 0, warningCount: 0)
     var openMainWindow: () -> Void = {}
@@ -24,6 +25,7 @@ final class AppModel: ObservableObject {
     var runCheckForSelectedPair: () -> Void = {}
     var runPullForSelectedPair: () -> Void = {}
     private var didAutoSelectInitialPair = false
+    private let pairActivitySeverityResolver = PairActivitySeverityResolver()
 
     var route: AppRoute {
         get {
@@ -68,7 +70,13 @@ final class AppModel: ObservableObject {
     }
 
     func refreshStatusSummary(using service: StatusService) {
-        statusSummary = service.makeSummary(onboardingStep: onboardingState.step, pairs: pairs)
+        let displayPairs = pairs.map { pair in
+            var displayPair = pair
+            displayPair.lastKnownSeverity = displaySeverity(for: pair)
+            return displayPair
+        }
+
+        statusSummary = service.makeSummary(onboardingStep: onboardingState.step, pairs: displayPairs)
     }
 
     func applyOnboardingState(_ state: OnboardingState, using service: StatusService) {
@@ -79,18 +87,35 @@ final class AppModel: ObservableObject {
 
     func applyPersistedState(pairs: [SyncPair], events: [ActivityEvent], using service: StatusService) {
         self.pairs = pairs
-        recentEvents = Array(events.prefix(3))
+        activityEvents = events.sorted { $0.date > $1.date }
+        recentEvents = Array(activityEvents.prefix(3))
 
         if let selectedPairID, !pairs.contains(where: { $0.id == selectedPairID }) {
             self.selectedPairID = pairs.first?.id
         }
 
         refreshStatusSummary(using: service)
-        if !didAutoSelectInitialPair, let firstPair = pairs.first, case .route(.onboarding) = sidebarSelection, !shouldKeepOnboardingVisible {
-            sidebarSelection = .pair(firstPair.id)
-            didAutoSelectInitialPair = true
-        }
         normalizeSelection()
+    }
+
+    func applyInitialPairSelectionIfNeeded() {
+        guard !didAutoSelectInitialPair else {
+            return
+        }
+
+        didAutoSelectInitialPair = true
+
+        guard let firstPair = pairs.first,
+              case .route(.onboarding) = sidebarSelection,
+              !shouldKeepOnboardingVisible else {
+            return
+        }
+
+        sidebarSelection = .pair(firstPair.id)
+    }
+
+    func displaySeverity(for pair: SyncPair) -> Severity {
+        pairActivitySeverityResolver.displaySeverity(for: pair, events: activityEvents)
     }
 
     private func normalizeSelection() {

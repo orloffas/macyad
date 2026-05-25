@@ -28,11 +28,68 @@ final class RcloneCommandBuilderTests: XCTestCase {
                 "sync",
                 "/Users/test/Work Docs",
                 "yd:/Work Docs",
+                "--exclude",
+                ".DS_Store",
+                "--exclude",
+                "Thumbs.db",
             ]
         )
     }
 
-    private func makePair() -> SyncPair {
+    func testCheckArgumentsApplySyncAndAdditionalCheckExcludes() {
+        let arguments = RcloneCommandBuilder.checkArguments(
+            for: makePair(
+                syncExcludes: [".DS_Store", "Thumbs.db"],
+                checkAdditionalExcludes: ["Desktop.ini"]
+            ),
+            configPath: "/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf"
+        )
+
+        XCTAssertEqual(
+            arguments,
+            [
+                "--config",
+                "/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf",
+                "check",
+                "/Users/test/Work Docs",
+                "yd:/Work Docs",
+                "--one-way",
+                "--exclude",
+                ".DS_Store",
+                "--exclude",
+                "Thumbs.db",
+                "--exclude",
+                "Desktop.ini",
+            ]
+        )
+    }
+
+    func testPullArgumentsApplySyncExcludes() {
+        let arguments = RcloneCommandBuilder.pullArguments(
+            for: makePair(syncExcludes: [".DS_Store", "Thumbs.db"]),
+            configPath: "/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf"
+        )
+
+        XCTAssertEqual(
+            arguments,
+            [
+                "--config",
+                "/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf",
+                "copy",
+                "yd:/Work Docs",
+                "/Users/test/Work Docs",
+                "--exclude",
+                ".DS_Store",
+                "--exclude",
+                "Thumbs.db",
+            ]
+        )
+    }
+
+    private func makePair(
+        syncExcludes: [String] = [".DS_Store", "Thumbs.db"],
+        checkAdditionalExcludes: [String] = []
+    ) -> SyncPair {
         SyncPair(
             id: UUID(),
             name: "Work Docs",
@@ -41,7 +98,9 @@ final class RcloneCommandBuilderTests: XCTestCase {
             remotePath: "yd:/Work Docs",
             scheduleMinutes: 15,
             deletePolicy: .mirrorToYandex,
-            lastKnownSeverity: .healthy
+            lastKnownSeverity: .healthy,
+            syncExcludes: syncExcludes,
+            checkAdditionalExcludes: checkAdditionalExcludes
         )
     }
 }

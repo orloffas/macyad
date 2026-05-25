@@ -31,31 +31,102 @@ public struct PairService: Sendable {
         localFolderDisplayPath: String,
         remotePath: String,
         scheduleMinutes: Int,
-        deletePolicy: SyncPair.DeletePolicy
+        deletePolicy: SyncPair.DeletePolicy,
+        syncExcludes: [String] = SyncPair.defaultSyncExcludes,
+        checkAdditionalExcludes: [String] = []
     ) throws -> SyncPair {
-        guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let fields = try validate(
+            name: name,
+            localFolderBookmark: localFolderBookmark,
+            localFolderDisplayPath: localFolderDisplayPath,
+            remotePath: remotePath,
+            scheduleMinutes: scheduleMinutes
+        )
+
+        return SyncPair(
+            id: UUID(),
+            name: fields.name,
+            localFolderBookmark: fields.localFolderBookmark,
+            localFolderDisplayPath: fields.localFolderDisplayPath,
+            remotePath: fields.remotePath,
+            scheduleMinutes: fields.scheduleMinutes,
+            deletePolicy: deletePolicy,
+            lastKnownSeverity: .healthy,
+            syncExcludes: syncExcludes,
+            checkAdditionalExcludes: checkAdditionalExcludes
+        )
+    }
+
+    public func updatePair(
+        _ existingPair: SyncPair,
+        name: String,
+        localFolderBookmark: Data,
+        localFolderDisplayPath: String,
+        remotePath: String,
+        scheduleMinutes: Int,
+        deletePolicy: SyncPair.DeletePolicy,
+        syncExcludes: [String],
+        checkAdditionalExcludes: [String]
+    ) throws -> SyncPair {
+        let fields = try validate(
+            name: name,
+            localFolderBookmark: localFolderBookmark,
+            localFolderDisplayPath: localFolderDisplayPath,
+            remotePath: remotePath,
+            scheduleMinutes: scheduleMinutes
+        )
+
+        return SyncPair(
+            id: existingPair.id,
+            name: fields.name,
+            localFolderBookmark: fields.localFolderBookmark,
+            localFolderDisplayPath: fields.localFolderDisplayPath,
+            remotePath: fields.remotePath,
+            scheduleMinutes: fields.scheduleMinutes,
+            deletePolicy: deletePolicy,
+            lastKnownSeverity: existingPair.lastKnownSeverity,
+            lastSyncAt: existingPair.lastSyncAt,
+            syncExcludes: syncExcludes,
+            checkAdditionalExcludes: checkAdditionalExcludes
+        )
+    }
+
+    private func validate(
+        name: String,
+        localFolderBookmark: Data,
+        localFolderDisplayPath: String,
+        remotePath: String,
+        scheduleMinutes: Int
+    ) throws -> (
+        name: String,
+        localFolderBookmark: Data,
+        localFolderDisplayPath: String,
+        remotePath: String,
+        scheduleMinutes: Int
+    ) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLocalFolderPath = localFolderDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedRemotePath = remotePath.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedName.isEmpty else {
             throw ValidationError.emptyName
         }
-        guard !localFolderBookmark.isEmpty,
-              !localFolderDisplayPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard !localFolderBookmark.isEmpty, !trimmedLocalFolderPath.isEmpty else {
             throw ValidationError.missingLocalFolder
         }
-        guard !remotePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard !trimmedRemotePath.isEmpty else {
             throw ValidationError.emptyRemotePath
         }
         guard scheduleMinutes > 0 else {
             throw ValidationError.invalidSchedule
         }
 
-        return SyncPair(
-            id: UUID(),
-            name: name,
+        return (
+            name: trimmedName,
             localFolderBookmark: localFolderBookmark,
-            localFolderDisplayPath: localFolderDisplayPath,
-            remotePath: remotePath,
-            scheduleMinutes: scheduleMinutes,
-            deletePolicy: deletePolicy,
-            lastKnownSeverity: .healthy
+            localFolderDisplayPath: trimmedLocalFolderPath,
+            remotePath: trimmedRemotePath,
+            scheduleMinutes: scheduleMinutes
         )
     }
 }

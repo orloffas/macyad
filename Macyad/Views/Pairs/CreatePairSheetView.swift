@@ -14,7 +14,7 @@ struct CreatePairSheetView: View {
         let copy = appModel.copy
 
         VStack(alignment: .leading, spacing: 14) {
-            Text(copy.createPairTitle)
+            Text(viewModel.isEditing ? copy.editPairTitle : copy.createPairTitle)
                 .font(.title3)
                 .fontWeight(.semibold)
 
@@ -42,6 +42,18 @@ struct CreatePairSheetView: View {
                     Text(copy.deletePolicyManualTitle).tag(SyncPair.DeletePolicy.keepRemoteDeletesManual)
                 }
 
+                Section(copy.syncExcludesTitle) {
+                    TextEditor(text: $viewModel.syncExcludesText)
+                        .font(.system(.callout, design: .monospaced))
+                        .frame(minHeight: 120)
+                }
+
+                Section(copy.checkAdditionalExcludesTitle) {
+                    TextEditor(text: $viewModel.checkAdditionalExcludesText)
+                        .font(.system(.callout, design: .monospaced))
+                        .frame(minHeight: 92)
+                }
+
                 Section {
                     Text(summaryText)
                         .font(.caption)
@@ -63,7 +75,7 @@ struct CreatePairSheetView: View {
                     dismiss()
                 }
 
-                Button(copy.savePairButtonTitle) {
+                Button(viewModel.isEditing ? copy.savePairChangesButtonTitle : copy.savePairButtonTitle) {
                     Task { await save() }
                 }
                 .keyboardShortcut(.defaultAction)
@@ -71,7 +83,7 @@ struct CreatePairSheetView: View {
             }
         }
         .padding(18)
-        .frame(width: 560)
+        .frame(width: 620)
     }
 
     private var summaryText: String {

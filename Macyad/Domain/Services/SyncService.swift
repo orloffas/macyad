@@ -89,7 +89,10 @@ public struct SyncService: Sendable {
     }
 
     public func push(_ pair: SyncPair) async throws {
-        guard try localFolderInspector.containsUserVisibleContent(atPath: pair.localFolderDisplayPath) else {
+        guard try localFolderInspector.containsUserVisibleContent(
+            atPath: pair.localFolderDisplayPath,
+            excludedPatterns: pair.syncExcludes
+        ) else {
             throw LocalFolderEmptyPushBlockedError(
                 pairName: pair.name,
                 localFolderPath: pair.localFolderDisplayPath,

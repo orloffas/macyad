@@ -239,4 +239,8 @@ private struct StubLocalFolderInspector: LocalFolderInspecting {
     func containsUserVisibleContent(atPath path: String) throws -> Bool {
         containsUserVisibleContent
     }
+
+    func containsUserVisibleContent(atPath path: String, excludedPatterns: [String]) throws -> Bool {
+        containsUserVisibleContent
+    }
 }

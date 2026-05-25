@@ -16,6 +16,8 @@
 ./script/build_and_run.sh
 ```
 
+Без аргументов script работает в interactive-режиме: можно выбрать clean build, clean everywhere, запуск приложения после build и сборку `DMG`. Для неинтерактивного использования доступны `--clean`, `--clean-all`, `--no-launch`, `--package-dmg`, `--package-after-build`, `--foreground` и `--background`.
+
 `build_and_run.sh` складывает build artifacts в `~/Library/Caches/MacYaD/Build`, чтобы запуск не запрашивал доступ к `Documents`, если сам репозиторий лежит внутри `~/Documents`.
 
 ## Сброс состояния приложения
