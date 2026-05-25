@@ -29,14 +29,17 @@ struct MenuBarPopoverView: View {
                         Button(copy.syncShortButtonTitle) {
                             appModel.runSyncNowForSelectedPair()
                         }
+                        .help(copy.pushActionDescription)
 
                         Button(copy.checkShortButtonTitle) {
                             appModel.runCheckForSelectedPair()
                         }
+                        .help(copy.checkActionDescription)
 
                         Button(copy.pullShortButtonTitle) {
                             appModel.runPullForSelectedPair()
                         }
+                        .help(copy.pullActionDescription)
                     }
                     .controlSize(.small)
                 }
@@ -78,10 +81,6 @@ struct MenuBarPopoverView: View {
                 appModel.openMainWindow()
             }
             .keyboardShortcut(.defaultAction)
-
-            SettingsLink {
-                Label(copy.settingsTitle, systemImage: "gearshape")
-            }
 
             Button(copy.quitApplicationTitle) {
                 appModel.quitApplication()

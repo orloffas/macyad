@@ -69,7 +69,7 @@ struct MainWindowView: View {
 
                 Section(copy.pairsSectionTitle) {
                     ForEach(appModel.pairs) { pair in
-                        PairListRowView(pair: pair, severity: appModel.displaySeverity(for: pair))
+                        PairListRowView(pair: pair, severity: pair.lastKnownSeverity)
                             .tag(SidebarSelection.pair(pair.id))
                     }
                 }
@@ -163,7 +163,7 @@ struct MainWindowView: View {
             case .pair:
                 PairDetailView(
                     pair: appModel.selectedPair,
-                    displaySeverity: appModel.selectedPair.map { appModel.displaySeverity(for: $0) } ?? .healthy,
+                    displaySeverity: appModel.selectedPair?.lastKnownSeverity ?? .healthy,
                     viewModel: environment.pairDetailViewModel,
                     onSyncNow: { runActivePairAction(.syncNow) },
                     onCheckYandex: { runActivePairAction(.checkYandex) },
@@ -408,7 +408,10 @@ struct MainWindowView: View {
             let outcome = try await syncService.check(pair)
             updatedPair.lastKnownSeverity = outcome.severity
             let details = outcome.severity == .warning
-                ? AppCopy.current.checkWarningDetails(logDescription: outcome.log.detailedDescription)
+                ? AppCopy.current.checkWarningDetails(
+                    differenceCount: outcome.differenceCount,
+                    logDescription: outcome.log.detailedDescription
+                )
                 : nil
             return PairOperationOutcome(
                 pair: updatedPair,
@@ -466,7 +469,8 @@ struct MainWindowView: View {
 
         return SyncService(
             processClient: RcloneProcessClient(executablePath: executablePath),
-            configPath: environment.paths.rcloneConfigFile.path
+            configPath: environment.paths.rcloneConfigFile.path,
+            excludeFileStore: PersistentRcloneExcludeFileStore(paths: environment.paths)
         )
     }
 }

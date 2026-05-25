@@ -347,6 +347,22 @@ public struct AppCopy: Sendable {
         isRussian ? "Additional check excludes" : "Additional check excludes"
     }
 
+    public var syncExcludesDescription: String {
+        if isRussian {
+            return "Применяется к Push to Yandex, Pull from Yandex и Check Yandex. По одному pattern на строку."
+        }
+
+        return "Applied to Push to Yandex, Pull from Yandex, and Check Yandex. Use one pattern per line."
+    }
+
+    public var checkAdditionalExcludesDescription: String {
+        if isRussian {
+            return "Check Yandex всегда использует Sync excludes и дополнительно добавляет patterns из этого списка."
+        }
+
+        return "Check Yandex always includes Sync excludes first and then adds the patterns from this list."
+    }
+
     public func createPairSummary(folder: String, remotePath: String, scheduleMinutes: Int) -> String {
         if isRussian {
             return "Будет Push to Yandex \(folder) -> \(remotePath) каждые \(scheduleMinutes) мин."
@@ -409,8 +425,36 @@ public struct AppCopy: Sendable {
         "Pull from Yandex"
     }
 
+    public var pushActionDescription: String {
+        if isRussian {
+            return "Отправляет локальные изменения в Yandex и при mirror policy может удалять лишнее на стороне remote."
+        }
+
+        return "Pushes local changes to Yandex and may delete extra remote items when mirror policy is enabled."
+    }
+
+    public var checkActionDescription: String {
+        if isRussian {
+            return "Сравнивает локальную папку и Yandex без изменения данных."
+        }
+
+        return "Compares the local folder with Yandex without modifying data."
+    }
+
+    public var pullActionDescription: String {
+        if isRussian {
+            return "Копирует изменения из Yandex в локальную папку без удаления локальных файлов."
+        }
+
+        return "Copies changes from Yandex into the local folder without deleting local files."
+    }
+
     public var lastErrorTitle: String {
         isRussian ? "Последняя ошибка" : "Latest error"
+    }
+
+    public var actionsHelpTitle: String {
+        isRussian ? "Что делает каждая команда" : "What each action does"
     }
 
     public var severityHealthy: String {
@@ -548,10 +592,20 @@ public struct AppCopy: Sendable {
             : "Local folder is empty. Run Pull From Yandex first; Push to Yandex was blocked to avoid clearing Yandex."
     }
 
-    public func checkWarningDetails(logDescription: String) -> String {
-        let summary = isRussian
-            ? "Проверка Yandex обнаружила изменения или drift на стороне remote. Перед следующим Push to Yandex проверьте состояние и при необходимости выполните Pull From Yandex."
-            : "Check Yandex detected remote changes or drift. Review the state and run Pull From Yandex before the next Push to Yandex if needed."
+    public func checkWarningDetails(differenceCount: Int?, logDescription: String) -> String {
+        let summary: String
+        if isRussian {
+            if let differenceCount {
+                summary = "Проверка Yandex обнаружила различия: \(differenceCount). Посмотрите подробный log ниже; если изменения на стороне remote нужны локально, выполните Pull From Yandex перед следующим Push to Yandex."
+            } else {
+                summary = "Проверка Yandex обнаружила изменения или drift на стороне remote. Перед следующим Push to Yandex проверьте состояние и при необходимости выполните Pull From Yandex."
+            }
+        } else if let differenceCount {
+            summary = "Check Yandex found \(differenceCount) difference(s). Review the detailed rclone log below; if the remote changes should be brought local, run Pull From Yandex before the next Push to Yandex."
+        } else {
+            summary = "Check Yandex detected remote changes or drift. Review the state and run Pull From Yandex before the next Push to Yandex if needed."
+        }
+
         return "\(summary)\n\n\(logDescription)"
     }
 

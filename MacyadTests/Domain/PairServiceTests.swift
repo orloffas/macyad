@@ -75,7 +75,8 @@ final class PairServiceTests: XCTestCase {
             scheduleMinutes: 20,
             deletePolicy: .mirrorToYandex,
             lastKnownSeverity: .alarm,
-            lastSyncAt: Date(timeIntervalSince1970: 456)
+            lastSyncAt: Date(timeIntervalSince1970: 456),
+            lastScheduledPushAttemptAt: Date(timeIntervalSince1970: 789)
         )
 
         let updatedPair = try service.updatePair(
@@ -93,6 +94,7 @@ final class PairServiceTests: XCTestCase {
         XCTAssertEqual(updatedPair.id, existingPair.id)
         XCTAssertEqual(updatedPair.lastKnownSeverity, .alarm)
         XCTAssertEqual(updatedPair.lastSyncAt, existingPair.lastSyncAt)
+        XCTAssertEqual(updatedPair.lastScheduledPushAttemptAt, existingPair.lastScheduledPushAttemptAt)
         XCTAssertEqual(updatedPair.name, "New")
         XCTAssertEqual(updatedPair.syncExcludes, ["Thumbs.db"])
         XCTAssertEqual(updatedPair.checkAdditionalExcludes, ["Desktop.ini"])

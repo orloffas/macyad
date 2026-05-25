@@ -7,8 +7,8 @@ struct PairListRowView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: symbolName)
-                .foregroundStyle(symbolColor)
+            Image(systemName: "folder")
+                .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(pair.name)
@@ -19,25 +19,24 @@ struct PairListRowView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
+
+            Spacer(minLength: 8)
+
+            if let statusColor {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+            }
         }
         .padding(.vertical, 2)
     }
 
-    private var symbolName: String {
+    private var statusColor: Color? {
         switch severity {
-        case .healthy, .info:
-            return "folder"
-        case .warning:
-            return "exclamationmark.triangle.fill"
-        case .alarm:
-            return "xmark.octagon.fill"
-        }
-    }
-
-    private var symbolColor: Color {
-        switch severity {
-        case .healthy, .info:
-            return .secondary
+        case .healthy:
+            return nil
+        case .info:
+            return .blue
         case .warning:
             return .orange
         case .alarm:

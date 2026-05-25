@@ -22,6 +22,7 @@ final class SyncPairTests: XCTestCase {
 
         XCTAssertEqual(pair.syncExcludes, SyncPair.defaultSyncExcludes)
         XCTAssertEqual(pair.checkAdditionalExcludes, [String]())
+        XCTAssertNil(pair.lastScheduledPushAttemptAt)
     }
 
     func testDecodePreservesExplicitExcludeLists() throws {
@@ -36,6 +37,7 @@ final class SyncPairTests: XCTestCase {
           "deletePolicy": "mirrorToYandex",
           "lastKnownSeverity": "healthy",
           "lastSyncAt": null,
+          "lastScheduledPushAttemptAt": 1234,
           "syncExcludes": [".DS_Store"],
           "checkAdditionalExcludes": ["Thumbs.db"]
         }
@@ -45,5 +47,6 @@ final class SyncPairTests: XCTestCase {
 
         XCTAssertEqual(pair.syncExcludes, [".DS_Store"])
         XCTAssertEqual(pair.checkAdditionalExcludes, ["Thumbs.db"])
+        XCTAssertEqual(pair.lastScheduledPushAttemptAt, Date(timeIntervalSinceReferenceDate: 1234))
     }
 }

@@ -86,6 +86,7 @@ public struct PairService: Sendable {
             deletePolicy: deletePolicy,
             lastKnownSeverity: existingPair.lastKnownSeverity,
             lastSyncAt: existingPair.lastSyncAt,
+            lastScheduledPushAttemptAt: existingPair.lastScheduledPushAttemptAt,
             syncExcludes: syncExcludes,
             checkAdditionalExcludes: checkAdditionalExcludes
         )

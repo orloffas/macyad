@@ -12,6 +12,10 @@ final class AppPathsTests: XCTestCase {
         XCTAssertEqual(paths.preferencesFile, rootURL.appendingPathComponent("preferences.json"))
         XCTAssertEqual(paths.activityFile, rootURL.appendingPathComponent("activity.json"))
         XCTAssertEqual(
+            paths.rcloneFiltersDirectory,
+            rootURL.appendingPathComponent("rclone", isDirectory: true).appendingPathComponent("filters", isDirectory: true)
+        )
+        XCTAssertEqual(
             paths.rcloneConfigFile,
             rootURL.appendingPathComponent("rclone", isDirectory: true).appendingPathComponent("rclone.conf")
         )
@@ -37,6 +41,7 @@ final class AppPathsTests: XCTestCase {
         XCTAssertTrue(fileManager.directoryExists(at: paths.appSupportRoot))
         XCTAssertTrue(fileManager.directoryExists(at: paths.workspaceRoot))
         XCTAssertTrue(fileManager.directoryExists(at: paths.rcloneConfigFile.deletingLastPathComponent()))
+        XCTAssertTrue(fileManager.directoryExists(at: paths.rcloneFiltersDirectory))
     }
 }
 

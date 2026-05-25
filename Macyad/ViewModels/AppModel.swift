@@ -25,7 +25,6 @@ final class AppModel: ObservableObject {
     var runCheckForSelectedPair: () -> Void = {}
     var runPullForSelectedPair: () -> Void = {}
     private var didAutoSelectInitialPair = false
-    private let pairActivitySeverityResolver = PairActivitySeverityResolver()
 
     var route: AppRoute {
         get {
@@ -70,13 +69,7 @@ final class AppModel: ObservableObject {
     }
 
     func refreshStatusSummary(using service: StatusService) {
-        let displayPairs = pairs.map { pair in
-            var displayPair = pair
-            displayPair.lastKnownSeverity = displaySeverity(for: pair)
-            return displayPair
-        }
-
-        statusSummary = service.makeSummary(onboardingStep: onboardingState.step, pairs: displayPairs)
+        statusSummary = service.makeSummary(onboardingStep: onboardingState.step, pairs: pairs)
     }
 
     func applyOnboardingState(_ state: OnboardingState, using service: StatusService) {
@@ -112,10 +105,6 @@ final class AppModel: ObservableObject {
         }
 
         sidebarSelection = .pair(firstPair.id)
-    }
-
-    func displaySeverity(for pair: SyncPair) -> Severity {
-        pairActivitySeverityResolver.displaySeverity(for: pair, events: activityEvents)
     }
 
     private func normalizeSelection() {

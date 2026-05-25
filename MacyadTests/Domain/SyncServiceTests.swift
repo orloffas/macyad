@@ -8,10 +8,12 @@ final class SyncServiceTests: XCTestCase {
         defer { AppLanguageState.update(previousLanguage) }
 
         let processClient = StubProcessClient(result: ("", "", 0))
+        let excludeFileStore = StubExcludeFileStore()
         let service = SyncService(
             processClient: processClient,
             configPath: "/tmp/macyad-rclone.conf",
-            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false)
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false),
+            excludeFileStore: excludeFileStore
         )
 
         do {
@@ -35,10 +37,12 @@ final class SyncServiceTests: XCTestCase {
         defer { AppLanguageState.update(previousLanguage) }
 
         let processClient = StubProcessClient(result: ("", "", 0))
+        let excludeFileStore = StubExcludeFileStore()
         let service = SyncService(
             processClient: processClient,
             configPath: "/tmp/macyad-rclone.conf",
-            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            excludeFileStore: excludeFileStore
         )
 
         try await service.push(makePair())
@@ -52,42 +56,12 @@ final class SyncServiceTests: XCTestCase {
                 "sync",
                 "/Users/test/Work Docs",
                 "yd:/Work Docs",
-                "--exclude",
-                ".DS_Store",
-                "--exclude",
-                ".localized",
-                "--exclude",
-                "._*",
-                "--exclude",
-                ".Spotlight-V100/**",
-                "--exclude",
-                ".TemporaryItems/**",
-                "--exclude",
-                ".Trashes/**",
-                "--exclude",
-                ".fseventsd/**",
-                "--exclude",
-                "Thumbs.db",
-                "--exclude",
-                "desktop.ini",
-                "--exclude",
-                "$RECYCLE.BIN/**",
-                "--exclude",
-                "System Volume Information/**",
-                "--exclude",
-                "*.tmp",
-                "--exclude",
-                "*.temp",
-                "--exclude",
-                "*.swp",
-                "--exclude",
-                "*.swo",
-                "--exclude",
-                "*.part",
-                "--exclude",
-                "*.crdownload",
+                "--exclude-from",
+                "/tmp/sync-excludes.txt",
             ]]
         )
+        let preparedModes = excludeFileStore.preparedModes()
+        XCTAssertEqual(preparedModes, [.sync])
     }
 
     func testCheckReturnsWarningWhenRemoteChangesDetected() async throws {
@@ -95,13 +69,52 @@ final class SyncServiceTests: XCTestCase {
         AppLanguageState.update(.english)
         defer { AppLanguageState.update(previousLanguage) }
 
-        let processClient = StubProcessClient(result: ("Transferred: 1 / 1, 100%", "", 0))
-        let service = SyncService(processClient: processClient, configPath: "/tmp/macyad-rclone.conf")
+        let processClient = StubProcessClient(
+            result: ("", "NOTICE: Yandex Docs: 1 differences found\nNOTICE: Yandex Docs: 1 errors while checking", 1)
+        )
+        let excludeFileStore = StubExcludeFileStore()
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            excludeFileStore: excludeFileStore
+        )
 
         let outcome = try await service.check(makePair())
 
         XCTAssertEqual(outcome.severity, .warning)
-        XCTAssertTrue(outcome.log.detailedDescription.contains("Transferred: 1 / 1, 100%"))
+        XCTAssertTrue(outcome.log.detailedDescription.contains("1 differences found"))
+        let preparedModes = excludeFileStore.preparedModes()
+        XCTAssertEqual(preparedModes, [.check])
+    }
+
+    func testCheckReturnsHealthyWhenRcloneReportsZeroDifferences() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let processClient = StubProcessClient(
+            result: ("", "NOTICE: Yandex Docs: 0 differences found\nNOTICE: Yandex Docs: 5 matching files", 0)
+        )
+        let service = SyncService(processClient: processClient, configPath: "/tmp/macyad-rclone.conf")
+
+        let outcome = try await service.check(makePair())
+
+        XCTAssertEqual(outcome.severity, .healthy)
+    }
+
+    func testCheckThrowsAlarmForNonDriftCommandFailures() async {
+        let processClient = StubProcessClient(result: ("", "permission denied", 9))
+        let service = SyncService(processClient: processClient, configPath: "/tmp/macyad-rclone.conf")
+
+        do {
+            _ = try await service.check(makePair())
+            XCTFail("Expected command failure")
+        } catch let error as SyncService.CommandFailedError {
+            XCTAssertEqual(error.exitCode, 9)
+            XCTAssertTrue(error.stderr.contains("permission denied"))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
     }
 
     func testPullUsesCopyCommand() async throws {
@@ -110,52 +123,27 @@ final class SyncServiceTests: XCTestCase {
         defer { AppLanguageState.update(previousLanguage) }
 
         let processClient = StubProcessClient(result: ("", "", 0))
-        let service = SyncService(processClient: processClient, configPath: "/tmp/macyad-rclone.conf")
+        let excludeFileStore = StubExcludeFileStore()
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            excludeFileStore: excludeFileStore
+        )
 
         try await service.pull(makePair())
 
         let recordedArguments = await processClient.recordedArguments()
         XCTAssertEqual(recordedArguments, [[
-            "--config",
-            "/tmp/macyad-rclone.conf",
-            "copy",
-            "yd:/Work Docs",
-            "/Users/test/Work Docs",
-            "--exclude",
-            ".DS_Store",
-            "--exclude",
-            ".localized",
-            "--exclude",
-            "._*",
-            "--exclude",
-            ".Spotlight-V100/**",
-            "--exclude",
-            ".TemporaryItems/**",
-            "--exclude",
-            ".Trashes/**",
-            "--exclude",
-            ".fseventsd/**",
-            "--exclude",
-            "Thumbs.db",
-            "--exclude",
-            "desktop.ini",
-            "--exclude",
-            "$RECYCLE.BIN/**",
-            "--exclude",
-            "System Volume Information/**",
-            "--exclude",
-            "*.tmp",
-            "--exclude",
-            "*.temp",
-            "--exclude",
-            "*.swp",
-            "--exclude",
-            "*.swo",
-            "--exclude",
-            "*.part",
-            "--exclude",
-            "*.crdownload",
-        ]])
+                "--config",
+                "/tmp/macyad-rclone.conf",
+                "copy",
+                "yd:/Work Docs",
+                "/Users/test/Work Docs",
+                "--exclude-from",
+                "/tmp/sync-excludes.txt",
+            ]])
+        let preparedModes = excludeFileStore.preparedModes()
+        XCTAssertEqual(preparedModes, [.sync])
     }
 
     func testCommandFailureDescriptionUsesSelectedLanguage() {
@@ -207,6 +195,24 @@ private actor StubProcessClient: RcloneProcessRunning {
 
     func recordedArguments() -> [[String]] {
         argumentsLog
+    }
+}
+
+private final class StubExcludeFileStore: RcloneExcludeFilePreparing, @unchecked Sendable {
+    private var modes: [RcloneExcludeFileMode] = []
+
+    func prepareExcludeFile(for pair: SyncPair, mode: RcloneExcludeFileMode) throws -> String? {
+        modes.append(mode)
+        switch mode {
+        case .sync:
+            return "/tmp/sync-excludes.txt"
+        case .check:
+            return "/tmp/check-excludes.txt"
+        }
+    }
+
+    func preparedModes() -> [RcloneExcludeFileMode] {
+        modes
     }
 }
 

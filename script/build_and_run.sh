@@ -18,17 +18,13 @@ LAUNCH_STYLE="foreground"
 CLEAN_SCOPE="none"
 SHOULD_LAUNCH="yes"
 SHOULD_PACKAGE="no"
-INTERACTIVE="0"
+INTERACTIVE="1"
 
 usage() {
   cat <<EOF
-usage: $0 [run|debug|logs|telemetry|verify|package] [--clean|--clean-all] [--launch|--no-launch] [--package-dmg|--package-after-build] [--foreground|--background] [--prompt]
+usage: $0 [run|debug|logs|telemetry|verify|package] [--clean|--clean-all] [--launch|--no-launch] [--package-dmg|--package-after-build] [--foreground|--background] [--prompt|--no-prompt]
 EOF
 }
-
-if [[ $# -eq 0 ]]; then
-  INTERACTIVE="1"
-fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -82,6 +78,9 @@ while [[ $# -gt 0 ]]; do
       ;;
     --prompt)
       INTERACTIVE="1"
+      ;;
+    --no-prompt)
+      INTERACTIVE="0"
       ;;
     -h|--help)
       usage
@@ -172,14 +171,25 @@ package_dmg() {
 }
 
 prompt_if_interactive() {
-  local answer normalized
+  local answer normalized prompt_input prompt_output
 
-  if [[ "$INTERACTIVE" != "1" || ! -t 0 ]]; then
+  if [[ "$INTERACTIVE" != "1" ]]; then
+    return
+  fi
+
+  if [[ -r /dev/tty && -w /dev/tty ]]; then
+    prompt_input="/dev/tty"
+    prompt_output="/dev/tty"
+  elif [[ -t 0 ]]; then
+    prompt_input="/dev/stdin"
+    prompt_output="/dev/stdout"
+  else
     return
   fi
 
   if [[ "$CLEAN_SCOPE" == "none" ]]; then
-    read -r -p "Очистить build [b], очистить везде [a], пропустить [Enter]? " answer
+    printf "Очистить build [b], очистить везде [a], пропустить [Enter]? " >"$prompt_output"
+    IFS= read -r answer <"$prompt_input"
     normalized="$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')"
     case "$normalized" in
       b)
@@ -192,7 +202,8 @@ prompt_if_interactive() {
   fi
 
   if [[ "$MODE" == "run" && "$SHOULD_LAUNCH" == "yes" ]]; then
-    read -r -p "Запустить приложение после build? [Y/n] " answer
+    printf "Запустить приложение после build? [Y/n] " >"$prompt_output"
+    IFS= read -r answer <"$prompt_input"
     normalized="$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')"
     case "$normalized" in
       n|no)
@@ -205,7 +216,8 @@ prompt_if_interactive() {
   fi
 
   if [[ "$SHOULD_PACKAGE" == "no" ]]; then
-    read -r -p "Собрать DMG после build? [y/N] " answer
+    printf "Собрать DMG после build? [y/N] " >"$prompt_output"
+    IFS= read -r answer <"$prompt_input"
     normalized="$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')"
     case "$normalized" in
       y|yes)

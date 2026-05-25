@@ -16,6 +16,9 @@ final class AppCopyTests: XCTestCase {
         XCTAssertEqual(copy.manualCheckWarningDetected, "Yandex check detected remote changes")
         XCTAssertEqual(copy.scheduledSyncCompleted, "Scheduled Push to Yandex completed")
         XCTAssertEqual(copy.scheduledPushBlockedTitle, "Scheduled Push to Yandex blocked")
+        XCTAssertTrue(copy.syncExcludesDescription.contains("Push to Yandex"))
+        XCTAssertTrue(copy.checkAdditionalExcludesDescription.contains("includes Sync excludes first"))
+        XCTAssertEqual(copy.actionsHelpTitle, "What each action does")
     }
 
     func testRussianCopyUsesRussianLabels() {
@@ -32,5 +35,8 @@ final class AppCopyTests: XCTestCase {
         XCTAssertEqual(copy.manualCheckWarningDetected, "Проверка Yandex обнаружила изменения")
         XCTAssertEqual(copy.scheduledSyncCompleted, "Плановый Push to Yandex завершён")
         XCTAssertEqual(copy.scheduledPushBlockedTitle, "Плановый Push to Yandex заблокирован")
+        XCTAssertTrue(copy.syncExcludesDescription.contains("Push to Yandex"))
+        XCTAssertTrue(copy.checkAdditionalExcludesDescription.contains("всегда использует Sync excludes"))
+        XCTAssertEqual(copy.actionsHelpTitle, "Что делает каждая команда")
     }
 }

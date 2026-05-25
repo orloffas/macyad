@@ -129,14 +129,15 @@ final class AppEnvironment: ObservableObject {
     func makeBackgroundSyncController(
         stateDidChange: @escaping BackgroundSyncController.StateDidChange
     ) -> BackgroundSyncController {
-        let scheduler = SchedulerService(syncServiceProvider: { [rcloneLocator, configPath = paths.rcloneConfigFile.path] in
+        let scheduler = SchedulerService(syncServiceProvider: { [rcloneLocator, paths = self.paths] in
             guard let executablePath = try await rcloneLocator.locate() else {
                 throw BackgroundSyncBootstrapError.rcloneUnavailable
             }
 
             return SyncService(
                 processClient: RcloneProcessClient(executablePath: executablePath),
-                configPath: configPath
+                configPath: paths.rcloneConfigFile.path,
+                excludeFileStore: PersistentRcloneExcludeFileStore(paths: paths)
             )
         })
 
@@ -169,6 +170,7 @@ final class AppEnvironment: ObservableObject {
             withIntermediateDirectories: true,
             attributes: nil
         )
+        try fileManager.createDirectory(at: paths.rcloneFiltersDirectory, withIntermediateDirectories: true, attributes: nil)
 
         return paths
     }
