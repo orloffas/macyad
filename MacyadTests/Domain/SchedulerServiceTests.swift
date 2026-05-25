@@ -24,7 +24,45 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertEqual(results.map(\.pair.id), [duePair.id, notDuePair.id])
         XCTAssertEqual(results.first?.pair.lastSyncAt, now)
         XCTAssertEqual(results.last?.pair.lastSyncAt, notDuePair.lastSyncAt)
-        XCTAssertEqual(recordedArguments, [["sync", duePair.localFolderDisplayPath, duePair.remotePath]])
+        XCTAssertEqual(recordedArguments, [[
+            "sync",
+            duePair.localFolderDisplayPath,
+            duePair.remotePath,
+            "--exclude",
+            ".DS_Store",
+            "--exclude",
+            ".localized",
+            "--exclude",
+            "._*",
+            "--exclude",
+            ".Spotlight-V100/**",
+            "--exclude",
+            ".TemporaryItems/**",
+            "--exclude",
+            ".Trashes/**",
+            "--exclude",
+            ".fseventsd/**",
+            "--exclude",
+            "Thumbs.db",
+            "--exclude",
+            "desktop.ini",
+            "--exclude",
+            "$RECYCLE.BIN/**",
+            "--exclude",
+            "System Volume Information/**",
+            "--exclude",
+            "*.tmp",
+            "--exclude",
+            "*.temp",
+            "--exclude",
+            "*.swp",
+            "--exclude",
+            "*.swo",
+            "--exclude",
+            "*.part",
+            "--exclude",
+            "*.crdownload",
+        ]])
     }
 
     func testRunScheduledPushesSkipsAlarmPairs() async throws {
@@ -49,7 +87,45 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertEqual(results.first?.pair.lastSyncAt, now)
         XCTAssertNil(results.last?.pair.lastSyncAt)
         XCTAssertEqual(recordedArguments.count, 1)
-        XCTAssertEqual(recordedArguments.first, ["sync", healthyPair.localFolderDisplayPath, healthyPair.remotePath])
+        XCTAssertEqual(recordedArguments.first, [
+            "sync",
+            healthyPair.localFolderDisplayPath,
+            healthyPair.remotePath,
+            "--exclude",
+            ".DS_Store",
+            "--exclude",
+            ".localized",
+            "--exclude",
+            "._*",
+            "--exclude",
+            ".Spotlight-V100/**",
+            "--exclude",
+            ".TemporaryItems/**",
+            "--exclude",
+            ".Trashes/**",
+            "--exclude",
+            ".fseventsd/**",
+            "--exclude",
+            "Thumbs.db",
+            "--exclude",
+            "desktop.ini",
+            "--exclude",
+            "$RECYCLE.BIN/**",
+            "--exclude",
+            "System Volume Information/**",
+            "--exclude",
+            "*.tmp",
+            "--exclude",
+            "*.temp",
+            "--exclude",
+            "*.swp",
+            "--exclude",
+            "*.swo",
+            "--exclude",
+            "*.part",
+            "--exclude",
+            "*.crdownload",
+        ])
     }
 
     func testRunScheduledPushesMarksFailuresAsAlarm() async {
@@ -155,6 +231,10 @@ private struct StubLocalFolderInspector: LocalFolderInspecting {
     let containsUserVisibleContent: Bool
 
     func containsUserVisibleContent(atPath path: String) throws -> Bool {
+        containsUserVisibleContent
+    }
+
+    func containsUserVisibleContent(atPath path: String, excludedPatterns: [String]) throws -> Bool {
         containsUserVisibleContent
     }
 }

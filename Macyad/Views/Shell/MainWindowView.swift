@@ -48,6 +48,7 @@ struct MainWindowView: View {
         pairService: PairService()
     )
     @State private var didLoadPairs = false
+    @State private var pairPendingDeletion: SyncPair?
 
     var body: some View {
         let copy = appModel.copy
@@ -68,7 +69,7 @@ struct MainWindowView: View {
 
                 Section(copy.pairsSectionTitle) {
                     ForEach(appModel.pairs) { pair in
-                        PairListRowView(pair: pair)
+                        PairListRowView(pair: pair, severity: appModel.displaySeverity(for: pair))
                             .tag(SidebarSelection.pair(pair.id))
                     }
                 }
@@ -106,8 +107,27 @@ struct MainWindowView: View {
             )
         ) {
             CreatePairSheetView(viewModel: createPairViewModel) { pair in
-                try await savePair(pair)
+                try await persistPair(pair)
             }
+        }
+        .alert(
+            copy.deletePairConfirmationTitle,
+            isPresented: Binding(
+                get: { pairPendingDeletion != nil },
+                set: { if !$0 { pairPendingDeletion = nil } }
+            ),
+            presenting: pairPendingDeletion
+        ) { pair in
+            Button(copy.deletePairConfirmButtonTitle, role: .destructive) {
+                Task {
+                    await deletePair(pair)
+                }
+            }
+            Button(copy.cancelButtonTitle, role: .cancel) {
+                pairPendingDeletion = nil
+            }
+        } message: { pair in
+            Text(copy.deletePairConfirmationMessage(pair.name))
         }
         .task {
             await loadPairsIfNeeded()
@@ -143,10 +163,13 @@ struct MainWindowView: View {
             case .pair:
                 PairDetailView(
                     pair: appModel.selectedPair,
+                    displaySeverity: appModel.selectedPair.map { appModel.displaySeverity(for: $0) } ?? .healthy,
                     viewModel: environment.pairDetailViewModel,
                     onSyncNow: { runActivePairAction(.syncNow) },
                     onCheckYandex: { runActivePairAction(.checkYandex) },
-                    onPullFromYandex: { runActivePairAction(.pullFromYandex) }
+                    onPullFromYandex: { runActivePairAction(.pullFromYandex) },
+                    onEditPair: { presentEditPairSheet() },
+                    onDeletePair: { pairPendingDeletion = appModel.selectedPair }
                 )
             }
         }
@@ -181,6 +204,20 @@ struct MainWindowView: View {
         appModel.isCreatePairSheetPresented = true
     }
 
+    @MainActor
+    private func presentEditPairSheet() {
+        guard let pair = appModel.selectedPair else {
+            return
+        }
+
+        createPairViewModel = CreatePairViewModel(
+            existingPair: pair,
+            folderPicker: FolderPickerBridge(),
+            pairService: PairService()
+        )
+        appModel.isCreatePairSheetPresented = true
+    }
+
     private func loadPairsIfNeeded() async {
         guard !didLoadPairs else {
             return
@@ -193,6 +230,7 @@ struct MainWindowView: View {
             let events = try await environment.activityRepository.load()
             await MainActor.run {
                 appModel.applyPersistedState(pairs: pairs, events: events.sorted { $0.date > $1.date }, using: environment.statusService)
+                appModel.applyInitialPairSelectionIfNeeded()
                 configureQuickActions()
             }
         } catch {
@@ -203,9 +241,13 @@ struct MainWindowView: View {
     }
 
     @MainActor
-    private func savePair(_ pair: SyncPair) async throws {
+    private func persistPair(_ pair: SyncPair) async throws {
         var updatedPairs = appModel.pairs
-        updatedPairs.append(pair)
+        if let pairIndex = updatedPairs.firstIndex(where: { $0.id == pair.id }) {
+            updatedPairs[pairIndex] = pair
+        } else {
+            updatedPairs.append(pair)
+        }
         try await environment.pairRepository.save(updatedPairs)
 
         appModel.pairs = updatedPairs
@@ -213,7 +255,32 @@ struct MainWindowView: View {
         appModel.isCreatePairSheetPresented = false
         appModel.refreshStatusSummary(using: environment.statusService)
         configureQuickActions()
+        await environment.pairDetailViewModel.load(for: pair)
         appModel.refreshBackgroundState()
+    }
+
+    @MainActor
+    private func deletePair(_ pair: SyncPair) async {
+        pairPendingDeletion = nil
+
+        do {
+            let updatedPairs = appModel.pairs.filter { $0.id != pair.id }
+            try await environment.pairRepository.save(updatedPairs)
+
+            let updatedEvents = appModel.activityEvents.filter { $0.pairID != pair.id }
+            try await environment.activityRepository.save(updatedEvents)
+
+            appModel.applyPersistedState(
+                pairs: updatedPairs,
+                events: updatedEvents.sorted { $0.date > $1.date },
+                using: environment.statusService
+            )
+            await environment.pairDetailViewModel.load(for: appModel.selectedPair)
+            configureQuickActions()
+            appModel.refreshBackgroundState()
+        } catch {
+            environment.pairDetailViewModel.setError(error.localizedDescription)
+        }
     }
 
     @MainActor
@@ -251,7 +318,6 @@ struct MainWindowView: View {
             let outcome = try await perform(operation, with: syncService, for: pair)
             let updatedPair = outcome.pair
             try await replacePair(updatedPair)
-            let copy = AppCopy.current
 
             await environment.pairDetailViewModel.record(
                 ActivityEvent(

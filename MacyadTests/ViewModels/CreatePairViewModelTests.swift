@@ -27,4 +27,67 @@ final class CreatePairViewModelTests: XCTestCase {
 
         XCTAssertEqual(model.scheduleMinutes, 45)
     }
+
+    func testInitFromExistingPairPopulatesEditableFields() {
+        let existingPair = SyncPair(
+            id: UUID(),
+            name: "Docs",
+            localFolderBookmark: Data("bookmark".utf8),
+            localFolderDisplayPath: "/Users/test/Docs",
+            remotePath: "yd:/docs",
+            scheduleMinutes: 20,
+            deletePolicy: .keepRemoteDeletesManual,
+            lastKnownSeverity: .warning,
+            syncExcludes: [".DS_Store", "*.tmp"],
+            checkAdditionalExcludes: ["Desktop.ini"]
+        )
+
+        let model = CreatePairViewModel(
+            existingPair: existingPair,
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
+
+        XCTAssertTrue(model.isEditing)
+        XCTAssertEqual(model.name, "Docs")
+        XCTAssertEqual(model.localFolderBookmark, Data("bookmark".utf8))
+        XCTAssertEqual(model.localFolderDisplayPath, "/Users/test/Docs")
+        XCTAssertEqual(model.remotePath, "yd:/docs")
+        XCTAssertEqual(model.scheduleMinutes, 20)
+        XCTAssertEqual(model.deletePolicy, .keepRemoteDeletesManual)
+        XCTAssertEqual(model.syncExcludesText, ".DS_Store\n*.tmp")
+        XCTAssertEqual(model.checkAdditionalExcludesText, "Desktop.ini")
+    }
+
+    func testBuildPairParsesDeduplicatedExcludesAndPreservesEditedPairIdentity() throws {
+        let existingPair = SyncPair(
+            id: UUID(),
+            name: "Docs",
+            localFolderBookmark: Data("bookmark".utf8),
+            localFolderDisplayPath: "/Users/test/Docs",
+            remotePath: "yd:/docs",
+            scheduleMinutes: 20,
+            deletePolicy: .mirrorToYandex,
+            lastKnownSeverity: .alarm,
+            lastSyncAt: Date(timeIntervalSince1970: 1_234),
+            syncExcludes: [".DS_Store"],
+            checkAdditionalExcludes: []
+        )
+
+        let model = CreatePairViewModel(
+            existingPair: existingPair,
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
+        model.syncExcludesText = ".DS_Store\nThumbs.db\nThumbs.db\n\n*.tmp  "
+        model.checkAdditionalExcludesText = "Desktop.ini\n\nDesktop.ini\n*.bak"
+
+        let updatedPair = try model.buildPair()
+
+        XCTAssertEqual(updatedPair.id, existingPair.id)
+        XCTAssertEqual(updatedPair.lastKnownSeverity, .alarm)
+        XCTAssertEqual(updatedPair.lastSyncAt, existingPair.lastSyncAt)
+        XCTAssertEqual(updatedPair.syncExcludes, [".DS_Store", "Thumbs.db", "*.tmp"])
+        XCTAssertEqual(updatedPair.checkAdditionalExcludes, ["Desktop.ini", "*.bak"])
+    }
 }

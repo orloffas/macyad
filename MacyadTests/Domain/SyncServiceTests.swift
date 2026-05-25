@@ -46,7 +46,47 @@ final class SyncServiceTests: XCTestCase {
         let recordedArguments = await processClient.recordedArguments()
         XCTAssertEqual(
             recordedArguments,
-            [["--config", "/tmp/macyad-rclone.conf", "sync", "/Users/test/Work Docs", "yd:/Work Docs"]]
+            [[
+                "--config",
+                "/tmp/macyad-rclone.conf",
+                "sync",
+                "/Users/test/Work Docs",
+                "yd:/Work Docs",
+                "--exclude",
+                ".DS_Store",
+                "--exclude",
+                ".localized",
+                "--exclude",
+                "._*",
+                "--exclude",
+                ".Spotlight-V100/**",
+                "--exclude",
+                ".TemporaryItems/**",
+                "--exclude",
+                ".Trashes/**",
+                "--exclude",
+                ".fseventsd/**",
+                "--exclude",
+                "Thumbs.db",
+                "--exclude",
+                "desktop.ini",
+                "--exclude",
+                "$RECYCLE.BIN/**",
+                "--exclude",
+                "System Volume Information/**",
+                "--exclude",
+                "*.tmp",
+                "--exclude",
+                "*.temp",
+                "--exclude",
+                "*.swp",
+                "--exclude",
+                "*.swo",
+                "--exclude",
+                "*.part",
+                "--exclude",
+                "*.crdownload",
+            ]]
         )
     }
 
@@ -75,7 +115,47 @@ final class SyncServiceTests: XCTestCase {
         try await service.pull(makePair())
 
         let recordedArguments = await processClient.recordedArguments()
-        XCTAssertEqual(recordedArguments, [["--config", "/tmp/macyad-rclone.conf", "copy", "yd:/Work Docs", "/Users/test/Work Docs"]])
+        XCTAssertEqual(recordedArguments, [[
+            "--config",
+            "/tmp/macyad-rclone.conf",
+            "copy",
+            "yd:/Work Docs",
+            "/Users/test/Work Docs",
+            "--exclude",
+            ".DS_Store",
+            "--exclude",
+            ".localized",
+            "--exclude",
+            "._*",
+            "--exclude",
+            ".Spotlight-V100/**",
+            "--exclude",
+            ".TemporaryItems/**",
+            "--exclude",
+            ".Trashes/**",
+            "--exclude",
+            ".fseventsd/**",
+            "--exclude",
+            "Thumbs.db",
+            "--exclude",
+            "desktop.ini",
+            "--exclude",
+            "$RECYCLE.BIN/**",
+            "--exclude",
+            "System Volume Information/**",
+            "--exclude",
+            "*.tmp",
+            "--exclude",
+            "*.temp",
+            "--exclude",
+            "*.swp",
+            "--exclude",
+            "*.swo",
+            "--exclude",
+            "*.part",
+            "--exclude",
+            "*.crdownload",
+        ]])
     }
 
     func testCommandFailureDescriptionUsesSelectedLanguage() {
@@ -134,6 +214,10 @@ private struct StubLocalFolderInspector: LocalFolderInspecting {
     let containsUserVisibleContent: Bool
 
     func containsUserVisibleContent(atPath path: String) throws -> Bool {
+        containsUserVisibleContent
+    }
+
+    func containsUserVisibleContent(atPath path: String, excludedPatterns: [String]) throws -> Bool {
         containsUserVisibleContent
     }
 }

@@ -1,44 +1,124 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODE="${1:-run}"
 APP_NAME="MacYaD"
 SCHEME="Macyad"
 PROJECT="Macyad.xcodeproj"
 BUNDLE_ID="me.orloff.macyad"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${MACYAD_BUILD_DIR:-$HOME/Library/Caches/MacYaD/Build}"
+TEST_BUILD_DIR="${MACYAD_TEST_BUILD_DIR:-$HOME/Library/Caches/MacYaD/TestBuild}"
 APP_BUNDLE="$BUILD_DIR/Build/Products/Debug/$APP_NAME.app"
 PROJECT_PATH="$ROOT_DIR/$PROJECT"
+PACKAGE_DIR="$BUILD_DIR/Package"
+DMG_PATH="$PACKAGE_DIR/$APP_NAME.dmg"
 
-case "$MODE" in
-  run|--debug|debug|--logs|logs|--telemetry|telemetry|--verify|verify)
-    ;;
-  *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
-    exit 2
-    ;;
-esac
+MODE="run"
+LAUNCH_STYLE="foreground"
+CLEAN_SCOPE="none"
+SHOULD_LAUNCH="yes"
+SHOULD_PACKAGE="no"
+INTERACTIVE="0"
 
-cd "$ROOT_DIR"
+usage() {
+  cat <<EOF
+usage: $0 [run|debug|logs|telemetry|verify|package] [--clean|--clean-all] [--launch|--no-launch] [--package-dmg|--package-after-build] [--foreground|--background] [--prompt]
+EOF
+}
 
-pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+if [[ $# -eq 0 ]]; then
+  INTERACTIVE="1"
+fi
 
-xcodegen generate
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    run)
+      MODE="run"
+      ;;
+    --debug|debug)
+      MODE="debug"
+      LAUNCH_STYLE="foreground"
+      ;;
+    --logs|logs)
+      MODE="logs"
+      SHOULD_LAUNCH="yes"
+      LAUNCH_STYLE="background"
+      ;;
+    --telemetry|telemetry)
+      MODE="telemetry"
+      SHOULD_LAUNCH="yes"
+      LAUNCH_STYLE="background"
+      ;;
+    --verify|verify)
+      MODE="verify"
+      SHOULD_LAUNCH="yes"
+      LAUNCH_STYLE="foreground"
+      ;;
+    package|--package|--package-dmg)
+      MODE="package"
+      SHOULD_PACKAGE="yes"
+      SHOULD_LAUNCH="no"
+      ;;
+    --clean)
+      CLEAN_SCOPE="build"
+      ;;
+    --clean-all|--clean-everywhere)
+      CLEAN_SCOPE="all"
+      ;;
+    --launch)
+      SHOULD_LAUNCH="yes"
+      ;;
+    --no-launch)
+      SHOULD_LAUNCH="no"
+      ;;
+    --package-after-build)
+      SHOULD_PACKAGE="yes"
+      ;;
+    --foreground)
+      LAUNCH_STYLE="foreground"
+      ;;
+    --background)
+      LAUNCH_STYLE="background"
+      ;;
+    --prompt)
+      INTERACTIVE="1"
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
 
-xcodebuild \
-  -project "$PROJECT_PATH" \
-  -scheme "$SCHEME" \
-  -configuration Debug \
-  -derivedDataPath "$BUILD_DIR" \
-  -destination 'platform=macOS' \
-  build
+clean_build_artifacts() {
+  rm -rf \
+    "$BUILD_DIR" \
+    "$TEST_BUILD_DIR" \
+    "$HOME/Library/Caches/macyad/Build" \
+    "$HOME/Library/Caches/macyad/TestBuild"
+}
+
+clean_everywhere() {
+  clean_build_artifacts
+  rm -rf \
+    "$HOME/Library/Application Support/MacYaD" \
+    "$HOME/Library/Application Support/macyad" \
+    "$HOME/Library/Saved Application State/$BUNDLE_ID.savedState" \
+    "$HOME/Library/Saved Application State/com.orloff.macyad.savedState"
+  defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
+  defaults delete "com.orloff.macyad" >/dev/null 2>&1 || true
+}
 
 open_app() {
-  if [[ "${1:-}" == "foreground" ]]; then
-    /usr/bin/open -n "$APP_BUNDLE" --args --force-foreground
+  if [[ "${1:-foreground}" == "foreground" ]]; then
+    /usr/bin/open "$APP_BUNDLE" --args --force-foreground
   else
-    /usr/bin/open -g -n "$APP_BUNDLE"
+    /usr/bin/open -g "$APP_BUNDLE"
   fi
 }
 
@@ -72,11 +152,104 @@ launched_app_pid() {
   sed -nE 's/.*pid = ([0-9]+).*/\1/p' <<<"$app_info" | head -n 1
 }
 
+package_dmg() {
+  local staging_dir
+
+  staging_dir="$PACKAGE_DIR/staging"
+  rm -rf "$staging_dir" "$DMG_PATH"
+  mkdir -p "$staging_dir"
+  /usr/bin/ditto "$APP_BUNDLE" "$staging_dir/$APP_NAME.app"
+  ln -s /Applications "$staging_dir/Applications"
+
+  /usr/bin/hdiutil create \
+    -volname "$APP_NAME" \
+    -srcfolder "$staging_dir" \
+    -ov \
+    -format UDZO \
+    "$DMG_PATH" >/dev/null
+
+  echo "Created DMG at $DMG_PATH"
+}
+
+prompt_if_interactive() {
+  local answer normalized
+
+  if [[ "$INTERACTIVE" != "1" || ! -t 0 ]]; then
+    return
+  fi
+
+  if [[ "$CLEAN_SCOPE" == "none" ]]; then
+    read -r -p "Очистить build [b], очистить везде [a], пропустить [Enter]? " answer
+    normalized="$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')"
+    case "$normalized" in
+      b)
+        CLEAN_SCOPE="build"
+        ;;
+      a)
+        CLEAN_SCOPE="all"
+        ;;
+    esac
+  fi
+
+  if [[ "$MODE" == "run" && "$SHOULD_LAUNCH" == "yes" ]]; then
+    read -r -p "Запустить приложение после build? [Y/n] " answer
+    normalized="$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')"
+    case "$normalized" in
+      n|no)
+        SHOULD_LAUNCH="no"
+        ;;
+      *)
+        SHOULD_LAUNCH="yes"
+        ;;
+    esac
+  fi
+
+  if [[ "$SHOULD_PACKAGE" == "no" ]]; then
+    read -r -p "Собрать DMG после build? [y/N] " answer
+    normalized="$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')"
+    case "$normalized" in
+      y|yes)
+        SHOULD_PACKAGE="yes"
+        ;;
+    esac
+  fi
+}
+
+cd "$ROOT_DIR"
+
+pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+prompt_if_interactive
+
+case "$CLEAN_SCOPE" in
+  build)
+    clean_build_artifacts
+    ;;
+  all)
+    clean_everywhere
+    ;;
+esac
+
+xcodegen generate
+
+xcodebuild \
+  -project "$PROJECT_PATH" \
+  -scheme "$SCHEME" \
+  -configuration Debug \
+  -derivedDataPath "$BUILD_DIR" \
+  -destination 'platform=macOS' \
+  build
+
+if [[ "$SHOULD_PACKAGE" == "yes" ]]; then
+  package_dmg
+fi
+
 case "$MODE" in
   run)
-    open_app
+    if [[ "$SHOULD_LAUNCH" == "yes" ]]; then
+      open_app "$LAUNCH_STYLE"
+    fi
     ;;
-  --debug|debug)
+  debug)
     APP_PID=""
     open_app foreground
     verify_launched_app
@@ -87,16 +260,20 @@ case "$MODE" in
     fi
     lldb -p "$APP_PID"
     ;;
-  --logs|logs)
-    open_app
+  logs)
+    open_app "$LAUNCH_STYLE"
     /usr/bin/log stream --info --style compact --predicate "process == \"$APP_NAME\""
     ;;
-  --telemetry|telemetry)
-    open_app
+  telemetry)
+    open_app "$LAUNCH_STYLE"
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
-  --verify|verify)
-    open_app
-    verify_launched_app
+  verify)
+    if [[ "$SHOULD_LAUNCH" == "yes" ]]; then
+      open_app foreground
+      verify_launched_app
+    fi
+    ;;
+  package)
     ;;
 esac
