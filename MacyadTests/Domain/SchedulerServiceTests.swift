@@ -72,11 +72,12 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertEqual(results[0].pair.lastKnownSeverity, .alarm)
         XCTAssertNil(results[0].pair.lastSyncAt)
 
-        guard case let .failed(message) = results[0].disposition else {
+        guard case let .failed(summary, details) = results[0].disposition else {
             return XCTFail("Expected failed disposition")
         }
 
-        XCTAssertTrue(message.contains("exited with code 9"))
+        XCTAssertTrue(summary.contains("exited with code 9"))
+        XCTAssertTrue(details.contains("network exploded"))
     }
 
     func testRunScheduledPushesBlocksEmptyLocalFolderAsWarning() async {
@@ -101,11 +102,12 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertEqual(results[0].pair.lastKnownSeverity, .warning)
         XCTAssertNil(results[0].pair.lastSyncAt)
 
-        guard case let .blockedEmptyLocalFolder(message) = results[0].disposition else {
+        guard case let .blockedEmptyLocalFolder(summary, details) = results[0].disposition else {
             return XCTFail("Expected empty local folder block")
         }
 
-        XCTAssertTrue(message.contains("Local folder is empty"))
+        XCTAssertTrue(summary.contains("Local folder is empty"))
+        XCTAssertTrue(details.contains("Local folder is empty"))
     }
 
     func testPolicyBlocksAlarmPairsFromScheduledPush() {

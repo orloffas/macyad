@@ -1,4 +1,5 @@
 import AppKit
+import MacyadCore
 
 @MainActor
 final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate {
@@ -6,7 +7,8 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
     private var didApplyInitialLaunchBehavior = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        let launchMode = AppLaunchMode(arguments: ProcessInfo.processInfo.arguments)
+        NSApp.setActivationPolicy(launchMode.shouldForceForegroundWindow ? .regular : .accessory)
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {

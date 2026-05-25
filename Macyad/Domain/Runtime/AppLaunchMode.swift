@@ -23,9 +23,7 @@ public enum AppLaunchMode: Sendable, Equatable {
 
     public var shouldForceForegroundWindow: Bool {
         switch self {
-        case .normal:
-            false
-        case .foreground, .uiTestOnboardingMissingRclone, .uiTestReadyState:
+        case .normal, .foreground, .uiTestOnboardingMissingRclone, .uiTestReadyState:
             true
         }
     }

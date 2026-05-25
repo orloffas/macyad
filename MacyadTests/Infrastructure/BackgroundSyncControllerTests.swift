@@ -80,6 +80,8 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertEqual(events.count, 1)
         XCTAssertEqual(events[0].severity, .alarm)
         XCTAssertTrue(events[0].message.contains("Scheduled Push to Yandex failed"))
+        XCTAssertTrue(events[0].details?.contains("permission denied") == true)
+        XCTAssertTrue(events[0].details?.contains("NOTICE: remote object would be replaced") == true)
         XCTAssertEqual(sentNotifications.count, 1)
         XCTAssertEqual(sentNotifications[0].title, "MacYaD: scheduled Push to Yandex failed")
         XCTAssertTrue(sentNotifications[0].body.contains("Photos"))
@@ -227,7 +229,7 @@ private actor RecordingProcessClient: RcloneProcessRunning {
 
 private actor FailingProcessClient: RcloneProcessRunning {
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
-        ("", "permission denied", 12)
+        ("NOTICE: remote object would be replaced", "permission denied", 12)
     }
 }
 

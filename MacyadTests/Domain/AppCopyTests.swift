@@ -10,7 +10,9 @@ final class AppCopyTests: XCTestCase {
         XCTAssertEqual(copy.statusReady, "Ready")
         XCTAssertEqual(copy.syncButtonTitle, "Push to Yandex")
         XCTAssertEqual(copy.syncShortButtonTitle, "Push to Yandex")
+        XCTAssertEqual(copy.pullShortButtonTitle, "Pull from Yandex")
         XCTAssertEqual(copy.manualSyncCompleted, "Push to Yandex completed")
+        XCTAssertEqual(copy.manualCheckWarningDetected, "Yandex check detected remote changes")
         XCTAssertEqual(copy.scheduledSyncCompleted, "Scheduled Push to Yandex completed")
         XCTAssertEqual(copy.scheduledPushBlockedTitle, "Scheduled Push to Yandex blocked")
     }
@@ -23,7 +25,9 @@ final class AppCopyTests: XCTestCase {
         XCTAssertEqual(copy.statusReady, "Готово")
         XCTAssertEqual(copy.syncButtonTitle, "Push to Yandex")
         XCTAssertEqual(copy.syncShortButtonTitle, "Push to Yandex")
+        XCTAssertEqual(copy.pullShortButtonTitle, "Загрузить из Yandex")
         XCTAssertEqual(copy.manualSyncCompleted, "Push to Yandex завершён")
+        XCTAssertEqual(copy.manualCheckWarningDetected, "Проверка Yandex обнаружила изменения")
         XCTAssertEqual(copy.scheduledSyncCompleted, "Плановый Push to Yandex завершён")
         XCTAssertEqual(copy.scheduledPushBlockedTitle, "Плановый Push to Yandex заблокирован")
     }

@@ -125,6 +125,10 @@ public struct AppCopy: Sendable {
         isRussian ? "Проверка Yandex завершена" : "Yandex check completed"
     }
 
+    public var manualCheckWarningDetected: String {
+        isRussian ? "Проверка Yandex обнаружила изменения" : "Yandex check detected remote changes"
+    }
+
     public var manualPullCompleted: String {
         isRussian ? "Загрузка из Yandex завершена" : "Pull from Yandex completed"
     }
@@ -198,7 +202,7 @@ public struct AppCopy: Sendable {
     }
 
     public var pullShortButtonTitle: String {
-        isRussian ? "Загрузить" : "Pull"
+        isRussian ? "Загрузить из Yandex" : "Pull from Yandex"
     }
 
     public var recentEventsTitle: String {
@@ -425,6 +429,45 @@ public struct AppCopy: Sendable {
         return "rclone \(command.joined(separator: " ")) exited with code \(exitCode)\(stderrSuffix)"
     }
 
+    public func rcloneCommandLog(command: [String], exitCode: Int32, stdout: String, stderr: String) -> String {
+        let normalizedStdout = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedStderr = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stdoutBlock = normalizedStdout.isEmpty
+            ? (isRussian ? "<пусто>" : "<empty>")
+            : normalizedStdout
+        let stderrBlock = normalizedStderr.isEmpty
+            ? (isRussian ? "<пусто>" : "<empty>")
+            : normalizedStderr
+
+        if isRussian {
+            return """
+            Команда rclone
+            \(command.joined(separator: " "))
+
+            Код завершения: \(exitCode)
+
+            stdout
+            \(stdoutBlock)
+
+            stderr
+            \(stderrBlock)
+            """
+        }
+
+        return """
+        rclone command
+        \(command.joined(separator: " "))
+
+        Exit code: \(exitCode)
+
+        stdout
+        \(stdoutBlock)
+
+        stderr
+        \(stderrBlock)
+        """
+    }
+
     public var scheduledSyncBootstrapFailure: String {
         isRussian
             ? "Не удалось инициализировать scheduled Push to Yandex."
@@ -469,10 +512,11 @@ public struct AppCopy: Sendable {
             : "Local folder is empty. Run Pull From Yandex first; Push to Yandex was blocked to avoid clearing Yandex."
     }
 
-    public var checkWarningDetails: String {
-        isRussian
+    public func checkWarningDetails(logDescription: String) -> String {
+        let summary = isRussian
             ? "Проверка Yandex обнаружила изменения или drift на стороне remote. Перед следующим Push to Yandex проверьте состояние и при необходимости выполните Pull From Yandex."
             : "Check Yandex detected remote changes or drift. Review the state and run Pull From Yandex before the next Push to Yandex if needed."
+        return "\(summary)\n\n\(logDescription)"
     }
 
     public var backgroundSyncRcloneUnavailable: String {

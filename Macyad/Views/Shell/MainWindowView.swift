@@ -2,6 +2,12 @@ import MacyadCore
 import SwiftUI
 
 struct MainWindowView: View {
+    private struct PairOperationOutcome {
+        let pair: SyncPair
+        let message: String
+        let details: String?
+    }
+
     private enum PairOperationKind {
         case syncNow
         case checkYandex
@@ -242,7 +248,8 @@ struct MainWindowView: View {
 
         do {
             let syncService = try await makeSyncService()
-            let updatedPair = try await perform(operation, with: syncService, for: pair)
+            let outcome = try await perform(operation, with: syncService, for: pair)
+            let updatedPair = outcome.pair
             try await replacePair(updatedPair)
             let copy = AppCopy.current
 
@@ -250,10 +257,10 @@ struct MainWindowView: View {
                 ActivityEvent(
                     id: UUID(),
                     date: Date(),
-                    message: operation.successMessage(using: copy),
+                    message: outcome.message,
                     severity: updatedPair.lastKnownSeverity,
                     pairID: updatedPair.id,
-                    details: successDetails(for: operation, pair: updatedPair, copy: copy)
+                    details: outcome.details
                 ),
                 latestSeverity: updatedPair.lastKnownSeverity
             )
@@ -263,6 +270,7 @@ struct MainWindowView: View {
         } catch {
             let copy = AppCopy.current
             let localizedError = localizedMessage(for: error, copy: copy)
+            let detailedError = detailedMessage(for: error, copy: copy)
 
             if case .syncNow = operation,
                error is SyncService.LocalFolderEmptyPushBlockedError {
@@ -294,7 +302,6 @@ struct MainWindowView: View {
                 failedPair.lastKnownSeverity = .alarm
                 try? await replacePair(failedPair)
 
-                let failureMessage = "\(operation.failurePrefix(using: copy)): \(localizedError)"
                 await environment.pairDetailViewModel.record(
                     ActivityEvent(
                         id: UUID(),
@@ -302,12 +309,12 @@ struct MainWindowView: View {
                         message: operation.failurePrefix(using: copy),
                         severity: .alarm,
                         pairID: pair.id,
-                        details: localizedError
+                        details: detailedError
                     ),
                     latestSeverity: .alarm
                 )
                 await MainActor.run {
-                    environment.pairDetailViewModel.setError(failureMessage)
+                    environment.pairDetailViewModel.setError(detailedError)
                     appModel.refreshBackgroundState()
                 }
             }
@@ -318,7 +325,7 @@ struct MainWindowView: View {
         }
     }
 
-    private func perform(_ operation: PairOperationKind, with syncService: SyncService, for pair: SyncPair) async throws -> SyncPair {
+    private func perform(_ operation: PairOperationKind, with syncService: SyncService, for pair: SyncPair) async throws -> PairOperationOutcome {
         var updatedPair = pair
 
         switch operation {
@@ -326,22 +333,32 @@ struct MainWindowView: View {
             try await syncService.push(pair)
             updatedPair.lastKnownSeverity = .healthy
             updatedPair.lastSyncAt = Date()
+            return PairOperationOutcome(
+                pair: updatedPair,
+                message: AppCopy.current.manualSyncCompleted,
+                details: nil
+            )
         case .checkYandex:
-            updatedPair.lastKnownSeverity = try await syncService.check(pair)
+            let outcome = try await syncService.check(pair)
+            updatedPair.lastKnownSeverity = outcome.severity
+            let details = outcome.severity == .warning
+                ? AppCopy.current.checkWarningDetails(logDescription: outcome.log.detailedDescription)
+                : nil
+            return PairOperationOutcome(
+                pair: updatedPair,
+                message: outcome.severity == .warning
+                    ? AppCopy.current.manualCheckWarningDetected
+                    : AppCopy.current.manualCheckCompleted,
+                details: details
+            )
         case .pullFromYandex:
             try await syncService.pull(pair)
             updatedPair.lastKnownSeverity = .healthy
-        }
-
-        return updatedPair
-    }
-
-    private func successDetails(for operation: PairOperationKind, pair: SyncPair, copy: AppCopy) -> String? {
-        switch operation {
-        case .checkYandex where pair.lastKnownSeverity == .warning:
-            copy.checkWarningDetails
-        case .syncNow, .checkYandex, .pullFromYandex:
-            nil
+            return PairOperationOutcome(
+                pair: updatedPair,
+                message: AppCopy.current.manualPullCompleted,
+                details: nil
+            )
         }
     }
 
@@ -351,6 +368,14 @@ struct MainWindowView: View {
         }
 
         return error.localizedDescription
+    }
+
+    private func detailedMessage(for error: Error, copy: AppCopy) -> String {
+        if let commandError = error as? SyncService.CommandFailedError {
+            return commandError.detailedDescription
+        }
+
+        return localizedMessage(for: error, copy: copy)
     }
 
     private func replacePair(_ pair: SyncPair) async throws {

@@ -58,9 +58,10 @@ final class SyncServiceTests: XCTestCase {
         let processClient = StubProcessClient(result: ("Transferred: 1 / 1, 100%", "", 0))
         let service = SyncService(processClient: processClient, configPath: "/tmp/macyad-rclone.conf")
 
-        let severity = try await service.check(makePair())
+        let outcome = try await service.check(makePair())
 
-        XCTAssertEqual(severity, .warning)
+        XCTAssertEqual(outcome.severity, .warning)
+        XCTAssertTrue(outcome.log.detailedDescription.contains("Transferred: 1 / 1, 100%"))
     }
 
     func testPullUsesCopyCommand() async throws {
@@ -85,6 +86,7 @@ final class SyncServiceTests: XCTestCase {
         let error = SyncService.CommandFailedError(
             command: ["sync", "/tmp/source", "yd:/target"],
             exitCode: 12,
+            stdout: "NOTICE: remote object would be replaced",
             stderr: "permission denied"
         )
 
@@ -92,6 +94,8 @@ final class SyncServiceTests: XCTestCase {
             error.localizedDescription,
             "rclone sync /tmp/source yd:/target exited with code 12: permission denied"
         )
+        XCTAssertTrue(error.detailedDescription.contains("NOTICE: remote object would be replaced"))
+        XCTAssertTrue(error.detailedDescription.contains("permission denied"))
     }
 
     private func makePair() -> SyncPair {
