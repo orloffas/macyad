@@ -94,7 +94,7 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertEqual(results[0].pair.lastKnownSeverity, Severity.alarm)
         XCTAssertNil(results[0].pair.lastSyncAt)
 
-        guard case let .failed(summary, details) = results[0].disposition else {
+        guard case let .failed(summary, details, _) = results[0].disposition else {
             return XCTFail("Expected failed disposition")
         }
 
@@ -125,7 +125,7 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertEqual(results[0].pair.lastKnownSeverity, .warning)
         XCTAssertNil(results[0].pair.lastSyncAt)
 
-        guard case let .blocked(summary, details) = results[0].disposition else {
+        guard case let .blocked(summary, details, _) = results[0].disposition else {
             return XCTFail("Expected blocked disposition")
         }
 

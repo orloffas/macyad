@@ -228,13 +228,13 @@ private actor InMemoryActivityStore: ActivityStoreControlling {
 }
 
 private actor RecordingNotificationClient: UserNotificationSending {
-    private var notifications: [(title: String, body: String)] = []
+    private var notifications: [(title: String, body: String, routeToken: ActivityRouteToken?)] = []
 
-    func send(title: String, body: String) async throws {
-        notifications.append((title: title, body: body))
+    func send(title: String, body: String, routeToken: ActivityRouteToken?) async throws {
+        notifications.append((title: title, body: body, routeToken: routeToken))
     }
 
-    func sentNotifications() -> [(title: String, body: String)] {
+    func sentNotifications() -> [(title: String, body: String, routeToken: ActivityRouteToken?)] {
         notifications
     }
 }

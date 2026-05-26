@@ -33,6 +33,7 @@ public struct SyncService: Sendable {
         public let severity: Severity
         public let summary: String
         public let details: String?
+        public let issueSet: ActivityIssueSet?
         public let differenceCount: Int?
         public let shouldUpdateLastSync: Bool
         public let updatedBaseline: Bool
@@ -41,6 +42,7 @@ public struct SyncService: Sendable {
             severity: Severity,
             summary: String,
             details: String?,
+            issueSet: ActivityIssueSet? = nil,
             differenceCount: Int? = nil,
             shouldUpdateLastSync: Bool = false,
             updatedBaseline: Bool = false
@@ -48,6 +50,7 @@ public struct SyncService: Sendable {
             self.severity = severity
             self.summary = summary
             self.details = details
+            self.issueSet = issueSet
             self.differenceCount = differenceCount
             self.shouldUpdateLastSync = shouldUpdateLastSync
             self.updatedBaseline = updatedBaseline
@@ -98,6 +101,11 @@ public struct SyncService: Sendable {
     private struct BaselinePreparation {
         let baseline: PairConflictBaselineState
         let analysis: PairConflictPlanner.Analysis
+    }
+
+    private enum BaselinePreparationResult {
+        case ready(BaselinePreparation)
+        case missingWithDrift(PairConflictPlanner.Analysis)
     }
 
     private actor NoopPairConflictStateStore: PairConflictStateStoring {
@@ -164,15 +172,16 @@ public struct SyncService: Sendable {
             let localSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .sync)
             let remoteSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.remotePath, mode: .sync)
             let baselinePreparation = try await prepareBaseline(pair: pair, localSnapshot: localSnapshot, remoteSnapshot: remoteSnapshot)
+            switch baselinePreparation {
+            case let .missingWithDrift(analysis):
+                return blockedPushOutcome(analysis: analysis, copy: copy, baselineMissing: true)
+            case let .ready(preparation):
+                if executionMode == .scheduled, !preparation.analysis.remoteOnlyChanged.isEmpty || !preparation.analysis.conflicts.isEmpty {
+                    return blockedPushOutcome(analysis: preparation.analysis, copy: copy, baselineMissing: false)
+                }
 
-            if executionMode == .scheduled, !baselinePreparation.analysis.remoteOnlyChanged.isEmpty || !baselinePreparation.analysis.conflicts.isEmpty {
-                return blockedPushOutcome(analysis: baselinePreparation.analysis, copy: copy)
-            }
-
-            switch pair.conflictPolicy {
-            case .block:
-                if !baselinePreparation.analysis.remoteOnlyChanged.isEmpty || !baselinePreparation.analysis.conflicts.isEmpty {
-                    return blockedPushOutcome(analysis: baselinePreparation.analysis, copy: copy)
+                if !preparation.analysis.remoteOnlyChanged.isEmpty || !preparation.analysis.conflicts.isEmpty {
+                    return blockedPushOutcome(analysis: preparation.analysis, copy: copy, baselineMissing: false)
                 }
 
                 let syncLog = try await runCommand(syncArguments(for: pair))
@@ -184,45 +193,7 @@ public struct SyncService: Sendable {
                     shouldUpdateLastSync: true,
                     updatedBaseline: baselineUpdated
                 )
-
-            case .keepBoth:
-                if executionMode == .scheduled {
-                    return blockedPushOutcome(analysis: baselinePreparation.analysis, copy: copy)
-                }
-
-                if baselinePreparation.analysis.remoteOnlyChanged.isEmpty && baselinePreparation.analysis.conflicts.isEmpty {
-                    let syncLog = try await runCommand(syncArguments(for: pair))
-                    let baselineUpdated = try await refreshBaseline(for: pair)
-                    return OperationOutcome(
-                        severity: .healthy,
-                        summary: copy.manualSyncCompleted,
-                        details: syncLog.detailedDescriptionIfUseful,
-                        shouldUpdateLastSync: true,
-                        updatedBaseline: baselineUpdated
-                    )
-                }
-
-                let details = try await reconcileForPushKeepBoth(pair: pair, analysis: baselinePreparation.analysis)
-                let syncLog = try await runCommand(syncArguments(for: pair))
-                let baselineUpdated = try await refreshBaseline(for: pair)
-                let joinedDetails = join(details, syncLog.detailedDescription)
-                return OperationOutcome(
-                    severity: .warning,
-                    summary: copy.keepBothSummary(
-                        conflictCount: baselinePreparation.analysis.remoteOnlyChanged.count + baselinePreparation.analysis.conflicts.count,
-                        samplePath: baselinePreparation.analysis.sampleRemoteDriftPath
-                    ),
-                    details: joinedDetails,
-                    shouldUpdateLastSync: true,
-                    updatedBaseline: baselineUpdated
-                )
             }
-        } catch let error as LocalizedStateError {
-            return OperationOutcome(
-                severity: .warning,
-                summary: copy.baselineMissingBlockedSummary,
-                details: error.localizedDescription
-            )
         } catch let error as CommandFailedError {
             return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription)
         } catch {
@@ -247,28 +218,34 @@ public struct SyncService: Sendable {
                 )
 
                 if !analysis.conflicts.isEmpty {
+                    let issueSet = makeIssueSet(from: analysis, baselineMissing: false)
                     return OperationOutcome(
                         severity: .warning,
                         summary: copy.baselineAwareCheckSummary(copy.checkClassificationConflicts(count: analysis.conflicts.count)),
-                        details: join(blockedDetails(prefix: copy.checkClassificationConflicts(count: analysis.conflicts.count), analysis: analysis), checkLog.detailedDescription),
+                        details: join(structuredIssueDetails(prefix: copy.checkClassificationConflicts(count: analysis.conflicts.count), issueSet: issueSet), checkLog.detailedDescription),
+                        issueSet: issueSet,
                         differenceCount: analysis.conflicts.count + analysis.remoteOnlyChanged.count + analysis.localOnlyChanged.count
                     )
                 }
 
                 if !analysis.remoteOnlyChanged.isEmpty {
+                    let issueSet = makeIssueSet(from: analysis, baselineMissing: false)
                     return OperationOutcome(
                         severity: .warning,
                         summary: copy.baselineAwareCheckSummary(copy.checkClassificationRemoteOnly(count: analysis.remoteOnlyChanged.count)),
-                        details: join(blockedDetails(prefix: copy.checkClassificationRemoteOnly(count: analysis.remoteOnlyChanged.count), analysis: analysis), checkLog.detailedDescription),
+                        details: join(structuredIssueDetails(prefix: copy.checkClassificationRemoteOnly(count: analysis.remoteOnlyChanged.count), issueSet: issueSet), checkLog.detailedDescription),
+                        issueSet: issueSet,
                         differenceCount: analysis.remoteOnlyChanged.count
                     )
                 }
 
                 if !analysis.localOnlyChanged.isEmpty {
+                    let issueSet = makeIssueSet(from: analysis, baselineMissing: false)
                     return OperationOutcome(
                         severity: .warning,
                         summary: copy.baselineAwareCheckSummary(copy.checkClassificationLocalOnly(count: analysis.localOnlyChanged.count)),
-                        details: join(blockedDetails(prefix: copy.checkClassificationLocalOnly(count: analysis.localOnlyChanged.count), analysis: analysis), checkLog.detailedDescription),
+                        details: join(structuredIssueDetails(prefix: copy.checkClassificationLocalOnly(count: analysis.localOnlyChanged.count), issueSet: issueSet), checkLog.detailedDescription),
+                        issueSet: issueSet,
                         differenceCount: analysis.localOnlyChanged.count
                     )
                 }
@@ -293,19 +270,15 @@ public struct SyncService: Sendable {
                     differenceCount: 0,
                     updatedBaseline: true
                 )
-            case .baselineMissingWithDrift:
+            case let .baselineMissingWithDrift(analysis):
+                let issueSet = makeIssueSet(from: analysis, baselineMissing: true)
                 return OperationOutcome(
                     severity: .warning,
                     summary: copy.baselineAwareCheckSummary(copy.checkClassificationBaselineMissing),
-                    details: join(copy.baselineMissingBlockedSummary, checkLog.detailedDescription)
+                    details: join(structuredIssueDetails(prefix: copy.baselineMissingBlockedSummary, issueSet: issueSet), checkLog.detailedDescription),
+                    issueSet: issueSet
                 )
             }
-        } catch let error as LocalizedStateError {
-            return OperationOutcome(
-                severity: .warning,
-                summary: copy.baselineMissingBlockedSummary,
-                details: error.localizedDescription
-            )
         } catch let error as CommandFailedError {
             return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription)
         } catch {
@@ -320,11 +293,16 @@ public struct SyncService: Sendable {
             let localSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .sync)
             let remoteSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.remotePath, mode: .sync)
             let baselinePreparation = try await prepareBaseline(pair: pair, localSnapshot: localSnapshot, remoteSnapshot: remoteSnapshot)
+            switch baselinePreparation {
+            case let .missingWithDrift(analysis):
+                return blockedPullOutcome(analysis: analysis, copy: copy, baselineMissing: true)
+            case let .ready(preparation):
+                if executionMode == .scheduled, !preparation.analysis.localOnlyChanged.isEmpty || !preparation.analysis.conflicts.isEmpty {
+                    return blockedPullOutcome(analysis: preparation.analysis, copy: copy, baselineMissing: false)
+                }
 
-            switch pair.conflictPolicy {
-            case .block:
-                if !baselinePreparation.analysis.localOnlyChanged.isEmpty || !baselinePreparation.analysis.conflicts.isEmpty {
-                    return blockedPullOutcome(analysis: baselinePreparation.analysis, copy: copy)
+                if !preparation.analysis.localOnlyChanged.isEmpty || !preparation.analysis.conflicts.isEmpty {
+                    return blockedPullOutcome(analysis: preparation.analysis, copy: copy, baselineMissing: false)
                 }
 
                 let pullLog = try await runCommand(pullArguments(for: pair))
@@ -335,36 +313,42 @@ public struct SyncService: Sendable {
                     details: pullLog.detailedDescriptionIfUseful,
                     updatedBaseline: baselineUpdated
                 )
+            }
+        } catch let error as CommandFailedError {
+            return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription)
+        } catch {
+            return OperationOutcome(severity: .alarm, summary: error.localizedDescription, details: error.localizedDescription)
+        }
+    }
 
-            case .keepBoth:
-                if executionMode == .scheduled {
-                    return blockedPullOutcome(analysis: baselinePreparation.analysis, copy: copy)
-                }
+    public func applyResolutions(_ issueSet: ActivityIssueSet, for pair: SyncPair) async -> OperationOutcome {
+        let copy = AppCopy.current
+        var logs: [String] = []
+        let issuesToApply = issueSet.issues.filter { $0.selectedDecision != .later }
+        let remainingIssues = issueSet.issues.filter { $0.selectedDecision == .later }
 
-                if baselinePreparation.analysis.localOnlyChanged.isEmpty && baselinePreparation.analysis.conflicts.isEmpty {
-                    let pullLog = try await runCommand(pullArguments(for: pair))
-                    let baselineUpdated = try await refreshBaseline(for: pair)
-                    return OperationOutcome(
-                        severity: .healthy,
-                        summary: copy.manualPullCompleted,
-                        details: pullLog.detailedDescriptionIfUseful,
-                        updatedBaseline: baselineUpdated
-                    )
-                }
+        do {
+            for issue in issuesToApply {
+                logs.append(contentsOf: try await applyResolution(issue, for: pair))
+            }
 
-                let details = try await reconcileForPullKeepBoth(pair: pair, analysis: baselinePreparation.analysis)
-                let pullLog = try await runCommand(pullArguments(for: pair))
+            if remainingIssues.isEmpty {
                 let baselineUpdated = try await refreshBaseline(for: pair)
                 return OperationOutcome(
-                    severity: .warning,
-                    summary: copy.keepBothSummary(
-                        conflictCount: baselinePreparation.analysis.localOnlyChanged.count + baselinePreparation.analysis.conflicts.count,
-                        samplePath: baselinePreparation.analysis.sampleLocalDriftPath
-                    ),
-                    details: join(details, pullLog.detailedDescription),
+                    severity: .healthy,
+                    summary: copy.issueResolutionCompleted(count: issuesToApply.count),
+                    details: join(copy.issueResolutionDetails(appliedCount: issuesToApply.count, remainingCount: 0), joinLogs(logs)),
                     updatedBaseline: baselineUpdated
                 )
             }
+
+            let remainingIssueSet = ActivityIssueSet(issues: remainingIssues)
+            return OperationOutcome(
+                severity: .warning,
+                summary: copy.issueResolutionRemaining(count: remainingIssues.count),
+                details: join(copy.issueResolutionDetails(appliedCount: issuesToApply.count, remainingCount: remainingIssues.count), joinLogs(logs)),
+                issueSet: remainingIssueSet
+            )
         } catch let error as CommandFailedError {
             return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription)
         } catch {
@@ -376,19 +360,19 @@ public struct SyncService: Sendable {
         pair: SyncPair,
         localSnapshot: PairSnapshot,
         remoteSnapshot: PairSnapshot
-    ) async throws -> BaselinePreparation {
+    ) async throws -> BaselinePreparationResult {
         if let baseline = try await baselineRepository.load(pairID: pair.id) {
             let analysis = planner.analyze(baseline: baseline, localSnapshot: localSnapshot, remoteSnapshot: remoteSnapshot)
-            return BaselinePreparation(baseline: baseline, analysis: analysis)
+            return .ready(BaselinePreparation(baseline: baseline, analysis: analysis))
         }
 
         switch planner.bootstrapDisposition(pairID: pair.id, localSnapshot: localSnapshot, remoteSnapshot: remoteSnapshot, now: now()) {
         case let .baselineCreated(state):
             try await baselineRepository.save(state)
             let analysis = planner.analyze(baseline: state, localSnapshot: localSnapshot, remoteSnapshot: remoteSnapshot)
-            return BaselinePreparation(baseline: state, analysis: analysis)
-        case .baselineMissingWithDrift:
-            throw LocalizedStateError(message: AppCopy.current.baselineMissingBlockedSummary)
+            return .ready(BaselinePreparation(baseline: state, analysis: analysis))
+        case let .baselineMissingWithDrift(analysis):
+            return .missingWithDrift(analysis)
         }
     }
 
@@ -405,31 +389,86 @@ public struct SyncService: Sendable {
         return true
     }
 
-    private func blockedPushOutcome(analysis: PairConflictPlanner.Analysis, copy: AppCopy) -> OperationOutcome {
-        OperationOutcome(
+    private func blockedPushOutcome(analysis: PairConflictPlanner.Analysis, copy: AppCopy, baselineMissing: Bool) -> OperationOutcome {
+        let issueSet = makeIssueSet(from: analysis, baselineMissing: baselineMissing)
+        let summary = baselineMissing
+            ? copy.baselineMissingBlockedSummary
+            : copy.remoteDriftBlockedSummary(count: analysis.changeCountForPushBlock, samplePath: analysis.sampleRemoteDriftPath)
+        return OperationOutcome(
             severity: .warning,
-            summary: copy.remoteDriftBlockedSummary(count: analysis.changeCountForPushBlock, samplePath: analysis.sampleRemoteDriftPath),
-            details: blockedDetails(prefix: copy.remoteDriftBlockedSummary(count: analysis.changeCountForPushBlock, samplePath: analysis.sampleRemoteDriftPath), analysis: analysis)
+            summary: summary,
+            details: structuredIssueDetails(prefix: summary, issueSet: issueSet),
+            issueSet: issueSet
         )
     }
 
-    private func blockedPullOutcome(analysis: PairConflictPlanner.Analysis, copy: AppCopy) -> OperationOutcome {
-        OperationOutcome(
+    private func blockedPullOutcome(analysis: PairConflictPlanner.Analysis, copy: AppCopy, baselineMissing: Bool) -> OperationOutcome {
+        let issueSet = makeIssueSet(from: analysis, baselineMissing: baselineMissing)
+        let summary = baselineMissing
+            ? copy.baselineMissingBlockedSummary
+            : copy.localDriftBlockedSummary(count: analysis.changeCountForPullBlock, samplePath: analysis.sampleLocalDriftPath)
+        return OperationOutcome(
             severity: .warning,
-            summary: copy.localDriftBlockedSummary(count: analysis.changeCountForPullBlock, samplePath: analysis.sampleLocalDriftPath),
-            details: blockedDetails(prefix: copy.localDriftBlockedSummary(count: analysis.changeCountForPullBlock, samplePath: analysis.sampleLocalDriftPath), analysis: analysis)
+            summary: summary,
+            details: structuredIssueDetails(prefix: summary, issueSet: issueSet),
+            issueSet: issueSet
         )
     }
 
-    private func blockedDetails(prefix: String, analysis: PairConflictPlanner.Analysis) -> String {
-        let changedPaths = (analysis.localOnlyChanged + analysis.remoteOnlyChanged + analysis.conflicts)
-            .map(\.path)
-            .prefix(12)
-        let list = changedPaths.map { "- \($0)" }.joined(separator: "\n")
-        if list.isEmpty {
+    private func makeIssueSet(from analysis: PairConflictPlanner.Analysis, baselineMissing: Bool) -> ActivityIssueSet {
+        ActivityIssueSet(issues: analysis.pathResults.compactMap { result in
+            guard result.disposition != .unchanged, result.disposition != .bothChangedIdentical else {
+                return nil
+            }
+
+            let problemKind: ActivityFileProblemKind = switch result.disposition {
+            case .localOnlyChanged:
+                .localOnlyChanged
+            case .remoteOnlyChanged:
+                .remoteOnlyChanged
+            case .conflict:
+                .conflict
+            case .deleteVsModifyConflict:
+                .deleteVsModifyConflict
+            case .unchanged, .bothChangedIdentical:
+                .conflict
+            }
+
+            var differences = result.observedDifferences
+            if baselineMissing, !differences.contains(.baselineMissing) {
+                differences.append(.baselineMissing)
+            }
+
+            let baselineSnapshot = result.baselineRemote ?? result.baselineLocal
+            return ActivityFileIssue(
+                relativePath: result.path,
+                problemKind: problemKind,
+                differences: Array(Set(differences)).sorted { $0.rawValue < $1.rawValue },
+                localSnapshot: result.local,
+                remoteSnapshot: result.remote,
+                baselineSnapshot: baselineSnapshot,
+                selectedDecision: .later
+            )
+        })
+    }
+
+    private func structuredIssueDetails(prefix: String, issueSet: ActivityIssueSet) -> String {
+        guard !issueSet.issues.isEmpty else {
             return prefix
         }
-        return "\(prefix)\n\nAffected paths\n\(list)"
+
+        let issueBlocks = issueSet.issues.map { issue in
+            """
+            Path: \(issue.relativePath)
+            Problem: \(describe(issue.problemKind))
+            Differences: \(describe(issue.differences))
+            Local: \(describe(issue.localSnapshot))
+            Remote: \(describe(issue.remoteSnapshot))
+            Baseline: \(describe(issue.baselineSnapshot))
+            """
+        }.joined(separator: "\n\n")
+
+        return "\(prefix)\n\n\(issueBlocks)"
     }
 
     private func filterBaseline(_ baseline: PairConflictBaselineState, for excludes: [String]) -> PairConflictBaselineState {
@@ -447,82 +486,17 @@ public struct SyncService: Sendable {
         )
     }
 
-    private func reconcileForPushKeepBoth(pair: SyncPair, analysis: PairConflictPlanner.Analysis) async throws -> String {
-        var details: [String] = []
-        let affectedPaths = analysis.remoteOnlyChanged + analysis.conflicts
-
-        for result in affectedPaths {
-            if result.local != nil, result.disposition != .remoteOnlyChanged {
-                let conflictCopyURL = try localConflictFileManager.makeConflictCopy(for: pair, relativePath: result.path, at: now())
-                let conflictRemotePath = SyncPair.composeRemotePath(
-                    remoteName: pair.parsedRemoteName ?? "",
-                    remoteSubpath: appendConflictComponent(result.path, fileName: conflictCopyURL.lastPathComponent)
-                )
-                let uploadLog = try await runCommand(
-                    RcloneCommandBuilder.copyToArguments(
-                        sourcePath: conflictCopyURL.path,
-                        destinationPath: conflictRemotePath,
-                        configPath: configPath
-                    )
-                )
-                details.append(uploadLog.detailedDescription)
-            }
-
-            if result.remote != nil {
-                let localCanonicalURL = localConflictFileManager.canonicalLocalURL(for: pair, relativePath: result.path)
-                let pullLog = try await runCommand(
-                    RcloneCommandBuilder.copyToArguments(
-                        sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: result.path),
-                        destinationPath: localCanonicalURL.path,
-                        configPath: configPath
-                    )
-                )
-                details.append(pullLog.detailedDescription)
-            } else {
-                try localConflictFileManager.removeCanonicalLocalItem(for: pair, relativePath: result.path)
-            }
+    private func applyResolution(_ issue: ActivityFileIssue, for pair: SyncPair) async throws -> [String] {
+        switch issue.selectedDecision {
+        case .later:
+            return []
+        case .keepLocal:
+            return try await applyKeepLocal(issue, for: pair)
+        case .keepRemote:
+            return try await applyKeepRemote(issue, for: pair)
+        case .keepBoth:
+            return try await applyKeepBoth(issue, for: pair)
         }
-
-        return details.joined(separator: "\n\n")
-    }
-
-    private func reconcileForPullKeepBoth(pair: SyncPair, analysis: PairConflictPlanner.Analysis) async throws -> String {
-        var details: [String] = []
-        let affectedPaths = analysis.localOnlyChanged + analysis.conflicts
-
-        for result in affectedPaths {
-            if result.local != nil {
-                let conflictCopyURL = try localConflictFileManager.makeConflictCopy(for: pair, relativePath: result.path, at: now())
-                let conflictRemotePath = SyncPair.composeRemotePath(
-                    remoteName: pair.parsedRemoteName ?? "",
-                    remoteSubpath: appendConflictComponent(result.path, fileName: conflictCopyURL.lastPathComponent)
-                )
-                let uploadLog = try await runCommand(
-                    RcloneCommandBuilder.copyToArguments(
-                        sourcePath: conflictCopyURL.path,
-                        destinationPath: conflictRemotePath,
-                        configPath: configPath
-                    )
-                )
-                details.append(uploadLog.detailedDescription)
-            }
-
-            if result.remote != nil {
-                let localCanonicalURL = localConflictFileManager.canonicalLocalURL(for: pair, relativePath: result.path)
-                let pullLog = try await runCommand(
-                    RcloneCommandBuilder.copyToArguments(
-                        sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: result.path),
-                        destinationPath: localCanonicalURL.path,
-                        configPath: configPath
-                    )
-                )
-                details.append(pullLog.detailedDescription)
-            } else {
-                try localConflictFileManager.removeCanonicalLocalItem(for: pair, relativePath: result.path)
-            }
-        }
-
-        return details.joined(separator: "\n\n")
     }
 
     private func composeCanonicalRemotePath(pair: SyncPair, relativePath: String) -> String {
@@ -533,10 +507,158 @@ public struct SyncService: Sendable {
         return SyncPair.composeRemotePath(remoteName: remoteName, remoteSubpath: remoteSubpath)
     }
 
-    private func appendConflictComponent(_ relativePath: String, fileName: String) -> String {
-        let parent = URL(fileURLWithPath: relativePath).deletingLastPathComponent().path
-        let normalizedParent = parent == "/" ? "" : parent.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return normalizedParent.isEmpty ? fileName : "\(normalizedParent)/\(fileName)"
+    private func applyKeepLocal(_ issue: ActivityFileIssue, for pair: SyncPair) async throws -> [String] {
+        if issue.localSnapshot != nil {
+            let log = try await runCommand(
+                RcloneCommandBuilder.copyToArguments(
+                    sourcePath: localConflictFileManager.canonicalLocalURL(for: pair, relativePath: issue.relativePath).path,
+                    destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                    configPath: configPath
+                )
+            )
+            return [log.detailedDescription]
+        }
+
+        if issue.remoteSnapshot != nil {
+            let log = try await runCommand(
+                RcloneCommandBuilder.deleteFileArguments(
+                    path: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                    configPath: configPath
+                )
+            )
+            return [log.detailedDescription]
+        }
+
+        return []
+    }
+
+    private func applyKeepRemote(_ issue: ActivityFileIssue, for pair: SyncPair) async throws -> [String] {
+        if issue.remoteSnapshot != nil {
+            let log = try await runCommand(
+                RcloneCommandBuilder.copyToArguments(
+                    sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                    destinationPath: localConflictFileManager.canonicalLocalURL(for: pair, relativePath: issue.relativePath).path,
+                    configPath: configPath
+                )
+            )
+            return [log.detailedDescription]
+        }
+
+        if issue.localSnapshot != nil {
+            try localConflictFileManager.removeCanonicalLocalItem(for: pair, relativePath: issue.relativePath)
+            return ["Removed local item \(issue.relativePath)"]
+        }
+
+        return []
+    }
+
+    private func applyKeepBoth(_ issue: ActivityFileIssue, for pair: SyncPair) async throws -> [String] {
+        let resolutionDate = now()
+        let localConflictRelativePath = renamedConflictRelativePath(issue.relativePath, source: "local", at: resolutionDate)
+        let remoteConflictRelativePath = renamedConflictRelativePath(issue.relativePath, source: "remote", at: resolutionDate)
+        var logs: [String] = []
+
+        if issue.localSnapshot != nil {
+            let localConflictURL = try localConflictFileManager.moveCanonicalLocalItem(
+                for: pair,
+                relativePath: issue.relativePath,
+                to: localConflictRelativePath
+            )
+            logs.append("Moved local item to \(localConflictRelativePath)")
+            let uploadLog = try await runCommand(
+                RcloneCommandBuilder.copyToArguments(
+                    sourcePath: localConflictURL.path,
+                    destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: localConflictRelativePath),
+                    configPath: configPath
+                )
+            )
+            logs.append(uploadLog.detailedDescription)
+        }
+
+        if issue.remoteSnapshot != nil {
+            let localRemoteConflictURL = localConflictFileManager.canonicalLocalURL(for: pair, relativePath: remoteConflictRelativePath)
+            let downloadLog = try await runCommand(
+                RcloneCommandBuilder.copyToArguments(
+                    sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                    destinationPath: localRemoteConflictURL.path,
+                    configPath: configPath
+                )
+            )
+            logs.append(downloadLog.detailedDescription)
+
+            let remoteCopyLog = try await runCommand(
+                RcloneCommandBuilder.copyToArguments(
+                    sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                    destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: remoteConflictRelativePath),
+                    configPath: configPath
+                )
+            )
+            logs.append(remoteCopyLog.detailedDescription)
+
+            let remoteDeleteLog = try await runCommand(
+                RcloneCommandBuilder.deleteFileArguments(
+                    path: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                    configPath: configPath
+                )
+            )
+            logs.append(remoteDeleteLog.detailedDescription)
+        }
+
+        return logs
+    }
+
+    private func renamedConflictRelativePath(_ relativePath: String, source: String, at date: Date) -> String {
+        let url = URL(fileURLWithPath: relativePath)
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
+        let stamp = formatter.string(from: date)
+        let baseName = url.deletingPathExtension().lastPathComponent
+        let ext = url.pathExtension
+        let renamed = ext.isEmpty
+            ? "\(baseName) (MacYaD conflict \(source) \(stamp))"
+            : "\(baseName) (MacYaD conflict \(source) \(stamp)).\(ext)"
+        let parent = url.deletingLastPathComponent().path
+        if parent == "/" || parent.isEmpty {
+            return renamed
+        }
+        return "\(parent.trimmingCharacters(in: CharacterSet(charactersIn: "/")))/\(renamed)"
+    }
+
+    private func describe(_ issueKind: ActivityFileProblemKind) -> String {
+        switch issueKind {
+        case .remoteOnlyChanged:
+            return "remote-only changed"
+        case .localOnlyChanged:
+            return "local-only changed"
+        case .conflict:
+            return "conflict"
+        case .deleteVsModifyConflict:
+            return "delete-vs-modify conflict"
+        }
+    }
+
+    private func describe(_ differences: [ActivityFileDifference]) -> String {
+        differences.map(\.rawValue).joined(separator: ", ")
+    }
+
+    private func describe(_ snapshot: PairSnapshotEntry?) -> String {
+        guard let snapshot else {
+            return "<missing>"
+        }
+        let modTime = snapshot.modTime?.ISO8601Format() ?? "<nil>"
+        let hash = snapshot.md5 ?? "<nil>"
+        return "size=\(snapshot.size), mtime=\(modTime), md5=\(hash)"
+    }
+
+    private func joinLogs(_ logs: [String]) -> String? {
+        let joined = logs
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+        return joined.isEmpty ? nil : joined
     }
 
     private func syncArguments(for pair: SyncPair) throws -> [String] {
@@ -593,14 +715,6 @@ public struct SyncService: Sendable {
         default:
             return nil
         }
-    }
-}
-
-private struct LocalizedStateError: Error, LocalizedError, Sendable {
-    let message: String
-
-    var errorDescription: String? {
-        message
     }
 }
 

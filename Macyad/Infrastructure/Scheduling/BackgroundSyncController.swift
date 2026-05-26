@@ -10,10 +10,6 @@ public protocol ActivityStoreControlling: Sendable {
     func append(_ event: ActivityEvent) async throws
 }
 
-public protocol UserNotificationSending: Sendable {
-    func send(title: String, body: String) async throws
-}
-
 extension PairRepository: PairStoreControlling {}
 extension ActivityRepository: ActivityStoreControlling {}
 extension UserNotificationClient: UserNotificationSending {}
@@ -104,15 +100,17 @@ public actor BackgroundSyncController {
             let event = makeEvent(for: result, at: now())
             try? await activityStore.append(event)
 
-            if case let .blocked(summary, _) = result.disposition {
+            if case let .blocked(summary, _, _) = result.disposition {
                 try? await notificationClient.send(
                     title: copy.pushBlockedNotificationTitle,
-                    body: "\(result.pair.name): \(summary)"
+                    body: "\(result.pair.name): \(summary)",
+                    routeToken: event.routeToken
                 )
-            } else if case let .failed(summary, _) = result.disposition {
+            } else if case let .failed(summary, _, _) = result.disposition {
                 try? await notificationClient.send(
                     title: copy.scheduledSyncNotificationTitle,
-                    body: "\(result.pair.name): \(summary)"
+                    body: "\(result.pair.name): \(summary)",
+                    routeToken: event.routeToken
                 )
             }
         }
@@ -137,37 +135,52 @@ public actor BackgroundSyncController {
         let copy = AppCopy.current
         let message: String
         let severity: Severity
+        let eventID = UUID()
+        let routeToken: ActivityRouteToken?
+        let issueSet: ActivityIssueSet?
 
         switch result.disposition {
         case .pushed:
             message = copy.scheduledSyncCompleted
             severity = .healthy
+            routeToken = nil
+            issueSet = nil
         case .blocked:
             message = copy.scheduledPushBlockedTitle
             severity = .warning
+            routeToken = ActivityRouteToken(pairID: result.pair.id, eventID: eventID, openIssueTable: result.disposition.issueSet != nil)
+            issueSet = result.disposition.issueSet
             return ActivityEvent(
-                id: UUID(),
+                id: eventID,
                 date: date,
                 message: message,
                 severity: severity,
                 pairID: result.pair.id,
-                details: result.disposition.details
+                details: result.disposition.details,
+                issueSet: issueSet,
+                routeToken: routeToken
             )
-        case let .failed(summary, _):
+        case let .failed(summary, _, _):
             message = copy.scheduledSyncFailed(summary)
             severity = .alarm
+            routeToken = ActivityRouteToken(pairID: result.pair.id, eventID: eventID, openIssueTable: result.disposition.issueSet != nil)
+            issueSet = result.disposition.issueSet
         case .skippedByPolicy, .skippedNotDue:
             message = copy.scheduledSyncSkipped
             severity = result.pair.lastKnownSeverity
+            routeToken = nil
+            issueSet = nil
         }
 
         return ActivityEvent(
-            id: UUID(),
+            id: eventID,
             date: date,
             message: message,
             severity: severity,
             pairID: result.pair.id,
-            details: result.disposition.details
+            details: result.disposition.details,
+            issueSet: issueSet,
+            routeToken: routeToken
         )
     }
 }
@@ -175,8 +188,17 @@ public actor BackgroundSyncController {
 private extension ScheduledPushDisposition {
     var details: String? {
         switch self {
-        case let .failed(_, details), let .blocked(_, details):
+        case let .failed(_, details, _), let .blocked(_, details, _):
             details
+        case .pushed, .skippedByPolicy, .skippedNotDue:
+            nil
+        }
+    }
+
+    var issueSet: ActivityIssueSet? {
+        switch self {
+        case let .failed(_, _, issueSet), let .blocked(_, _, issueSet):
+            issueSet
         case .pushed, .skippedByPolicy, .skippedNotDue:
             nil
         }

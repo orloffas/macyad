@@ -265,6 +265,30 @@ public struct AppCopy: Sendable {
         isRussian ? "Конфликт обработан, обе копии сохранены" : "Conflict reconciled, both copies preserved"
     }
 
+    public func issueResolutionCompleted(count: Int) -> String {
+        if isRussian {
+            return "Решения по файлам применены: \(count)"
+        }
+
+        return "Applied file resolutions: \(count)"
+    }
+
+    public func issueResolutionRemaining(count: Int) -> String {
+        if isRussian {
+            return "Остались нерешённые файлы: \(count)"
+        }
+
+        return "Unresolved files remain: \(count)"
+    }
+
+    public func issueResolutionDetails(appliedCount: Int, remainingCount: Int) -> String {
+        if isRussian {
+            return "Применено решений: \(appliedCount). Осталось без решения: \(remainingCount)."
+        }
+
+        return "Applied decisions: \(appliedCount). Remaining unresolved: \(remainingCount)."
+    }
+
     public var manualCheckFailedPrefix: String {
         isRussian ? "Не удалось проверить Yandex" : "Failed to check Yandex"
     }
@@ -391,6 +415,122 @@ public struct AppCopy: Sendable {
         isRussian ? "Закрыть" : "Close"
     }
 
+    public var reviewFilesButtonTitle: String {
+        isRussian ? "Проверить файлы" : "Review files"
+    }
+
+    public var issueReviewTitle: String {
+        isRussian ? "Разбор проблемных файлов" : "Review problem files"
+    }
+
+    public var issueReviewSearchPlaceholder: String {
+        isRussian ? "Поиск по пути или имени файла" : "Search path or file name"
+    }
+
+    public var issueReviewFilterLabel: String {
+        isRussian ? "Фильтр" : "Filter"
+    }
+
+    public var issueReviewFilterAll: String {
+        isRussian ? "Все" : "All"
+    }
+
+    public var issueReviewFilterConflicts: String {
+        isRussian ? "Конфликты" : "Conflicts"
+    }
+
+    public var issueReviewFilterRemoteOnly: String {
+        isRussian ? "Только remote" : "Remote only"
+    }
+
+    public var issueReviewFilterLocalOnly: String {
+        isRussian ? "Только local" : "Local only"
+    }
+
+    public var issueReviewFilterDeleteVsModify: String {
+        isRussian ? "Удаление vs изменение" : "Delete vs modify"
+    }
+
+    public var issueReviewFilterBaselineMissing: String {
+        isRussian ? "Нет baseline" : "Baseline missing"
+    }
+
+    public var issueReviewSelectAllVisible: String {
+        isRussian ? "Выбрать всё видимое" : "Select all visible"
+    }
+
+    public var issueReviewClearSelection: String {
+        isRussian ? "Снять выделение" : "Clear selection"
+    }
+
+    public var issueReviewSetSelectedTo: String {
+        isRussian ? "Для выбранных…" : "Set selected to..."
+    }
+
+    public var issueReviewSetAllVisibleTo: String {
+        isRussian ? "Для всех видимых…" : "Set all visible to..."
+    }
+
+    public var issueReviewApplyButtonTitle: String {
+        isRussian ? "Применить решения" : "Apply decisions"
+    }
+
+    public var issueReviewPathColumnTitle: String {
+        isRussian ? "Путь" : "Path"
+    }
+
+    public var issueReviewFileColumnTitle: String {
+        isRussian ? "Файл" : "File"
+    }
+
+    public var issueReviewProblemColumnTitle: String {
+        isRussian ? "Проблема" : "Problem"
+    }
+
+    public var issueReviewLocalColumnTitle: String {
+        isRussian ? "Local" : "Local"
+    }
+
+    public var issueReviewRemoteColumnTitle: String {
+        isRussian ? "Remote" : "Remote"
+    }
+
+    public var issueReviewDecisionColumnTitle: String {
+        isRussian ? "Решение" : "Decision"
+    }
+
+    public var issueDecisionKeepLocalTitle: String {
+        isRussian ? "Оставить local" : "Keep local"
+    }
+
+    public var issueDecisionKeepRemoteTitle: String {
+        isRussian ? "Оставить remote" : "Keep remote"
+    }
+
+    public var issueDecisionKeepBothTitle: String {
+        isRussian ? "Сохранить обе" : "Keep both"
+    }
+
+    public var issueDecisionLaterTitle: String {
+        isRussian ? "Позже" : "Later"
+    }
+
+    public func issueReviewSummary(visibleCount: Int, selectedCount: Int, unresolvedCount: Int) -> String {
+        if isRussian {
+            return "Видимо: \(visibleCount) · Выбрано: \(selectedCount) · Без решения: \(unresolvedCount)"
+        }
+
+        return "Visible: \(visibleCount) · Selected: \(selectedCount) · Unresolved: \(unresolvedCount)"
+    }
+
+    public var issueReviewNoIssues: String {
+        isRussian ? "Для этого события нет файлов, требующих ручного решения." : "This event has no files that require manual review."
+    }
+
+    public var lastPairDeleteDisabledMessage: String {
+        isRussian ? "Последнюю pair удалить нельзя." : "The last pair can't be removed."
+    }
+
     public var createPairTitle: String {
         isRussian ? "Новая пара" : "New Pair"
     }
@@ -445,10 +585,10 @@ public struct AppCopy: Sendable {
 
     public var conflictPolicyDescription: String {
         if isRussian {
-            return "Block ничего не меняет при drift/conflict. Keep Both доступен только для ручных действий и создаёт conflict-copy, а оригинальное имя остаётся у версии на стороне remote."
+            return "При drift/conflict MacYaD всегда создаёт Review files и ждёт явного решения по строкам или пакетно. Это поле сохраняет product intent пары, но не запускает авто-перезапись файлов."
         }
 
-        return "Block never mutates data when drift or conflicts are found. Keep Both is manual-only and creates a conflict copy while the remote version keeps the original name."
+        return "When drift or conflicts are detected, MacYaD always opens Review files and waits for explicit row-level or bulk decisions. This field keeps the pair's product intent, but it never triggers automatic overwrites."
     }
 
     public func intervalTitle(minutes: Int) -> String {
@@ -839,16 +979,16 @@ public struct AppCopy: Sendable {
     public func keepBothSummary(conflictCount: Int, samplePath: String?) -> String {
         if isRussian {
             if let samplePath {
-                return "Обнаружено \(conflictCount) conflict path(s). Оригинал на стороне remote сохранён, локальная версия ушла в conflict-copy. Example: \(samplePath)."
+                return "Для \(conflictCount) conflict path(s) сохранены обе версии через явные conflict-copy. Example: \(samplePath)."
             }
-            return "Обнаружено \(conflictCount) conflict path(s). Оригинал на стороне remote сохранён, локальная версия ушла в conflict-copy."
+            return "Для \(conflictCount) conflict path(s) сохранены обе версии через явные conflict-copy."
         }
 
         if let samplePath {
-            return "Detected \(conflictCount) conflict path(s). The remote version kept the original name, and the local version was saved as a conflict copy. Example: \(samplePath)."
+            return "Preserved both versions for \(conflictCount) conflict path(s) by creating explicit conflict copies. Example: \(samplePath)."
         }
 
-        return "Detected \(conflictCount) conflict path(s). The remote version kept the original name, and the local version was saved as a conflict copy."
+        return "Preserved both versions for \(conflictCount) conflict path(s) by creating explicit conflict copies."
     }
 
     public func baselineAwareCheckSummary(_ classification: String) -> String {

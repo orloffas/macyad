@@ -46,6 +46,16 @@ public actor ActivityRepository {
         try await save(events)
     }
 
+    public func replace(_ event: ActivityEvent) async throws {
+        var events = try await load()
+        if let index = events.firstIndex(where: { $0.id == event.id }) {
+            events[index] = event
+        } else {
+            events.append(event)
+        }
+        try await save(events)
+    }
+
     public func events(for pairID: UUID?) async throws -> [ActivityEvent] {
         let events = try await load().sorted { $0.date > $1.date }
         guard let pairID else {

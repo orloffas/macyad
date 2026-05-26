@@ -7,6 +7,7 @@ public struct PairService: Sendable {
         case missingAccount
         case emptyRemotePath
         case invalidSchedule
+        case lastPairDeletion
 
         public var errorDescription: String? {
             let copy = AppCopy.current
@@ -22,6 +23,8 @@ public struct PairService: Sendable {
                 copy.pairValidationEmptyRemotePath
             case .invalidSchedule:
                 copy.pairValidationInvalidSchedule
+            case .lastPairDeletion:
+                copy.lastPairDeleteDisabledMessage
             }
         }
     }
@@ -103,6 +106,18 @@ public struct PairService: Sendable {
             syncExcludes: syncExcludes,
             checkAdditionalExcludes: checkAdditionalExcludes
         )
+    }
+
+    public func removePair(_ pair: SyncPair, from pairs: [SyncPair]) throws -> [SyncPair] {
+        guard pairs.contains(where: { $0.id == pair.id }) else {
+            return pairs
+        }
+
+        guard pairs.count > 1 else {
+            throw ValidationError.lastPairDeletion
+        }
+
+        return pairs.filter { $0.id != pair.id }
     }
 
     private func validate(

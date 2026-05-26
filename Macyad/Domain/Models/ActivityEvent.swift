@@ -7,6 +7,8 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
     public var severity: Severity
     public var pairID: UUID?
     public var details: String?
+    public var issueSet: ActivityIssueSet?
+    public var routeToken: ActivityRouteToken?
 
     public init(
         id: UUID,
@@ -14,7 +16,9 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         message: String,
         severity: Severity,
         pairID: UUID?,
-        details: String? = nil
+        details: String? = nil,
+        issueSet: ActivityIssueSet? = nil,
+        routeToken: ActivityRouteToken? = nil
     ) {
         self.id = id
         self.date = date
@@ -22,6 +26,8 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         self.severity = severity
         self.pairID = pairID
         self.details = details
+        self.issueSet = issueSet
+        self.routeToken = routeToken
     }
 
     enum CodingKeys: String, CodingKey {
@@ -31,6 +37,8 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         case severity
         case pairID
         case details
+        case issueSet
+        case routeToken
     }
 
     public init(from decoder: Decoder) throws {
@@ -41,5 +49,7 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         severity = try container.decode(Severity.self, forKey: .severity)
         pairID = try container.decodeIfPresent(UUID.self, forKey: .pairID)
         details = try container.decodeIfPresent(String.self, forKey: .details)
+        issueSet = try container.decodeIfPresent(ActivityIssueSet.self, forKey: .issueSet)
+        routeToken = try container.decodeIfPresent(ActivityRouteToken.self, forKey: .routeToken)
     }
 }

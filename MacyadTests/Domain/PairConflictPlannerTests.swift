@@ -57,6 +57,35 @@ final class PairConflictPlannerTests: XCTestCase {
         XCTAssertEqual(analysis.conflicts.first?.disposition, .deleteVsModifyConflict)
     }
 
+    func testAnalyzeKeepsObservedDifferencesAlongsideDisposition() throws {
+        let planner = PairConflictPlanner()
+        let baseline = PairConflictBaselineState(
+            pairID: UUID(),
+            localSnapshot: PairSnapshot(entries: [
+                PairSnapshotEntry(path: "Docs/file.txt", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: "same")
+            ]),
+            remoteSnapshot: PairSnapshot(entries: [
+                PairSnapshotEntry(path: "Docs/file.txt", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: "same")
+            ]),
+            updatedAt: Date()
+        )
+
+        let local = PairSnapshot(entries: [
+            PairSnapshotEntry(path: "Docs/file.txt", size: 12, modTime: Date(timeIntervalSince1970: 2_000), md5: "same")
+        ])
+        let remote = PairSnapshot(entries: [
+            PairSnapshotEntry(path: "Docs/file.txt", size: 18, modTime: Date(timeIntervalSince1970: 3_000), md5: "remote")
+        ])
+
+        let analysis = planner.analyze(baseline: baseline, localSnapshot: local, remoteSnapshot: remote)
+        let result = try XCTUnwrap(analysis.pathResults.first)
+
+        XCTAssertEqual(result.disposition, .conflict)
+        XCTAssertTrue(result.observedDifferences.contains(.mtimeDiffers))
+        XCTAssertTrue(result.observedDifferences.contains(.sizeDiffers))
+        XCTAssertTrue(result.observedDifferences.contains(.hashDiffers))
+    }
+
     func testBootstrapCreatesBaselineOnlyWhenSnapshotsMatch() {
         let planner = PairConflictPlanner()
         let now = Date(timeIntervalSince1970: 1_000)

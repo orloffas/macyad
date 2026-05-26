@@ -1,15 +1,18 @@
 import AppKit
 import MacyadCore
+import UserNotifications
 
 @MainActor
-final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate {
     private weak var mainWindow: NSWindow?
     private var didApplyInitialLaunchBehavior = false
+    var notificationRouteHandler: @MainActor (ActivityRouteToken?) -> Void = { _ in }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let launchMode = AppLaunchMode(arguments: ProcessInfo.processInfo.arguments)
         applyApplicationIcon()
         NSApp.setActivationPolicy(launchMode.shouldForceForegroundWindow ? .regular : .accessory)
+        UNUserNotificationCenter.current().delegate = self
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
@@ -117,5 +120,22 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
             systemSymbolName: "externaldrive.badge.icloud",
             accessibilityDescription: AppMetadata.displayName
         )?.copy() as? NSImage
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .list, .sound]
+    }
+
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        let routeToken = ActivityRouteToken(notificationUserInfo: response.notification.request.content.userInfo)
+        await MainActor.run {
+            self.notificationRouteHandler(routeToken)
+        }
     }
 }

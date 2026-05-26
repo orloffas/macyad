@@ -17,14 +17,17 @@
 - `Push to Yandex` больше не считается “безусловным sync”. Перед push приложение сравнивает текущее состояние с последним согласованным baseline и блокирует опасный overwrite.
 - `Conflict policy` на уровне пары:
   - `Block Push/Pull on conflict` — default для новых и legacy pair;
-  - `Keep Both Copies` — только для ручных операций; remote сохраняет исходное имя, локальная версия уходит в `conflict-copy`.
+  - `Keep Both Copies` — сохранён как product intent пары, но фактическое решение всё равно принимается через `Review files`.
+- Manual `Push/Pull` при drift/conflict ничего не меняют автоматически:
+  - создают reviewable `activity event`;
+  - в `Activity Detail` появляется кнопка `Review files`;
+  - пользователь выбирает `Keep local`, `Keep remote`, `Keep both` или `Later` по строкам, по выбранной группе или сразу по всем видимым строкам.
 - `scheduled Push to Yandex` всегда non-destructive:
   - не делает auto-reconcile;
-  - не создаёт conflict-copy;
   - не перетирает remote drift;
   - выполняется только если preflight считает push безопасным.
 - `Check Yandex` опирается на baseline-aware сравнение и различает `clean`, `baseline missing`, `remote-only drift`, `local-only drift` и `true conflicts`.
-- `Activity` хранится 48 часов. Для `warning` и `alarm` в `Details` сохраняются полные `rclone` logs.
+- `Activity` хранится 48 часов. Для `warning` и `alarm` в `Details` сохраняются полные `rclone` logs, а для reviewable конфликтов — структурированный список проблемных файлов с путями, observed differences и выбранными решениями.
 
 ## Где лежит app state
 
@@ -59,6 +62,7 @@
   - текущий notification authorization status
   - `Request Permission`
   - `Send Test Notification`
+- Click по проблемному notification открывает главное окно, выбирает нужную `pair` и соответствующую `activity`; если у события есть reviewable issue list, из него можно сразу открыть `Review files`.
 
 ## Запуск
 

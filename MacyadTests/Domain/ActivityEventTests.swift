@@ -40,4 +40,38 @@ final class ActivityEventTests: XCTestCase {
         XCTAssertEqual(decoded, event)
         XCTAssertEqual(decoded.details, "Local folder is empty. Run Pull From Yandex first.")
     }
+
+    func testIssueSetAndRouteTokenRoundTrip() throws {
+        let pairID = UUID()
+        let eventID = UUID()
+        let event = ActivityEvent(
+            id: eventID,
+            date: Date(timeIntervalSince1970: 1_716_580_800),
+            message: "Push to Yandex blocked",
+            severity: .warning,
+            pairID: pairID,
+            details: "Structured review required.",
+            issueSet: ActivityIssueSet(
+                issues: [
+                    ActivityFileIssue(
+                        relativePath: "Docs/test.txt",
+                        problemKind: .remoteOnlyChanged,
+                        differences: [.sizeDiffers, .mtimeDiffers],
+                        localSnapshot: PairSnapshotEntry(path: "Docs/test.txt", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: "local"),
+                        remoteSnapshot: PairSnapshotEntry(path: "Docs/test.txt", size: 18, modTime: Date(timeIntervalSince1970: 2_000), md5: "remote"),
+                        baselineSnapshot: PairSnapshotEntry(path: "Docs/test.txt", size: 12, modTime: Date(timeIntervalSince1970: 900), md5: "base"),
+                        selectedDecision: .later
+                    )
+                ]
+            ),
+            routeToken: ActivityRouteToken(pairID: pairID, eventID: eventID, openIssueTable: false)
+        )
+
+        let data = try JSONEncoder().encode(event)
+        let decoded = try JSONDecoder().decode(ActivityEvent.self, from: data)
+
+        XCTAssertEqual(decoded, event)
+        XCTAssertEqual(decoded.issueSet?.issues.first?.fileName, "test.txt")
+        XCTAssertEqual(decoded.routeToken?.eventID, eventID)
+    }
 }

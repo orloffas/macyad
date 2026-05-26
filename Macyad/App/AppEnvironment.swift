@@ -38,7 +38,7 @@ final class AppEnvironment: ObservableObject {
     private struct NoopUserNotificationClient: UserNotificationControlling {
         func authorizationStatus() async -> NotificationAuthorizationStatus { .authorized }
         func requestAuthorization() async throws -> NotificationAuthorizationStatus { .authorized }
-        func send(title: String, body: String) async throws {}
+        func send(title: String, body: String, routeToken: ActivityRouteToken?) async throws {}
         func sendTestNotification() async throws {}
     }
 
@@ -98,7 +98,7 @@ final class AppEnvironment: ObservableObject {
             paths: paths,
             pasteboard: PasteboardBridge()
         )
-        self.pairDetailViewModel = PairDetailViewModel(activityRepository: activityRepository)
+        self.pairDetailViewModel = PairDetailViewModel()
     }
 
     static func bootstrap(arguments: [String] = ProcessInfo.processInfo.arguments) throws -> AppEnvironment {

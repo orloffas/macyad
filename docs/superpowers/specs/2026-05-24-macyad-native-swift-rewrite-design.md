@@ -45,7 +45,7 @@
 | Scope первой нативной версии | `parity + safety + account management + docs/branding cleanup` |
 | Роль `AppKit` | Только точечные `PlatformAdapters`, без расползания в feature UI |
 | Несколько Yandex account | Поддерживаются как first-class сущности через account picker и `accounts.json` |
-| Конфликтная политика | `Block` по умолчанию, `Keep Both Copies` только для ручных операций |
+| Конфликтная политика | `Block` по умолчанию; pair хранит `Conflict policy`, но фактическое разрешение drift/conflict идёт через explicit `Review files` |
 | Scheduled behavior | `scheduled Push to Yandex` всегда non-destructive и не делает auto-reconcile |
 | Execution model | В один момент времени выполняется только одна sync-like операция на весь app process |
 | Notifications | Системные уведомления только для `warning` и `alarm`, permission/test flow вынесены в `Settings` |
@@ -76,14 +76,24 @@ Snapshot-ы сериализуются отдельно от `pairs.json` в `~/
 - при идентичном `local` и `remote` он создаётся автоматически;
 - если стороны уже разошлись, destructive `Push/Pull` блокируется до ручного reconcile.
 
-### Conflict policy
+### Conflict review flow
 
-У каждой `pair` есть `Conflict policy`.
+У каждой `pair` сохраняется `Conflict policy`, но в актуальной нативной фазе drift/conflict не разрешается автоматически.
 
-- `Block Push/Pull on conflict` — default policy. `Push` блокируется при remote drift, `Pull` блокируется при local drift.
-- `Keep Both Copies` — manual-only policy. Remote version сохраняет исходное имя, локальная версия переносится в conflict-copy с timestamp.
+- `Block Push/Pull on conflict` остаётся default policy.
+- `Keep Both Copies` остаётся как product intent пары и как удобный label в UI, но не запускает silent reconcile.
+- Любой manual `Push/Pull`, который обнаружил drift/conflict, создаёт reviewable `activity event`.
+- Из `Activity Detail` пользователь открывает `Review files` и явно выбирает решение:
+  - `Keep local`
+  - `Keep remote`
+  - `Keep both`
+  - `Later`
+- Решения можно задавать:
+  - по одной строке,
+  - для выбранной группы строк,
+  - для всех видимых строк после filter/search.
 
-`scheduled Push to Yandex` никогда не запускает keep-both reconcile автоматически.
+`scheduled Push to Yandex` никогда не запускает reconcile автоматически.
 
 ### Check semantics
 
@@ -103,7 +113,24 @@ User-facing классификация:
 ### Activity and logs
 
 - `Activity` хранится 48 часов;
-- для `warning` и `alarm` в `Details` сохраняются `exit code`, `stderr`, `stdout` и сама `rclone` command line.
+- для `warning` и `alarm` в `Details` сохраняются `exit code`, `stderr`, `stdout` и сама `rclone` command line;
+- reviewable события дополнительно несут typed `issueSet` с:
+  - `relativePath`
+  - `fileName`
+  - `problemKind`
+  - `differenceFlags`
+  - `local / remote / baseline` snapshot values
+  - выбранным `resolution decision`.
+
+### Notifications routing
+
+- Системные notifications используются только для `warning` и `alarm`.
+- `Send Test Notification` использует тот же delivery path, что и реальные события.
+- Click по notification:
+  1. поднимает главное окно;
+  2. выбирает нужную `pair`;
+  3. открывает соответствующий `activity detail`;
+  4. при наличии reviewable issue set позволяет сразу перейти в `Review files`.
 
 ## Account model и `rclone` config
 

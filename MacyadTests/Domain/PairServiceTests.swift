@@ -113,4 +113,24 @@ final class PairServiceTests: XCTestCase {
         XCTAssertEqual(updatedPair.syncExcludes, ["Thumbs.db"])
         XCTAssertEqual(updatedPair.checkAdditionalExcludes, ["Desktop.ini"])
     }
+
+    func testRemoveRejectsDeletingLastPair() throws {
+        let service = PairService()
+        let pair = SyncPair(
+            id: UUID(),
+            name: "Only Pair",
+            localFolderBookmark: Data("bookmark".utf8),
+            localFolderDisplayPath: "/Users/test/Only",
+            remotePath: "yd:/only",
+            accountID: accountID,
+            conflictPolicy: .block,
+            scheduleMinutes: 15,
+            deletePolicy: .mirrorToYandex,
+            lastKnownSeverity: .healthy
+        )
+
+        XCTAssertThrowsError(try service.removePair(pair, from: [pair])) { error in
+            XCTAssertEqual(error as? PairService.ValidationError, .lastPairDeletion)
+        }
+    }
 }

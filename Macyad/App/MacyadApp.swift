@@ -62,6 +62,12 @@ struct MacyadApp: App {
         appModel.quitApplication = {
             NSApp.terminate(nil)
         }
+        appDelegate.notificationRouteHandler = { routeToken in
+            appDelegate.showMainWindow()
+            if let routeToken {
+                appModel.applyActivityRoute(routeToken)
+            }
+        }
     }
 
     private func configureStatusBar() {

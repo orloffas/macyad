@@ -72,6 +72,15 @@ public struct RcloneCommandBuilder {
         return withConfig(configPath, command: command)
     }
 
+    public static func deleteFileArguments(path: String, configPath: String? = nil) -> [String] {
+        let command = ["deletefile", path]
+        guard let configPath else {
+            return command
+        }
+
+        return withConfig(configPath, command: command)
+    }
+
     private static func withConfig(_ configPath: String, command: [String]) -> [String] {
         ["--config", configPath] + command
     }
