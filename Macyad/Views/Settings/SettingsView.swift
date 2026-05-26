@@ -7,134 +7,145 @@ struct SettingsView: View {
     var body: some View {
         let copy = appModel.copy
 
-        Form {
-            Section {
-                Picker(copy.languageLabel, selection: languageBinding) {
-                    Text(copy.englishLanguageName).tag("en")
-                    Text(copy.russianLanguageName).tag("ru")
-                }
-
-                Toggle(copy.launchAtLoginLabel, isOn: launchAtLoginBinding)
-
-                Stepper(value: scheduleBinding, in: 5 ... 240, step: 5) {
-                    Text(copy.defaultScheduleTitle(minutes: viewModel.defaultScheduleMinutes))
-                }
-            }
-
-            Section {
-                LabeledContent(copy.notificationsStatusLabel, value: notificationStatusTitle)
-                HStack {
-                    Button(copy.notificationsRequestButtonTitle) {
-                        Task { await viewModel.requestNotificationPermission() }
+        VStack(spacing: 0) {
+            Form {
+                Section {
+                    Picker(copy.languageLabel, selection: languageBinding) {
+                        Text(copy.englishLanguageName).tag("en")
+                        Text(copy.russianLanguageName).tag("ru")
                     }
-                    Button(copy.notificationsSendTestButtonTitle) {
-                        Task { await viewModel.sendTestNotification() }
+
+                    Toggle(copy.launchAtLoginLabel, isOn: launchAtLoginBinding)
+
+                    Stepper(value: scheduleBinding, in: 5 ... 240, step: 5) {
+                        Text(copy.defaultScheduleTitle(minutes: viewModel.defaultScheduleMinutes))
                     }
                 }
 
-                if let lastNotificationAttempt = viewModel.lastNotificationAttempt {
-                    LabeledContent(copy.notificationsLastAttemptLabel) {
-                        Text(lastNotificationAttempt)
+                Section {
+                    LabeledContent(copy.notificationsStatusLabel, value: notificationStatusTitle)
+                    HStack {
+                        Button(copy.notificationsRequestButtonTitle) {
+                            Task { await viewModel.requestNotificationPermission() }
+                        }
+                        Button(copy.notificationsSendTestButtonTitle) {
+                            Task { await viewModel.sendTestNotification() }
+                        }
+                    }
+
+                    if let lastNotificationAttempt = viewModel.lastNotificationAttempt {
+                        LabeledContent(copy.notificationsLastAttemptLabel) {
+                            Text(lastNotificationAttempt)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                } header: {
+                    Text(copy.notificationsSectionTitle)
+                }
+
+                Section {
+                    if viewModel.accounts.isEmpty {
+                        Text(copy.noAccountsHint)
                             .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.trailing)
-                    }
-                }
-            } header: {
-                Text(copy.notificationsSectionTitle)
-            }
+                    } else {
+                        ForEach(viewModel.accounts) { account in
+                            let removalState = viewModel.accountRemovalState(for: account, pairs: appModel.pairs)
+                            VStack(alignment: .leading, spacing: 10) {
+                                LabeledContent(copy.accountDisplayNameLabel, value: account.displayName)
+                                LabeledContent(copy.accountRemoteNameLabel, value: account.remoteName)
+                                LabeledContent(copy.accountConfigPathLabel, value: account.configPath)
+                                    .textSelection(.enabled)
 
-            Section {
-                if viewModel.accounts.isEmpty {
-                    Text(copy.noAccountsHint)
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(viewModel.accounts) { account in
-                        let removalState = viewModel.accountRemovalState(for: account, pairs: appModel.pairs)
-                        VStack(alignment: .leading, spacing: 10) {
-                            LabeledContent(copy.accountDisplayNameLabel, value: account.displayName)
-                            LabeledContent(copy.accountRemoteNameLabel, value: account.remoteName)
-                            LabeledContent(copy.accountConfigPathLabel, value: account.configPath)
-                                .textSelection(.enabled)
-
-                            CommandCopyRowView(
-                                title: copy.reconnectAccountButtonTitle,
-                                command: viewModel.reconnectCommand(for: account),
-                                copied: viewModel.lastCopiedCommand == viewModel.reconnectCommand(for: account),
-                                accessibilityIdentifier: nil
-                            ) {
-                                viewModel.copy(viewModel.reconnectCommand(for: account))
-                            }
-
-                            CommandCopyRowView(
-                                title: copy.recreateAccountButtonTitle,
-                                command: viewModel.recreateCommand(for: account),
-                                copied: viewModel.lastCopiedCommand == viewModel.recreateCommand(for: account),
-                                accessibilityIdentifier: nil
-                            ) {
-                                viewModel.copy(viewModel.recreateCommand(for: account))
-                            }
-
-                            CommandCopyRowView(
-                                title: copy.removeAccountButtonTitle,
-                                command: viewModel.removeCommand(for: account),
-                                copied: viewModel.lastCopiedCommand == viewModel.removeCommand(for: account),
-                                accessibilityIdentifier: nil
-                            ) {
-                                viewModel.copy(viewModel.removeCommand(for: account))
-                            }
-
-                            HStack {
-                                Spacer()
-                                Button(copy.removeAccountButtonTitle, role: .destructive) {
-                                    Task { await viewModel.removeAccount(account, pairs: appModel.pairs) }
+                                CommandCopyRowView(
+                                    title: copy.reconnectAccountButtonTitle,
+                                    command: viewModel.reconnectCommand(for: account),
+                                    copied: viewModel.lastCopiedCommand == viewModel.reconnectCommand(for: account),
+                                    accessibilityIdentifier: nil
+                                ) {
+                                    viewModel.copy(viewModel.reconnectCommand(for: account))
                                 }
-                                .disabled(!removalState.canRemove)
-                            }
 
-                            if let inlineMessage = removalState.inlineMessage {
+                                CommandCopyRowView(
+                                    title: copy.recreateAccountButtonTitle,
+                                    command: viewModel.recreateCommand(for: account),
+                                    copied: viewModel.lastCopiedCommand == viewModel.recreateCommand(for: account),
+                                    accessibilityIdentifier: nil
+                                ) {
+                                    viewModel.copy(viewModel.recreateCommand(for: account))
+                                }
+
+                                CommandCopyRowView(
+                                    title: copy.removeAccountButtonTitle,
+                                    command: viewModel.removeCommand(for: account),
+                                    copied: viewModel.lastCopiedCommand == viewModel.removeCommand(for: account),
+                                    accessibilityIdentifier: nil
+                                ) {
+                                    viewModel.copy(viewModel.removeCommand(for: account))
+                                }
+
                                 HStack {
                                     Spacer()
-                                    Text(inlineMessage)
-                                        .font(.footnote)
-                                        .foregroundStyle(.orange)
-                                        .multilineTextAlignment(.trailing)
-                                        .frame(maxWidth: 300, alignment: .trailing)
+                                    Button(copy.removeAccountButtonTitle, role: .destructive) {
+                                        Task { await viewModel.removeAccount(account, pairs: appModel.pairs) }
+                                    }
+                                    .disabled(!removalState.canRemove)
+                                }
+
+                                if let inlineMessage = removalState.inlineMessage {
+                                    HStack {
+                                        Spacer()
+                                        Text(inlineMessage)
+                                            .font(.footnote)
+                                            .foregroundStyle(.orange)
+                                            .multilineTextAlignment(.trailing)
+                                            .frame(maxWidth: 300, alignment: .trailing)
+                                    }
                                 }
                             }
+                            .padding(.vertical, 6)
                         }
-                        .padding(.vertical, 6)
                     }
+                } header: {
+                    Text(copy.accountsSectionTitle)
+                } footer: {
+                    Text(copy.accountRemoteNameHint)
                 }
-            } header: {
-                Text(copy.accountsSectionTitle)
-            } footer: {
-                Text(copy.accountRemoteNameHint)
-            }
 
-            Section {
-                TextField(copy.accountDisplayNameLabel, text: addAccountNameBinding)
-                TextField(copy.accountRemoteNameLabel, text: addAccountRemoteBinding)
+                Section {
+                    TextField(copy.accountDisplayNameLabel, text: addAccountNameBinding)
+                    TextField(copy.accountRemoteNameLabel, text: addAccountRemoteBinding)
 
-                HStack {
-                    Spacer()
-                    Button(copy.addAccountButtonTitle) {
-                        Task { await viewModel.addAccount() }
+                    HStack {
+                        Spacer()
+                        Button(copy.addAccountButtonTitle) {
+                            Task { await viewModel.addAccount() }
+                        }
                     }
+                } header: {
+                    Text(copy.addAccountButtonTitle)
+                } footer: {
+                    Text(copy.onboardingAccountsHint)
                 }
-            } header: {
-                Text(copy.addAccountButtonTitle)
-            } footer: {
-                Text(copy.onboardingAccountsHint)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.footnote)
+                Divider()
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.bar)
             }
         }
         .formStyle(.grouped)
-        .padding(20)
         .frame(width: 560, height: 760)
         .background(
             WindowAccessor { window in
