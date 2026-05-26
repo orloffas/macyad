@@ -148,7 +148,7 @@ public actor SchedulerService {
                 results.append(ScheduledPushResult(
                     pair: updatedPair,
                     disposition: .failed(
-                        summary: error.localizedDescription,
+                        summary: summaryMessage(for: error, copy: copy),
                         details: detailedMessage(for: error, copy: copy) ?? error.localizedDescription
                     )
                 ))
@@ -168,6 +168,14 @@ public actor SchedulerService {
         }
 
         return now.timeIntervalSince(lastScheduledReferenceAt) >= Double(pair.scheduleMinutes * 60)
+    }
+
+    private func summaryMessage(for error: Error, copy: AppCopy) -> String {
+        if let commandError = error as? SyncService.CommandFailedError {
+            return commandError.summaryDescription
+        }
+
+        return error.localizedDescription
     }
 
     private func detailedMessage(for error: Error?, copy: AppCopy) -> String? {

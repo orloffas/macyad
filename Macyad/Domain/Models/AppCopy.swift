@@ -509,6 +509,32 @@ public struct AppCopy: Sendable {
         return "rclone \(command.joined(separator: " ")) exited with code \(exitCode)\(stderrSuffix)"
     }
 
+    public func rcloneCommandSummary(exitCode: Int32, stderr: String) -> String {
+        let trimmedStderr = stderr
+            .split(whereSeparator: \.isNewline)
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+            .map(stripRcloneLogPrefix)
+
+        if let trimmedStderr, !trimmedStderr.isEmpty {
+            let summary = trimmedStderr.count > 180
+                ? String(trimmedStderr.prefix(177)) + "..."
+                : trimmedStderr
+
+            if isRussian {
+                return "rclone завершился с кодом \(exitCode): \(summary)"
+            }
+
+            return "rclone exited with code \(exitCode): \(summary)"
+        }
+
+        if isRussian {
+            return "rclone завершился с кодом \(exitCode)"
+        }
+
+        return "rclone exited with code \(exitCode)"
+    }
+
     public func rcloneCommandLog(command: [String], exitCode: Int32, stdout: String, stderr: String) -> String {
         let normalizedStdout = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedStderr = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -521,30 +547,30 @@ public struct AppCopy: Sendable {
 
         if isRussian {
             return """
-            Команда rclone
-            \(command.joined(separator: " "))
-
             Код завершения: \(exitCode)
+
+            stderr
+            \(stderrBlock)
 
             stdout
             \(stdoutBlock)
 
-            stderr
-            \(stderrBlock)
+            Команда rclone
+            \(command.joined(separator: " "))
             """
         }
 
         return """
-        rclone command
-        \(command.joined(separator: " "))
-
         Exit code: \(exitCode)
+
+        stderr
+        \(stderrBlock)
 
         stdout
         \(stdoutBlock)
 
-        stderr
-        \(stderrBlock)
+        rclone command
+        \(command.joined(separator: " "))
         """
     }
 
@@ -632,5 +658,13 @@ public struct AppCopy: Sendable {
 
     private var isRussian: Bool {
         language == .russian
+    }
+
+    private func stripRcloneLogPrefix(_ line: String) -> String {
+        line.replacingOccurrences(
+            of: #"^\d{4}/\d{2}/\d{2}\s+\d{2}:\d{2}:\d{2}\s+[A-Z]+:\s+"#,
+            with: "",
+            options: .regularExpression
+        )
     }
 }
