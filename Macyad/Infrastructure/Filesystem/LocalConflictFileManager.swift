@@ -2,6 +2,7 @@ import Foundation
 
 public protocol LocalConflictFileManaging: Sendable {
     func makeConflictCopy(for pair: SyncPair, relativePath: String, at date: Date) throws -> URL
+    func moveCanonicalLocalItem(for pair: SyncPair, relativePath: String, to destinationRelativePath: String) throws -> URL
     func removeCanonicalLocalItem(for pair: SyncPair, relativePath: String) throws
     func canonicalLocalURL(for pair: SyncPair, relativePath: String) -> URL
 }
@@ -28,6 +29,27 @@ public struct LocalConflictFileManager: LocalConflictFileManaging, @unchecked Se
         }
 
         try fileManager.copyItem(at: originalURL, to: destinationURL)
+        return destinationURL
+    }
+
+    public func moveCanonicalLocalItem(for pair: SyncPair, relativePath: String, to destinationRelativePath: String) throws -> URL {
+        let originalURL = canonicalLocalURL(for: pair, relativePath: relativePath)
+        let destinationURL = canonicalLocalURL(for: pair, relativePath: destinationRelativePath)
+
+        try fileManager.createDirectory(
+            at: destinationURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
+
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try fileManager.removeItem(at: destinationURL)
+        }
+
+        if fileManager.fileExists(atPath: originalURL.path) {
+            try fileManager.moveItem(at: originalURL, to: destinationURL)
+        }
+
         return destinationURL
     }
 

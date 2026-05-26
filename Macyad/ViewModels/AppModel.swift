@@ -19,6 +19,8 @@ final class AppModel: ObservableObject {
     @Published var pairs: [SyncPair] = []
     @Published private(set) var activityEvents: [ActivityEvent] = []
     @Published var recentEvents: [ActivityEvent] = []
+    @Published var selectedActivityEventID: UUID?
+    @Published var pendingActivityRoute: ActivityRouteToken?
     @Published var statusSummary = MenuBarSummary(title: AppCopy.current.statusSetupRequired, alarmCount: 0, warningCount: 0)
     var openMainWindow: () -> Void = {}
     var quitApplication: () -> Void = {}
@@ -66,6 +68,10 @@ final class AppModel: ObservableObject {
         selectedPair ?? pairs.first
     }
 
+    var selectedActivityEvent: ActivityEvent? {
+        activityEvents.first { $0.id == selectedActivityEventID }
+    }
+
     var copy: AppCopy {
         AppCopy(language: language)
     }
@@ -83,15 +89,71 @@ final class AppModel: ObservableObject {
     func applyPersistedState(pairs: [SyncPair], accounts: [YandexAccount], events: [ActivityEvent], using service: StatusService) {
         self.pairs = pairs
         self.accounts = accounts
-        activityEvents = events.sorted { $0.date > $1.date }
-        recentEvents = Array(activityEvents.prefix(3))
+        setActivityEvents(events)
 
         if let selectedPairID, !pairs.contains(where: { $0.id == selectedPairID }) {
             self.selectedPairID = pairs.first?.id
         }
 
+        if let selectedActivityEventID, !activityEvents.contains(where: { $0.id == selectedActivityEventID }) {
+            self.selectedActivityEventID = nil
+            pendingActivityRoute = nil
+        }
+
         refreshStatusSummary(using: service)
         normalizeSelection()
+    }
+
+    func events(for pairID: UUID?) -> [ActivityEvent] {
+        guard let pairID else {
+            return activityEvents
+        }
+
+        return activityEvents.filter { $0.pairID == pairID }
+    }
+
+    func appendActivityEvent(_ event: ActivityEvent) {
+        var updatedEvents = activityEvents
+        updatedEvents.append(event)
+        setActivityEvents(updatedEvents)
+    }
+
+    func replaceActivityEvent(_ event: ActivityEvent) {
+        var updatedEvents = activityEvents
+        if let index = updatedEvents.firstIndex(where: { $0.id == event.id }) {
+            updatedEvents[index] = event
+        } else {
+            updatedEvents.append(event)
+        }
+        setActivityEvents(updatedEvents)
+    }
+
+    func removeActivityEvents(forPairID pairID: UUID) {
+        setActivityEvents(activityEvents.filter { $0.pairID != pairID })
+        if selectedActivityEvent?.pairID == pairID {
+            selectedActivityEventID = nil
+            pendingActivityRoute = nil
+        }
+    }
+
+    func applyActivityRoute(_ routeToken: ActivityRouteToken) {
+        selectedPairID = routeToken.pairID
+        selectedActivityEventID = routeToken.eventID
+        pendingActivityRoute = routeToken
+    }
+
+    func consumePendingActivityRoute(for eventID: UUID) -> ActivityRouteToken? {
+        guard pendingActivityRoute?.eventID == eventID else {
+            return nil
+        }
+
+        defer { pendingActivityRoute = nil }
+        return pendingActivityRoute
+    }
+
+    func clearSelectedActivityEvent() {
+        selectedActivityEventID = nil
+        pendingActivityRoute = nil
     }
 
     func applyInitialPairSelectionIfNeeded() {
@@ -132,5 +194,10 @@ final class AppModel: ObservableObject {
         case .complete:
             return false
         }
+    }
+
+    private func setActivityEvents(_ events: [ActivityEvent]) {
+        activityEvents = events.sorted { $0.date > $1.date }
+        recentEvents = Array(activityEvents.prefix(3))
     }
 }

@@ -99,6 +99,8 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertTrue(outcome.summary.contains("remote"))
         XCTAssertTrue(outcome.details?.contains("1 differences found") == true)
         XCTAssertEqual(outcome.differenceCount, 1)
+        XCTAssertEqual(outcome.issueSet?.issues.map(\.relativePath), ["draft.txt"])
+        XCTAssertEqual(outcome.issueSet?.issues.first?.problemKind, .remoteOnlyChanged)
         XCTAssertEqual(excludeFileStore.preparedModes(), [.check])
     }
 
@@ -134,6 +136,7 @@ final class SyncServiceTests: XCTestCase {
 
         XCTAssertEqual(outcome.severity, .healthy)
         XCTAssertEqual(outcome.differenceCount, 0)
+        XCTAssertNil(outcome.issueSet)
     }
 
     func testCheckReturnsAlarmForNonDriftCommandFailures() async {
@@ -200,6 +203,114 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertEqual(excludeFileStore.preparedModes(), [.sync])
     }
 
+    func testPushBlockedByRemoteDriftReturnsStructuredIssueSet() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let pair = makePair()
+        let baseline = PairConflictBaselineState(
+            pairID: pair.id,
+            localSnapshot: snapshot(("draft.txt", "same")),
+            remoteSnapshot: snapshot(("draft.txt", "same")),
+            updatedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        let snapshots = [
+            pair.localFolderDisplayPath: snapshot(("draft.txt", "same")),
+            pair.remotePath: PairSnapshot(entries: [
+                PairSnapshotEntry(path: "draft.txt", size: 18, modTime: Date(timeIntervalSince1970: 2_000), md5: "remote-v2")
+            ]),
+        ]
+        let service = SyncService(
+            processClient: StubProcessClient(result: ("", "", 0)),
+            configPath: "/tmp/macyad-rclone.conf",
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: snapshots),
+            baselineRepository: InMemoryBaselineStore(initialStates: [pair.id: baseline])
+        )
+
+        let outcome = await service.push(pair)
+
+        XCTAssertEqual(outcome.severity, Severity.warning)
+        XCTAssertEqual(outcome.issueSet?.issues.map { $0.relativePath }, ["draft.txt"])
+        XCTAssertEqual(outcome.issueSet?.issues.first?.problemKind, .remoteOnlyChanged)
+        XCTAssertTrue(outcome.details?.contains("draft.txt") == true)
+    }
+
+    func testPushWithMissingBaselineStillReturnsPerFileIssues() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let pair = makePair()
+        let local = PairSnapshot(entries: [
+            PairSnapshotEntry(path: "test.txt", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: "local")
+        ])
+        let remote = PairSnapshot(entries: [
+            PairSnapshotEntry(path: "test.txt", size: 18, modTime: Date(timeIntervalSince1970: 2_000), md5: "remote")
+        ])
+        let service = SyncService(
+            processClient: StubProcessClient(result: ("", "", 0)),
+            configPath: "/tmp/macyad-rclone.conf",
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            snapshotProvider: StubSnapshotProvider(
+                snapshotsByPath: [
+                    pair.localFolderDisplayPath: local,
+                    pair.remotePath: remote,
+                ]
+            ),
+            baselineRepository: InMemoryBaselineStore()
+        )
+
+        let outcome = await service.push(pair)
+
+        XCTAssertEqual(outcome.severity, Severity.warning)
+        XCTAssertEqual(outcome.issueSet?.issues.first?.relativePath, "test.txt")
+        XCTAssertTrue(outcome.issueSet?.issues.first?.differences.contains(.baselineMissing) == true)
+    }
+
+    func testApplyResolutionsUpdatesIssueSetForUnresolvedRowsOnly() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let pair = makePair()
+        let processClient = StubProcessClient(result: ("", "", 0))
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+            baselineRepository: InMemoryBaselineStore()
+        )
+        let issueSet = ActivityIssueSet(
+            issues: [
+                ActivityFileIssue(
+                    relativePath: "keep-local.txt",
+                    problemKind: .remoteOnlyChanged,
+                    differences: [.sizeDiffers],
+                    localSnapshot: PairSnapshotEntry(path: "keep-local.txt", size: 10, modTime: Date(timeIntervalSince1970: 1_000), md5: "local"),
+                    remoteSnapshot: PairSnapshotEntry(path: "keep-local.txt", size: 20, modTime: Date(timeIntervalSince1970: 2_000), md5: "remote"),
+                    baselineSnapshot: PairSnapshotEntry(path: "keep-local.txt", size: 10, modTime: Date(timeIntervalSince1970: 900), md5: "base"),
+                    selectedDecision: .keepLocal
+                ),
+                ActivityFileIssue(
+                    relativePath: "later.txt",
+                    problemKind: .conflict,
+                    differences: [.hashDiffers],
+                    localSnapshot: PairSnapshotEntry(path: "later.txt", size: 10, modTime: Date(timeIntervalSince1970: 1_000), md5: "local"),
+                    remoteSnapshot: PairSnapshotEntry(path: "later.txt", size: 20, modTime: Date(timeIntervalSince1970: 2_000), md5: "remote"),
+                    baselineSnapshot: PairSnapshotEntry(path: "later.txt", size: 9, modTime: Date(timeIntervalSince1970: 900), md5: "base"),
+                    selectedDecision: .later
+                )
+            ]
+        )
+
+        let outcome = await service.applyResolutions(issueSet, for: pair)
+
+        XCTAssertEqual(outcome.severity, Severity.warning)
+        XCTAssertEqual(outcome.issueSet?.issues.map { $0.relativePath }, ["later.txt"])
+    }
+
     func testCommandFailureDescriptionUsesSelectedLanguage() {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
@@ -247,6 +358,12 @@ final class SyncServiceTests: XCTestCase {
             snapshots[pair.remotePath] = empty
         }
         return snapshots
+    }
+
+    private func snapshot(_ files: (String, String)...) -> PairSnapshot {
+        PairSnapshot(entries: files.map { path, hash in
+            PairSnapshotEntry(path: path, size: Int64(hash.count), modTime: Date(timeIntervalSince1970: 1_000), md5: hash)
+        })
     }
 
     private func entry(path: String, md5: String) -> PairSnapshotEntry {

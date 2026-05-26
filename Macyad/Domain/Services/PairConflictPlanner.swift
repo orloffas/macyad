@@ -13,6 +13,7 @@ public struct PairConflictPlanner: Sendable {
     public struct PathResult: Equatable, Sendable {
         public let path: String
         public let disposition: PathDisposition
+        public let observedDifferences: [ActivityFileDifference]
         public let baselineLocal: PairSnapshotEntry?
         public let baselineRemote: PairSnapshotEntry?
         public let local: PairSnapshotEntry?
@@ -110,6 +111,12 @@ public struct PairConflictPlanner: Sendable {
             let remoteEntry = remote[path]
             let localChanged = entry(localEntry, differsFrom: baselineLocalEntry)
             let remoteChanged = entry(remoteEntry, differsFrom: baselineRemoteEntry)
+            let observedDifferences = observedDifferences(
+                baselineLocal: baselineLocalEntry,
+                baselineRemote: baselineRemoteEntry,
+                local: localEntry,
+                remote: remoteEntry
+            )
 
             let disposition: PathDisposition
             switch (localChanged, remoteChanged) {
@@ -132,6 +139,7 @@ public struct PairConflictPlanner: Sendable {
             return PathResult(
                 path: path,
                 disposition: disposition,
+                observedDifferences: observedDifferences,
                 baselineLocal: baselineLocalEntry,
                 baselineRemote: baselineRemoteEntry,
                 local: localEntry,
@@ -147,7 +155,9 @@ public struct PairConflictPlanner: Sendable {
         case (nil, nil):
             return false
         case let (.some(entry), .some(baselineEntry)):
-            return !entry.isEquivalent(to: baselineEntry)
+            return entry.size != baselineEntry.size
+                || entry.modTime != baselineEntry.modTime
+                || entry.md5 != baselineEntry.md5
         case (.some, nil), (nil, .some):
             return true
         }
@@ -162,5 +172,39 @@ public struct PairConflictPlanner: Sendable {
         case (.some, nil), (nil, .some):
             return false
         }
+    }
+
+    private func observedDifferences(
+        baselineLocal: PairSnapshotEntry?,
+        baselineRemote: PairSnapshotEntry?,
+        local: PairSnapshotEntry?,
+        remote: PairSnapshotEntry?
+    ) -> [ActivityFileDifference] {
+        var differences = Set<ActivityFileDifference>()
+
+        if local == nil {
+            differences.insert(.missingLocal)
+        }
+        if remote == nil {
+            differences.insert(.missingRemote)
+        }
+
+        if let local, let remote {
+            if local.size != remote.size {
+                differences.insert(.sizeDiffers)
+            }
+            if local.modTime != remote.modTime {
+                differences.insert(.mtimeDiffers)
+            }
+            if local.md5 != remote.md5 {
+                differences.insert(.hashDiffers)
+            }
+        }
+
+        if (local == nil && baselineLocal != nil) || (remote == nil && baselineRemote != nil) {
+            differences.insert(.deleteVsModify)
+        }
+
+        return Array(differences).sorted { $0.rawValue < $1.rawValue }
     }
 }

@@ -4,8 +4,8 @@ public enum ScheduledPushDisposition: Equatable, Sendable {
     case pushed
     case skippedByPolicy
     case skippedNotDue
-    case blocked(summary: String, details: String)
-    case failed(summary: String, details: String)
+    case blocked(summary: String, details: String, issueSet: ActivityIssueSet? = nil)
+    case failed(summary: String, details: String, issueSet: ActivityIssueSet? = nil)
 
     var recordsActivityEvent: Bool {
         switch self {
@@ -128,7 +128,8 @@ public actor SchedulerService {
                     pair: updatedPair,
                     disposition: .failed(
                         summary: syncServiceError?.localizedDescription ?? copy.scheduledSyncBootstrapFailure,
-                        details: syncServiceError?.localizedDescription ?? copy.scheduledSyncBootstrapFailure
+                        details: syncServiceError?.localizedDescription ?? copy.scheduledSyncBootstrapFailure,
+                        issueSet: nil
                     )
                 ))
                 continue
@@ -163,7 +164,8 @@ public actor SchedulerService {
                     pair: updatedPair,
                     disposition: .blocked(
                         summary: outcome.summary,
-                        details: outcome.details ?? outcome.summary
+                        details: outcome.details ?? outcome.summary,
+                        issueSet: outcome.issueSet
                     )
                 ))
             case .info, .alarm:
@@ -172,7 +174,8 @@ public actor SchedulerService {
                     pair: updatedPair,
                     disposition: .failed(
                         summary: outcome.summary,
-                        details: outcome.details ?? outcome.summary
+                        details: outcome.details ?? outcome.summary,
+                        issueSet: outcome.issueSet
                     )
                 ))
             }

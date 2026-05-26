@@ -7,20 +7,38 @@ struct ActivityDetailView: View {
 
     let event: ActivityEvent
     let pair: SyncPair?
+    let initialOpenIssueReview: Bool
+    let onApplyIssueReview: ((ActivityIssueSet) async -> ActivityReviewApplyResult)?
+
+    @State private var displayedEvent: ActivityEvent
+    @State private var isIssueReviewPresented = false
+
+    init(
+        event: ActivityEvent,
+        pair: SyncPair?,
+        initialOpenIssueReview: Bool = false,
+        onApplyIssueReview: ((ActivityIssueSet) async -> ActivityReviewApplyResult)? = nil
+    ) {
+        self.event = event
+        self.pair = pair
+        self.initialOpenIssueReview = initialOpenIssueReview
+        self.onApplyIssueReview = onApplyIssueReview
+        _displayedEvent = State(initialValue: event)
+    }
 
     var body: some View {
         let copy = appModel.copy
 
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 10) {
-                Image(systemName: symbolName(for: event.severity))
-                    .foregroundStyle(color(for: event.severity))
+                Image(systemName: symbolName(for: displayedEvent.severity))
+                    .foregroundStyle(color(for: displayedEvent.severity))
                     .font(.title3)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(severityTitle(event.severity, copy: copy))
+                    Text(severityTitle(displayedEvent.severity, copy: copy))
                         .font(.headline)
-                    Text(copy.formatTimestamp(event.date))
+                    Text(copy.formatTimestamp(displayedEvent.date))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -56,16 +74,26 @@ struct ActivityDetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(copy.activitySummaryTitle)
                     .font(.subheadline.weight(.semibold))
-                Text(event.message)
+                Text(displayedEvent.message)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if displayedEvent.issueSet != nil, onApplyIssueReview != nil {
+                HStack {
+                    Button(copy.reviewFilesButtonTitle) {
+                        isIssueReviewPresented = true
+                    }
+
+                    Spacer()
+                }
             }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(copy.activityFullDetailsTitle)
                     .font(.subheadline.weight(.semibold))
                 ScrollView {
-                    Text(event.details ?? copy.activityNoDetails)
+                    Text(displayedEvent.details ?? copy.activityNoDetails)
                         .font(.system(.callout, design: .monospaced))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -85,6 +113,26 @@ struct ActivityDetailView: View {
         }
         .padding(18)
         .frame(minWidth: 480, idealWidth: 560, maxWidth: 680, minHeight: 360, idealHeight: 440)
+        .onAppear {
+            if initialOpenIssueReview && displayedEvent.issueSet != nil {
+                isIssueReviewPresented = true
+            }
+        }
+        .sheet(isPresented: $isIssueReviewPresented) {
+            if let issueSet = displayedEvent.issueSet, let onApplyIssueReview {
+                IssueReviewSheetView(issueSet: issueSet) { updatedIssueSet in
+                    let result = await onApplyIssueReview(updatedIssueSet)
+                    if let replacementEvent = result.replacementEvent {
+                        displayedEvent = replacementEvent
+                    }
+                    if result.shouldDismissDetail {
+                        dismiss()
+                    }
+                    return result
+                }
+                .environmentObject(appModel)
+            }
+        }
     }
 
     private func severityTitle(_ severity: Severity, copy: AppCopy) -> String {

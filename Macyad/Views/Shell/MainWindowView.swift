@@ -1,11 +1,17 @@
 import MacyadCore
 import SwiftUI
 
+struct ActivityReviewApplyResult {
+    let replacementEvent: ActivityEvent?
+    let shouldDismissDetail: Bool
+}
+
 struct MainWindowView: View {
     private struct PairOperationOutcome {
         let pair: SyncPair
         let message: String
         let details: String?
+        let issueSet: ActivityIssueSet?
     }
 
     private enum PairOperationKind: Equatable {
@@ -163,7 +169,9 @@ struct MainWindowView: View {
                     onCheckYandex: { runActivePairAction(.checkYandex) },
                     onPullFromYandex: { runActivePairAction(.pullFromYandex) },
                     onEditPair: { presentEditPairSheet() },
-                    onDeletePair: { pairPendingDeletion = appModel.selectedPair }
+                    onDeletePair: { pairPendingDeletion = appModel.selectedPair },
+                    canDeletePair: appModel.pairs.count > 1,
+                    onApplyIssueReview: applyIssueReview
                 )
             }
         }
@@ -264,9 +272,13 @@ struct MainWindowView: View {
     @MainActor
     private func deletePair(_ pair: SyncPair) async {
         pairPendingDeletion = nil
+        guard appModel.pairs.count > 1 else {
+            environment.pairDetailViewModel.setError(appModel.copy.lastPairDeleteDisabledMessage)
+            return
+        }
 
         do {
-            let updatedPairs = appModel.pairs.filter { $0.id != pair.id }
+            let updatedPairs = try PairService().removePair(pair, from: appModel.pairs)
             try await environment.pairRepository.save(updatedPairs)
             try await environment.conflictStateRepository.remove(pairID: pair.id)
 
@@ -327,27 +339,33 @@ struct MainWindowView: View {
             }
             let updatedPair = outcome.pair
             try await replacePair(updatedPair)
-
-            await environment.pairDetailViewModel.record(
-                ActivityEvent(
-                    id: UUID(),
-                    date: Date(),
-                    message: outcome.message,
-                    severity: updatedPair.lastKnownSeverity,
-                    pairID: updatedPair.id,
-                    details: outcome.details
-                ),
-                latestSeverity: updatedPair.lastKnownSeverity
+            let eventID = UUID()
+            let routeToken = outcome.issueSet.map { _ in
+                ActivityRouteToken(pairID: updatedPair.id, eventID: eventID, openIssueTable: true)
+            }
+            let event = ActivityEvent(
+                id: eventID,
+                date: Date(),
+                message: outcome.message,
+                severity: updatedPair.lastKnownSeverity,
+                pairID: updatedPair.id,
+                details: outcome.details,
+                issueSet: outcome.issueSet,
+                routeToken: routeToken
             )
+            try await environment.activityRepository.append(event)
 
             if operation == .syncNow, updatedPair.lastKnownSeverity == .warning {
                 try? await environment.notificationClient.send(
                     title: AppCopy.current.pushBlockedNotificationTitle,
-                    body: "\(pair.name): \(outcome.details ?? outcome.message)"
+                    body: "\(pair.name): \(outcome.details ?? outcome.message)",
+                    routeToken: routeToken
                 )
             }
 
             await MainActor.run {
+                appModel.appendActivityEvent(event)
+                environment.pairDetailViewModel.setLatestSeverity(updatedPair.lastKnownSeverity)
                 appModel.refreshBackgroundState()
             }
         } catch {
@@ -358,20 +376,19 @@ struct MainWindowView: View {
             var failedPair = pair
             failedPair.lastKnownSeverity = .alarm
             try? await replacePair(failedPair)
-
-            await environment.pairDetailViewModel.record(
-                ActivityEvent(
-                    id: UUID(),
-                    date: Date(),
-                    message: failureMessage(for: operation, copy: copy),
-                    severity: .alarm,
-                    pairID: pair.id,
-                    details: detailedError
-                ),
-                latestSeverity: .alarm
+            let event = ActivityEvent(
+                id: UUID(),
+                date: Date(),
+                message: failureMessage(for: operation, copy: copy),
+                severity: .alarm,
+                pairID: pair.id,
+                details: detailedError
             )
+            try? await environment.activityRepository.append(event)
             await MainActor.run {
+                appModel.appendActivityEvent(event)
                 environment.pairDetailViewModel.setError(localizedError)
+                environment.pairDetailViewModel.setLatestSeverity(.alarm)
                 appModel.refreshBackgroundState()
             }
         }
@@ -394,7 +411,8 @@ struct MainWindowView: View {
             return PairOperationOutcome(
                 pair: updatedPair,
                 message: eventMessage(for: operation, outcome: outcome),
-                details: outcome.details
+                details: outcome.details,
+                issueSet: outcome.issueSet
             )
         case .checkYandex:
             let outcome = await syncService.check(pair)
@@ -402,7 +420,8 @@ struct MainWindowView: View {
             return PairOperationOutcome(
                 pair: updatedPair,
                 message: eventMessage(for: operation, outcome: outcome),
-                details: outcome.details
+                details: outcome.details,
+                issueSet: outcome.issueSet
             )
         case .pullFromYandex:
             let outcome = await syncService.pull(pair)
@@ -410,8 +429,106 @@ struct MainWindowView: View {
             return PairOperationOutcome(
                 pair: updatedPair,
                 message: eventMessage(for: operation, outcome: outcome),
+                details: outcome.details,
+                issueSet: outcome.issueSet
+            )
+        }
+    }
+
+    private func applyIssueReview(_ sourceEvent: ActivityEvent, issueSet: ActivityIssueSet) async -> ActivityReviewApplyResult {
+        guard let pair = await MainActor.run(body: { appModel.pairs.first(where: { $0.id == sourceEvent.pairID }) }) else {
+            return ActivityReviewApplyResult(replacementEvent: nil, shouldDismissDetail: true)
+        }
+
+        await MainActor.run {
+            environment.pairDetailViewModel.setOperationPhase(.queued)
+            environment.pairDetailViewModel.setError(nil)
+        }
+
+        do {
+            let syncService = try await makeSyncService()
+            let outcome = try await environment.operationCoordinator.enqueue(pairID: pair.id, label: "review-files") {
+                await MainActor.run {
+                    environment.pairDetailViewModel.setOperationPhase(.running)
+                }
+                return await syncService.applyResolutions(issueSet, for: pair)
+            }
+
+            var updatedPair = pair
+            updatedPair.lastKnownSeverity = outcome.severity
+            if outcome.updatedBaseline {
+                updatedPair.lastSyncAt = Date()
+            }
+            try await replacePair(updatedPair)
+
+            if let remainingIssueSet = outcome.issueSet {
+                let replacementEvent = ActivityEvent(
+                    id: sourceEvent.id,
+                    date: Date(),
+                    message: outcome.summary,
+                    severity: outcome.severity,
+                    pairID: pair.id,
+                    details: outcome.details,
+                    issueSet: remainingIssueSet,
+                    routeToken: ActivityRouteToken(pairID: pair.id, eventID: sourceEvent.id, openIssueTable: true)
+                )
+                try await environment.activityRepository.replace(replacementEvent)
+                await MainActor.run {
+                    appModel.replaceActivityEvent(replacementEvent)
+                    environment.pairDetailViewModel.setLatestSeverity(outcome.severity)
+                    environment.pairDetailViewModel.setOperationPhase(.idle)
+                }
+                return ActivityReviewApplyResult(replacementEvent: replacementEvent, shouldDismissDetail: false)
+            }
+
+            let closedSourceEvent = ActivityEvent(
+                id: sourceEvent.id,
+                date: sourceEvent.date,
+                message: sourceEvent.message,
+                severity: sourceEvent.severity,
+                pairID: sourceEvent.pairID,
+                details: sourceEvent.details,
+                issueSet: nil,
+                routeToken: nil
+            )
+            let resultEvent = ActivityEvent(
+                id: UUID(),
+                date: Date(),
+                message: outcome.summary,
+                severity: outcome.severity,
+                pairID: pair.id,
                 details: outcome.details
             )
+            try await environment.activityRepository.replace(closedSourceEvent)
+            try await environment.activityRepository.append(resultEvent)
+            await MainActor.run {
+                appModel.replaceActivityEvent(closedSourceEvent)
+                appModel.appendActivityEvent(resultEvent)
+                environment.pairDetailViewModel.setLatestSeverity(outcome.severity)
+                environment.pairDetailViewModel.setOperationPhase(.idle)
+            }
+            return ActivityReviewApplyResult(replacementEvent: nil, shouldDismissDetail: true)
+        } catch {
+            let copy = AppCopy.current
+            let errorMessage = detailedMessage(for: error, copy: copy)
+            let failedEvent = ActivityEvent(
+                id: sourceEvent.id,
+                date: Date(),
+                message: copy.manualSyncFailedPrefix,
+                severity: .alarm,
+                pairID: pair.id,
+                details: errorMessage,
+                issueSet: sourceEvent.issueSet,
+                routeToken: sourceEvent.routeToken
+            )
+            try? await environment.activityRepository.replace(failedEvent)
+            await MainActor.run {
+                appModel.replaceActivityEvent(failedEvent)
+                environment.pairDetailViewModel.setLatestSeverity(.alarm)
+                environment.pairDetailViewModel.setError(error.localizedDescription)
+                environment.pairDetailViewModel.setOperationPhase(.idle)
+            }
+            return ActivityReviewApplyResult(replacementEvent: failedEvent, shouldDismissDetail: false)
         }
     }
 

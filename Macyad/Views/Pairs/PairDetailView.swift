@@ -11,7 +11,10 @@ struct PairDetailView: View {
     var onPullFromYandex: (() -> Void)? = nil
     var onEditPair: (() -> Void)? = nil
     var onDeletePair: (() -> Void)? = nil
+    var canDeletePair = true
+    var onApplyIssueReview: ((ActivityEvent, ActivityIssueSet) async -> ActivityReviewApplyResult)? = nil
     @State private var selectedActivityEvent: ActivityEvent?
+    @State private var autoOpenIssueReview = false
 
     var body: some View {
         let copy = appModel.copy
@@ -84,12 +87,22 @@ struct PairDetailView: View {
                         LastErrorDisclosure(message: lastErrorMessage)
                     }
 
-                    ActivityListView(events: viewModel.events, selectedEvent: $selectedActivityEvent)
+                    ActivityListView(events: appModel.events(for: pair.id), selectedEvent: $selectedActivityEvent)
                         .frame(maxHeight: .infinity)
                 }
                 .padding(16)
                 .sheet(item: $selectedActivityEvent) { event in
-                    ActivityDetailView(event: event, pair: pair)
+                    ActivityDetailView(
+                        event: event,
+                        pair: pair,
+                        initialOpenIssueReview: autoOpenIssueReview,
+                        onApplyIssueReview: { updatedIssueSet in
+                            guard let onApplyIssueReview else {
+                                return ActivityReviewApplyResult(replacementEvent: event, shouldDismissDetail: false)
+                            }
+                            return await onApplyIssueReview(event, updatedIssueSet)
+                        }
+                    )
                         .environmentObject(appModel)
                 }
             } else {
@@ -101,6 +114,46 @@ struct PairDetailView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear {
+            guard let pair, let selectedEventID = appModel.selectedActivityEventID else {
+                return
+            }
+
+            guard let event = appModel.events(for: pair.id).first(where: { $0.id == selectedEventID }) else {
+                return
+            }
+
+            let routeToken = appModel.consumePendingActivityRoute(for: selectedEventID)
+            autoOpenIssueReview = routeToken?.openIssueTable ?? false
+            selectedActivityEvent = event
+        }
+        .onChange(of: appModel.selectedActivityEventID) { _, selectedEventID in
+            guard let pair else {
+                selectedActivityEvent = nil
+                return
+            }
+
+            guard let selectedEventID else {
+                selectedActivityEvent = nil
+                return
+            }
+
+            guard let event = appModel.events(for: pair.id).first(where: { $0.id == selectedEventID }) else {
+                return
+            }
+
+            let routeToken = appModel.consumePendingActivityRoute(for: selectedEventID)
+            autoOpenIssueReview = routeToken?.openIssueTable ?? false
+            selectedActivityEvent = event
+        }
+        .onChange(of: selectedActivityEvent) { _, event in
+            if let event {
+                appModel.selectedActivityEventID = event.id
+            } else {
+                autoOpenIssueReview = false
+                appModel.clearSelectedActivityEvent()
+            }
+        }
     }
 
     private func header(pair: SyncPair) -> some View {
@@ -168,7 +221,8 @@ struct PairDetailView: View {
             } label: {
                 Image(systemName: "trash")
             }
-            .help(copy.deletePairTitle)
+            .disabled(!canDeletePair)
+            .help(canDeletePair ? copy.deletePairTitle : copy.lastPairDeleteDisabledMessage)
         }
         .controlSize(.small)
     }
