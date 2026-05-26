@@ -2,6 +2,8 @@ import XCTest
 @testable import MacyadCore
 
 final class PairServiceTests: XCTestCase {
+    private let accountID = UUID()
+
     func testCreateRejectsEmptyRemotePath() throws {
         let service = PairService()
 
@@ -11,6 +13,8 @@ final class PairServiceTests: XCTestCase {
                 localFolderBookmark: Data("bookmark".utf8),
                 localFolderDisplayPath: "/Users/test/Work Docs",
                 remotePath: "",
+                accountID: accountID,
+                conflictPolicy: .block,
                 scheduleMinutes: 30,
                 deletePolicy: .mirrorToYandex
             )
@@ -28,6 +32,8 @@ final class PairServiceTests: XCTestCase {
                 localFolderBookmark: Data(),
                 localFolderDisplayPath: "",
                 remotePath: "yd:/Work Docs",
+                accountID: accountID,
+                conflictPolicy: .block,
                 scheduleMinutes: 30,
                 deletePolicy: .mirrorToYandex
             )
@@ -56,6 +62,8 @@ final class PairServiceTests: XCTestCase {
             localFolderBookmark: Data("bookmark".utf8),
             localFolderDisplayPath: "/Users/test/Work Docs",
             remotePath: "yd:/Work Docs",
+            accountID: accountID,
+            conflictPolicy: .block,
             scheduleMinutes: 30,
             deletePolicy: .mirrorToYandex
         )
@@ -72,6 +80,8 @@ final class PairServiceTests: XCTestCase {
             localFolderBookmark: Data("bookmark".utf8),
             localFolderDisplayPath: "/Users/test/Old",
             remotePath: "yd:/old",
+            accountID: accountID,
+            conflictPolicy: .block,
             scheduleMinutes: 20,
             deletePolicy: .mirrorToYandex,
             lastKnownSeverity: .alarm,
@@ -85,6 +95,8 @@ final class PairServiceTests: XCTestCase {
             localFolderBookmark: Data("new-bookmark".utf8),
             localFolderDisplayPath: "/Users/test/New",
             remotePath: "yd:/new",
+            accountID: accountID,
+            conflictPolicy: .keepBoth,
             scheduleMinutes: 45,
             deletePolicy: .keepRemoteDeletesManual,
             syncExcludes: ["Thumbs.db"],
@@ -92,10 +104,12 @@ final class PairServiceTests: XCTestCase {
         )
 
         XCTAssertEqual(updatedPair.id, existingPair.id)
-        XCTAssertEqual(updatedPair.lastKnownSeverity, .alarm)
+        XCTAssertEqual(updatedPair.lastKnownSeverity, Severity.alarm)
         XCTAssertEqual(updatedPair.lastSyncAt, existingPair.lastSyncAt)
         XCTAssertEqual(updatedPair.lastScheduledPushAttemptAt, existingPair.lastScheduledPushAttemptAt)
         XCTAssertEqual(updatedPair.name, "New")
+        XCTAssertEqual(updatedPair.accountID, accountID)
+        XCTAssertEqual(updatedPair.conflictPolicy, .keepBoth)
         XCTAssertEqual(updatedPair.syncExcludes, ["Thumbs.db"])
         XCTAssertEqual(updatedPair.checkAdditionalExcludes, ["Desktop.ini"])
     }

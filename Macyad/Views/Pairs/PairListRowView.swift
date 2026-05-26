@@ -4,6 +4,7 @@ import SwiftUI
 struct PairListRowView: View {
     let pair: SyncPair
     let severity: Severity
+    let accountLabel: String?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -18,6 +19,13 @@ struct PairListRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+
+                if let accountLabel {
+                    Text(accountLabel)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: 8)

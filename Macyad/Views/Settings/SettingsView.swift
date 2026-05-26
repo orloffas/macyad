@@ -21,6 +21,99 @@ struct SettingsView: View {
                 }
             }
 
+            Section {
+                LabeledContent(copy.notificationsStatusLabel, value: notificationStatusTitle)
+                HStack {
+                    Button(copy.notificationsRequestButtonTitle) {
+                        Task { await viewModel.requestNotificationPermission() }
+                    }
+                    Button(copy.notificationsSendTestButtonTitle) {
+                        Task { await viewModel.sendTestNotification() }
+                    }
+                }
+
+                if let lastNotificationAttempt = viewModel.lastNotificationAttempt {
+                    LabeledContent(copy.notificationsLastAttemptLabel) {
+                        Text(lastNotificationAttempt)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
+            } header: {
+                Text(copy.notificationsSectionTitle)
+            }
+
+            Section {
+                if viewModel.accounts.isEmpty {
+                    Text(copy.noAccountsHint)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(viewModel.accounts) { account in
+                        VStack(alignment: .leading, spacing: 10) {
+                            LabeledContent(copy.accountDisplayNameLabel, value: account.displayName)
+                            LabeledContent(copy.accountRemoteNameLabel, value: account.remoteName)
+                            LabeledContent(copy.accountConfigPathLabel, value: account.configPath)
+                                .textSelection(.enabled)
+
+                            CommandCopyRowView(
+                                title: copy.reconnectAccountButtonTitle,
+                                command: viewModel.reconnectCommand(for: account),
+                                copied: viewModel.lastCopiedCommand == viewModel.reconnectCommand(for: account),
+                                accessibilityIdentifier: nil
+                            ) {
+                                viewModel.copy(viewModel.reconnectCommand(for: account))
+                            }
+
+                            CommandCopyRowView(
+                                title: copy.recreateAccountButtonTitle,
+                                command: viewModel.recreateCommand(for: account),
+                                copied: viewModel.lastCopiedCommand == viewModel.recreateCommand(for: account),
+                                accessibilityIdentifier: nil
+                            ) {
+                                viewModel.copy(viewModel.recreateCommand(for: account))
+                            }
+
+                            CommandCopyRowView(
+                                title: copy.removeAccountButtonTitle,
+                                command: viewModel.removeCommand(for: account),
+                                copied: viewModel.lastCopiedCommand == viewModel.removeCommand(for: account),
+                                accessibilityIdentifier: nil
+                            ) {
+                                viewModel.copy(viewModel.removeCommand(for: account))
+                            }
+
+                            HStack {
+                                Spacer()
+                                Button(copy.removeAccountButtonTitle, role: .destructive) {
+                                    Task { await viewModel.removeAccount(account) }
+                                }
+                            }
+                        }
+                        .padding(.vertical, 6)
+                    }
+                }
+            } header: {
+                Text(copy.accountsSectionTitle)
+            } footer: {
+                Text(copy.accountRemoteNameHint)
+            }
+
+            Section {
+                TextField(copy.accountDisplayNameLabel, text: addAccountNameBinding)
+                TextField(copy.accountRemoteNameLabel, text: addAccountRemoteBinding)
+
+                HStack {
+                    Spacer()
+                    Button(copy.addAccountButtonTitle) {
+                        Task { await viewModel.addAccount() }
+                    }
+                }
+            } header: {
+                Text(copy.addAccountButtonTitle)
+            } footer: {
+                Text(copy.onboardingAccountsHint)
+            }
+
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
                     .foregroundStyle(.red)
@@ -29,7 +122,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(20)
-        .frame(width: 420)
+        .frame(width: 560, height: 760)
         .background(
             WindowAccessor { window in
                 window.title = copy.settingsWindowTitle
@@ -53,6 +146,9 @@ struct SettingsView: View {
         )
         .task {
             await viewModel.loadIfNeeded()
+        }
+        .onReceive(viewModel.$accounts) { accounts in
+            appModel.accounts = accounts
         }
     }
 
@@ -88,5 +184,37 @@ struct SettingsView: View {
                 }
             }
         )
+    }
+
+    private var addAccountNameBinding: Binding<String> {
+        Binding(
+            get: { viewModel.newAccountDisplayName },
+            set: { viewModel.updateNewAccountDisplayName($0) }
+        )
+    }
+
+    private var addAccountRemoteBinding: Binding<String> {
+        Binding(
+            get: { viewModel.newAccountRemoteName },
+            set: { viewModel.newAccountRemoteName = $0 }
+        )
+    }
+
+    private var notificationStatusTitle: String {
+        let copy = appModel.copy
+        return switch viewModel.notificationStatus {
+        case .authorized:
+            copy.notificationsStatusAuthorized
+        case .denied:
+            copy.notificationsStatusDenied
+        case .notDetermined:
+            copy.notificationsStatusNotDetermined
+        case .provisional:
+            copy.notificationsStatusProvisional
+        case .ephemeral:
+            copy.notificationsStatusEphemeral
+        case .unknown:
+            copy.notificationsStatusUnknown
+        }
     }
 }

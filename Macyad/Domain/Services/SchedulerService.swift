@@ -4,12 +4,12 @@ public enum ScheduledPushDisposition: Equatable, Sendable {
     case pushed
     case skippedByPolicy
     case skippedNotDue
-    case blockedEmptyLocalFolder(summary: String, details: String)
+    case blocked(summary: String, details: String)
     case failed(summary: String, details: String)
 
     var recordsActivityEvent: Bool {
         switch self {
-        case .pushed, .blockedEmptyLocalFolder, .failed:
+        case .pushed, .blocked, .failed:
             true
         case .skippedByPolicy, .skippedNotDue:
             false
@@ -36,15 +36,18 @@ public actor SchedulerService {
     private let policy: PushEligibilityPolicy
     private let syncServiceProvider: SyncServiceProvider
     private let sleep: SleepOperation
+    private let operationCoordinator: SerialOperationCoordinator?
 
     public init(
         policy: PushEligibilityPolicy,
         syncService: SyncService,
+        operationCoordinator: SerialOperationCoordinator? = nil,
         sleep: @escaping SleepOperation = SchedulerService.defaultSleep
     ) {
         self.init(
             policy: policy,
             syncServiceProvider: { syncService },
+            operationCoordinator: operationCoordinator,
             sleep: sleep
         )
     }
@@ -52,10 +55,12 @@ public actor SchedulerService {
     public init(
         policy: PushEligibilityPolicy = PushEligibilityPolicy(),
         syncServiceProvider: @escaping SyncServiceProvider,
+        operationCoordinator: SerialOperationCoordinator? = nil,
         sleep: @escaping SleepOperation = SchedulerService.defaultSleep
     ) {
         self.policy = policy
         self.syncServiceProvider = syncServiceProvider
+        self.operationCoordinator = operationCoordinator
         self.sleep = sleep
     }
 
@@ -123,33 +128,51 @@ public actor SchedulerService {
                     pair: updatedPair,
                     disposition: .failed(
                         summary: syncServiceError?.localizedDescription ?? copy.scheduledSyncBootstrapFailure,
-                        details: detailedMessage(for: syncServiceError, copy: copy) ?? copy.scheduledSyncBootstrapFailure
+                        details: syncServiceError?.localizedDescription ?? copy.scheduledSyncBootstrapFailure
                     )
                 ))
                 continue
             }
 
-            do {
-                try await syncService.push(pair)
-                updatedPair.lastKnownSeverity = .healthy
-                updatedPair.lastSyncAt = now
-                results.append(ScheduledPushResult(pair: updatedPair, disposition: .pushed))
-            } catch let error as SyncService.LocalFolderEmptyPushBlockedError {
-                updatedPair.lastKnownSeverity = .warning
-                results.append(ScheduledPushResult(
-                    pair: updatedPair,
-                    disposition: .blockedEmptyLocalFolder(
+            let outcome: SyncService.OperationOutcome
+            if let operationCoordinator {
+                do {
+                    outcome = try await operationCoordinator.enqueue(pairID: pair.id, label: "scheduled-push") {
+                        await syncService.push(pair, executionMode: .scheduled)
+                    }
+                } catch {
+                    outcome = SyncService.OperationOutcome(
+                        severity: .alarm,
                         summary: error.localizedDescription,
                         details: error.localizedDescription
                     )
+                }
+            } else {
+                outcome = await syncService.push(pair, executionMode: .scheduled)
+            }
+            switch outcome.severity {
+            case .healthy:
+                updatedPair.lastKnownSeverity = .healthy
+                if outcome.shouldUpdateLastSync {
+                    updatedPair.lastSyncAt = now
+                }
+                results.append(ScheduledPushResult(pair: updatedPair, disposition: .pushed))
+            case .warning:
+                updatedPair.lastKnownSeverity = .warning
+                results.append(ScheduledPushResult(
+                    pair: updatedPair,
+                    disposition: .blocked(
+                        summary: outcome.summary,
+                        details: outcome.details ?? outcome.summary
+                    )
                 ))
-            } catch {
+            case .info, .alarm:
                 updatedPair.lastKnownSeverity = .alarm
                 results.append(ScheduledPushResult(
                     pair: updatedPair,
                     disposition: .failed(
-                        summary: summaryMessage(for: error, copy: copy),
-                        details: detailedMessage(for: error, copy: copy) ?? error.localizedDescription
+                        summary: outcome.summary,
+                        details: outcome.details ?? outcome.summary
                     )
                 ))
             }
@@ -168,25 +191,5 @@ public actor SchedulerService {
         }
 
         return now.timeIntervalSince(lastScheduledReferenceAt) >= Double(pair.scheduleMinutes * 60)
-    }
-
-    private func summaryMessage(for error: Error, copy: AppCopy) -> String {
-        if let commandError = error as? SyncService.CommandFailedError {
-            return commandError.summaryDescription
-        }
-
-        return error.localizedDescription
-    }
-
-    private func detailedMessage(for error: Error?, copy: AppCopy) -> String? {
-        guard let error else {
-            return nil
-        }
-
-        if let commandError = error as? SyncService.CommandFailedError {
-            return commandError.detailedDescription
-        }
-
-        return error.localizedDescription
     }
 }

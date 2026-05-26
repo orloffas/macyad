@@ -102,7 +102,12 @@ struct MacyadApp: App {
 
         let controller = environment.makeBackgroundSyncController { pairs, events in
             await MainActor.run {
-                appModel.applyPersistedState(pairs: pairs, events: events, using: environment.statusService)
+                appModel.applyPersistedState(
+                    pairs: pairs,
+                    accounts: appModel.accounts,
+                    events: events,
+                    using: environment.statusService
+                )
             }
 
             let selectedPair = await MainActor.run { appModel.selectedPair }

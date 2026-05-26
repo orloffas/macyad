@@ -16,7 +16,9 @@ final class BackgroundSyncControllerTests: XCTestCase {
             policy: PushEligibilityPolicy(),
             syncService: SyncService(
                 processClient: RecordingProcessClient(),
-                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+                snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+                baselineRepository: InMemoryBaselineStore()
             )
         )
         let controller = BackgroundSyncController(
@@ -57,7 +59,9 @@ final class BackgroundSyncControllerTests: XCTestCase {
             policy: PushEligibilityPolicy(),
             syncService: SyncService(
                 processClient: FailingProcessClient(),
-                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+                snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+                baselineRepository: InMemoryBaselineStore()
             )
         )
         let controller = BackgroundSyncController(
@@ -143,7 +147,9 @@ final class BackgroundSyncControllerTests: XCTestCase {
             policy: PushEligibilityPolicy(),
             syncService: SyncService(
                 processClient: RecordingProcessClient(),
-                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+                snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+                baselineRepository: InMemoryBaselineStore()
             )
         )
         let controller = BackgroundSyncController(
@@ -173,11 +179,23 @@ final class BackgroundSyncControllerTests: XCTestCase {
             localFolderBookmark: Data("bookmark".utf8),
             localFolderDisplayPath: "/Users/test/\(name)",
             remotePath: "yd:/\(name)",
+            accountID: UUID(uuidString: "44444444-4444-4444-4444-444444444444")!,
+            conflictPolicy: .block,
             scheduleMinutes: 30,
             deletePolicy: .mirrorToYandex,
             lastKnownSeverity: .healthy,
             lastSyncAt: lastSyncAt
         )
+    }
+
+    private func cleanSnapshots(for pairs: [SyncPair]) -> [String: PairSnapshot] {
+        var snapshots: [String: PairSnapshot] = [:]
+        let empty = PairSnapshot(entries: [])
+        for pair in pairs {
+            snapshots[pair.localFolderDisplayPath] = empty
+            snapshots[pair.remotePath] = empty
+        }
+        return snapshots
     }
 }
 
@@ -242,5 +260,29 @@ private struct StubLocalFolderInspector: LocalFolderInspecting {
 
     func containsUserVisibleContent(atPath path: String, excludedPatterns: [String]) throws -> Bool {
         containsUserVisibleContent
+    }
+}
+
+private struct StubSnapshotProvider: PairSnapshotProviding {
+    let snapshotsByPath: [String: PairSnapshot]
+
+    func snapshot(for pair: SyncPair, path: String, mode: RcloneExcludeFileMode) async throws -> PairSnapshot {
+        snapshotsByPath[path] ?? PairSnapshot(entries: [])
+    }
+}
+
+private actor InMemoryBaselineStore: PairConflictStateStoring {
+    private var states: [UUID: PairConflictBaselineState] = [:]
+
+    func load(pairID: UUID) async throws -> PairConflictBaselineState? {
+        states[pairID]
+    }
+
+    func save(_ state: PairConflictBaselineState) async throws {
+        states[state.pairID] = state
+    }
+
+    func remove(pairID: UUID) async throws {
+        states[pairID] = nil
     }
 }

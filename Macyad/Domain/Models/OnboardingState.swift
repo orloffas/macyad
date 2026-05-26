@@ -12,16 +12,19 @@ public struct OnboardingState: Equatable, Sendable {
     public var rcloneLocation: String?
     public var brewInstallCommand: String
     public var remoteCreateCommand: String
+    public var configPath: String
 
     public init(
         step: Step,
         rcloneLocation: String?,
         brewInstallCommand: String,
-        remoteCreateCommand: String
+        remoteCreateCommand: String,
+        configPath: String
     ) {
         self.step = step
         self.rcloneLocation = rcloneLocation
         self.brewInstallCommand = brewInstallCommand
         self.remoteCreateCommand = remoteCreateCommand
+        self.configPath = configPath
     }
 }

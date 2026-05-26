@@ -31,6 +31,9 @@ struct OnboardingView: View {
                     .foregroundStyle(.secondary)
                 }
 
+                LabeledContent(copy.accountConfigPathLabel, value: viewModel.state.configPath)
+                    .foregroundStyle(.secondary)
+
                 CommandCopyRowView(
                     title: copy.createRemoteTitle,
                     command: viewModel.state.remoteCreateCommand,
@@ -39,6 +42,9 @@ struct OnboardingView: View {
                 ) {
                     viewModel.copy(viewModel.state.remoteCreateCommand)
                 }
+
+                Text(copy.onboardingAccountsHint)
+                    .foregroundStyle(.secondary)
 
             case .createFirstPair:
                 VStack(alignment: .leading, spacing: 12) {

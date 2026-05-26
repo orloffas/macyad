@@ -10,6 +10,56 @@
 
 Устоявшиеся professional terms, product names, команды, пути, code entities и другие технические идентификаторы можно оставлять без перевода, если это нужно для точности.
 
+## Текущее продуктовое поведение
+
+- Каждая `pair` привязана к конкретному `Yandex account` и конкретному `rclone remote`.
+- В приложении одновременно выполняется только одна операция из набора `Push to Yandex`, `Pull from Yandex`, `Check Yandex` и `scheduled Push to Yandex`. Остальные операции ставятся в очередь.
+- `Push to Yandex` больше не считается “безусловным sync”. Перед push приложение сравнивает текущее состояние с последним согласованным baseline и блокирует опасный overwrite.
+- `Conflict policy` на уровне пары:
+  - `Block Push/Pull on conflict` — default для новых и legacy pair;
+  - `Keep Both Copies` — только для ручных операций; remote сохраняет исходное имя, локальная версия уходит в `conflict-copy`.
+- `scheduled Push to Yandex` всегда non-destructive:
+  - не делает auto-reconcile;
+  - не создаёт conflict-copy;
+  - не перетирает remote drift;
+  - выполняется только если preflight считает push безопасным.
+- `Check Yandex` опирается на baseline-aware сравнение и различает `clean`, `baseline missing`, `remote-only drift`, `local-only drift` и `true conflicts`.
+- `Activity` хранится 48 часов. Для `warning` и `alarm` в `Details` сохраняются полные `rclone` logs.
+
+## Где лежит app state
+
+Основное состояние приложения находится в `~/Library/Application Support/MacYaD/`:
+
+- `rclone/rclone.conf` — app-managed `rclone` config
+- `rclone/filters/` — временные и актуальные `exclude-from` files
+- `conflicts/` — baseline snapshot state для pair conflict planner
+- `pairs.json` — список sync pair
+- `accounts.json` — список подключённых Yandex account
+- `preferences.json` — пользовательские настройки
+- `activity.json` — журнал событий
+- `Workspace/` — локальный workspace приложения, если он используется в текущем сценарии
+
+## Yandex accounts
+
+- Управление account'ами вынесено в `Settings`.
+- `Add account` создаёт логическую запись аккаунта внутри MacYaD и резервирует отдельный `remoteName`.
+- Одна `pair` всегда относится ровно к одному account.
+- Если account уже используется в существующих pair, удалить его нельзя, пока pair не будут перепривязаны или удалены.
+- В `Settings` для каждого account показываются:
+  - `displayName`
+  - `remoteName`
+  - `configPath`
+  - copyable команды `Reconnect`, `Recreate managed remote` и `Remove remote`
+
+## Notifications
+
+- Системные `macOS notifications` используются только для `warning` и `alarm`.
+- Разрешение не запрашивается агрессивно на старте; оно запрашивается явным действием пользователя в `Settings`.
+- В `Settings` есть:
+  - текущий notification authorization status
+  - `Request Permission`
+  - `Send Test Notification`
+
 ## Запуск
 
 ```bash
@@ -42,3 +92,5 @@ xcodegen generate
 xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
 ./script/build_and_run.sh --verify
 ```
+
+Если `xcodebuild test` запускается из sandboxed среды и не может подключиться к `testmanagerd`, используйте обычный локальный shell-сеанс вне sandbox либо задайте отдельный `derivedDataPath`, как в `./script/test.sh unit`.

@@ -16,16 +16,11 @@ final class SyncServiceTests: XCTestCase {
             excludeFileStore: excludeFileStore
         )
 
-        do {
-            try await service.push(makePair())
-            XCTFail("Expected empty local folder guard to block push")
-        } catch let error as SyncService.LocalFolderEmptyPushBlockedError {
-            XCTAssertEqual(error.pairName, "Work Docs")
-            XCTAssertEqual(
-                error.localizedDescription,
-                "Local folder is empty. Run Pull From Yandex first; Push to Yandex was blocked to avoid clearing Yandex."
-            )
-        }
+        let outcome = await service.push(makePair())
+
+        XCTAssertEqual(outcome.severity, .warning)
+        XCTAssertEqual(outcome.summary, AppCopy.current.manualPushBlockedTitle)
+        XCTAssertTrue(outcome.details?.contains("Local folder is empty") == true)
 
         let recordedArguments = await processClient.recordedArguments()
         XCTAssertTrue(recordedArguments.isEmpty)
@@ -36,16 +31,23 @@ final class SyncServiceTests: XCTestCase {
         AppLanguageState.update(.english)
         defer { AppLanguageState.update(previousLanguage) }
 
+        let pair = makePair()
         let processClient = StubProcessClient(result: ("", "", 0))
         let excludeFileStore = StubExcludeFileStore()
         let service = SyncService(
             processClient: processClient,
             configPath: "/tmp/macyad-rclone.conf",
             localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
-            excludeFileStore: excludeFileStore
+            excludeFileStore: excludeFileStore,
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+            baselineRepository: InMemoryBaselineStore()
         )
 
-        try await service.push(makePair())
+        let outcome = await service.push(pair)
+
+        XCTAssertEqual(outcome.severity, .healthy)
+        XCTAssertTrue(outcome.shouldUpdateLastSync)
+        XCTAssertTrue(outcome.updatedBaseline)
 
         let recordedArguments = await processClient.recordedArguments()
         XCTAssertEqual(
@@ -60,8 +62,7 @@ final class SyncServiceTests: XCTestCase {
                 "/tmp/sync-excludes.txt",
             ]]
         )
-        let preparedModes = excludeFileStore.preparedModes()
-        XCTAssertEqual(preparedModes, [.sync])
+        XCTAssertEqual(excludeFileStore.preparedModes(), [.sync])
     }
 
     func testCheckReturnsWarningWhenRemoteChangesDetected() async throws {
@@ -69,22 +70,36 @@ final class SyncServiceTests: XCTestCase {
         AppLanguageState.update(.english)
         defer { AppLanguageState.update(previousLanguage) }
 
+        let pair = makePair()
+        let baseline = PairConflictBaselineState(
+            pairID: pair.id,
+            localSnapshot: PairSnapshot(entries: []),
+            remoteSnapshot: PairSnapshot(entries: []),
+            updatedAt: Date(timeIntervalSince1970: 1_000)
+        )
         let processClient = StubProcessClient(
             result: ("", "NOTICE: Yandex Docs: 1 differences found\nNOTICE: Yandex Docs: 1 errors while checking", 1)
         )
         let excludeFileStore = StubExcludeFileStore()
+        let snapshots = [
+            pair.localFolderDisplayPath: PairSnapshot(entries: []),
+            pair.remotePath: PairSnapshot(entries: [entry(path: "draft.txt", md5: "remote-v2")]),
+        ]
         let service = SyncService(
             processClient: processClient,
             configPath: "/tmp/macyad-rclone.conf",
-            excludeFileStore: excludeFileStore
+            excludeFileStore: excludeFileStore,
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: snapshots),
+            baselineRepository: InMemoryBaselineStore(initialStates: [pair.id: baseline])
         )
 
-        let outcome = try await service.check(makePair())
+        let outcome = await service.check(pair)
 
         XCTAssertEqual(outcome.severity, .warning)
-        XCTAssertTrue(outcome.log.detailedDescription.contains("1 differences found"))
-        let preparedModes = excludeFileStore.preparedModes()
-        XCTAssertEqual(preparedModes, [.check])
+        XCTAssertTrue(outcome.summary.contains("remote"))
+        XCTAssertTrue(outcome.details?.contains("1 differences found") == true)
+        XCTAssertEqual(outcome.differenceCount, 1)
+        XCTAssertEqual(excludeFileStore.preparedModes(), [.check])
     }
 
     func testCheckReturnsHealthyWhenRcloneReportsZeroDifferences() async throws {
@@ -92,29 +107,62 @@ final class SyncServiceTests: XCTestCase {
         AppLanguageState.update(.english)
         defer { AppLanguageState.update(previousLanguage) }
 
+        let pair = makePair()
+        let cleanSnapshot = PairSnapshot(entries: [entry(path: "draft.txt", md5: "same")])
+        let baseline = PairConflictBaselineState(
+            pairID: pair.id,
+            localSnapshot: cleanSnapshot,
+            remoteSnapshot: cleanSnapshot,
+            updatedAt: Date(timeIntervalSince1970: 1_000)
+        )
         let processClient = StubProcessClient(
             result: ("", "NOTICE: Yandex Docs: 0 differences found\nNOTICE: Yandex Docs: 5 matching files", 0)
         )
-        let service = SyncService(processClient: processClient, configPath: "/tmp/macyad-rclone.conf")
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            snapshotProvider: StubSnapshotProvider(
+                snapshotsByPath: [
+                    pair.localFolderDisplayPath: cleanSnapshot,
+                    pair.remotePath: cleanSnapshot,
+                ]
+            ),
+            baselineRepository: InMemoryBaselineStore(initialStates: [pair.id: baseline])
+        )
 
-        let outcome = try await service.check(makePair())
+        let outcome = await service.check(pair)
 
         XCTAssertEqual(outcome.severity, .healthy)
+        XCTAssertEqual(outcome.differenceCount, 0)
     }
 
-    func testCheckThrowsAlarmForNonDriftCommandFailures() async {
+    func testCheckReturnsAlarmForNonDriftCommandFailures() async {
+        let pair = makePair()
+        let cleanSnapshot = PairSnapshot(entries: [])
+        let baseline = PairConflictBaselineState(
+            pairID: pair.id,
+            localSnapshot: cleanSnapshot,
+            remoteSnapshot: cleanSnapshot,
+            updatedAt: Date(timeIntervalSince1970: 1_000)
+        )
         let processClient = StubProcessClient(result: ("", "permission denied", 9))
-        let service = SyncService(processClient: processClient, configPath: "/tmp/macyad-rclone.conf")
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            snapshotProvider: StubSnapshotProvider(
+                snapshotsByPath: [
+                    pair.localFolderDisplayPath: cleanSnapshot,
+                    pair.remotePath: cleanSnapshot,
+                ]
+            ),
+            baselineRepository: InMemoryBaselineStore(initialStates: [pair.id: baseline])
+        )
 
-        do {
-            _ = try await service.check(makePair())
-            XCTFail("Expected command failure")
-        } catch let error as SyncService.CommandFailedError {
-            XCTAssertEqual(error.exitCode, 9)
-            XCTAssertTrue(error.stderr.contains("permission denied"))
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
+        let outcome = await service.check(pair)
+
+        XCTAssertEqual(outcome.severity, .alarm)
+        XCTAssertTrue(outcome.summary.contains("code 9"))
+        XCTAssertTrue(outcome.details?.contains("permission denied") == true)
     }
 
     func testPullUsesCopyCommand() async throws {
@@ -122,18 +170,24 @@ final class SyncServiceTests: XCTestCase {
         AppLanguageState.update(.english)
         defer { AppLanguageState.update(previousLanguage) }
 
+        let pair = makePair()
         let processClient = StubProcessClient(result: ("", "", 0))
         let excludeFileStore = StubExcludeFileStore()
         let service = SyncService(
             processClient: processClient,
             configPath: "/tmp/macyad-rclone.conf",
-            excludeFileStore: excludeFileStore
+            excludeFileStore: excludeFileStore,
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+            baselineRepository: InMemoryBaselineStore()
         )
 
-        try await service.pull(makePair())
+        let outcome = await service.pull(pair)
 
+        XCTAssertEqual(outcome.severity, .healthy)
         let recordedArguments = await processClient.recordedArguments()
-        XCTAssertEqual(recordedArguments, [[
+        XCTAssertEqual(
+            recordedArguments,
+            [[
                 "--config",
                 "/tmp/macyad-rclone.conf",
                 "copy",
@@ -141,9 +195,9 @@ final class SyncServiceTests: XCTestCase {
                 "/Users/test/Work Docs",
                 "--exclude-from",
                 "/tmp/sync-excludes.txt",
-            ]])
-        let preparedModes = excludeFileStore.preparedModes()
-        XCTAssertEqual(preparedModes, [.sync])
+            ]]
+        )
+        XCTAssertEqual(excludeFileStore.preparedModes(), [.sync])
     }
 
     func testCommandFailureDescriptionUsesSelectedLanguage() {
@@ -177,10 +231,26 @@ final class SyncServiceTests: XCTestCase {
             localFolderBookmark: Data("bookmark".utf8),
             localFolderDisplayPath: "/Users/test/Work Docs",
             remotePath: "yd:/Work Docs",
+            accountID: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!,
+            conflictPolicy: .block,
             scheduleMinutes: 30,
             deletePolicy: .mirrorToYandex,
             lastKnownSeverity: .healthy
         )
+    }
+
+    private func cleanSnapshots(for pairs: [SyncPair]) -> [String: PairSnapshot] {
+        var snapshots: [String: PairSnapshot] = [:]
+        let empty = PairSnapshot(entries: [])
+        for pair in pairs {
+            snapshots[pair.localFolderDisplayPath] = empty
+            snapshots[pair.remotePath] = empty
+        }
+        return snapshots
+    }
+
+    private func entry(path: String, md5: String) -> PairSnapshotEntry {
+        PairSnapshotEntry(path: path, size: 12, modTime: Date(timeIntervalSince1970: 1_234), md5: md5)
     }
 }
 
@@ -229,5 +299,33 @@ private struct StubLocalFolderInspector: LocalFolderInspecting {
 
     func containsUserVisibleContent(atPath path: String, excludedPatterns: [String]) throws -> Bool {
         containsUserVisibleContent
+    }
+}
+
+private struct StubSnapshotProvider: PairSnapshotProviding {
+    let snapshotsByPath: [String: PairSnapshot]
+
+    func snapshot(for pair: SyncPair, path: String, mode: RcloneExcludeFileMode) async throws -> PairSnapshot {
+        snapshotsByPath[path] ?? PairSnapshot(entries: [])
+    }
+}
+
+private actor InMemoryBaselineStore: PairConflictStateStoring {
+    private var states: [UUID: PairConflictBaselineState]
+
+    init(initialStates: [UUID: PairConflictBaselineState] = [:]) {
+        self.states = initialStates
+    }
+
+    func load(pairID: UUID) async throws -> PairConflictBaselineState? {
+        states[pairID]
+    }
+
+    func save(_ state: PairConflictBaselineState) async throws {
+        states[state.pairID] = state
+    }
+
+    func remove(pairID: UUID) async throws {
+        states[pairID] = nil
     }
 }

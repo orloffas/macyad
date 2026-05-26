@@ -8,30 +8,19 @@ struct MainWindowView: View {
         let details: String?
     }
 
-    private enum PairOperationKind {
+    private enum PairOperationKind: Equatable {
         case syncNow
         case checkYandex
         case pullFromYandex
 
-        func successMessage(using copy: AppCopy) -> String {
+        var queueLabel: String {
             switch self {
             case .syncNow:
-                copy.manualSyncCompleted
+                "push"
             case .checkYandex:
-                copy.manualCheckCompleted
+                "check"
             case .pullFromYandex:
-                copy.manualPullCompleted
-            }
-        }
-
-        func failurePrefix(using copy: AppCopy) -> String {
-            switch self {
-            case .syncNow:
-                copy.manualSyncFailedPrefix
-            case .checkYandex:
-                copy.manualCheckFailedPrefix
-            case .pullFromYandex:
-                copy.manualPullFailedPrefix
+                "pull"
             }
         }
     }
@@ -44,6 +33,7 @@ struct MainWindowView: View {
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var environment: AppEnvironment
     @State private var createPairViewModel = CreatePairViewModel(
+        accounts: [],
         folderPicker: FolderPickerBridge(),
         pairService: PairService()
     )
@@ -69,7 +59,11 @@ struct MainWindowView: View {
 
                 Section(copy.pairsSectionTitle) {
                     ForEach(appModel.pairs) { pair in
-                        PairListRowView(pair: pair, severity: pair.lastKnownSeverity)
+                        PairListRowView(
+                            pair: pair,
+                            severity: pair.lastKnownSeverity,
+                            accountLabel: appModel.accounts.first(where: { $0.id == pair.accountID })?.displayName
+                        )
                             .tag(SidebarSelection.pair(pair.id))
                     }
                 }
@@ -197,6 +191,7 @@ struct MainWindowView: View {
         let defaultScheduleMinutes = (try? await environment.preferencesStore.load())?.defaultScheduleMinutes
             ?? AppPreferences.defaults.defaultScheduleMinutes
         createPairViewModel = CreatePairViewModel(
+            accounts: appModel.accounts,
             folderPicker: FolderPickerBridge(),
             pairService: PairService(),
             defaultScheduleMinutes: defaultScheduleMinutes
@@ -212,6 +207,7 @@ struct MainWindowView: View {
 
         createPairViewModel = CreatePairViewModel(
             existingPair: pair,
+            accounts: appModel.accounts,
             folderPicker: FolderPickerBridge(),
             pairService: PairService()
         )
@@ -227,9 +223,15 @@ struct MainWindowView: View {
 
         do {
             let pairs = try await environment.pairRepository.load()
+            let reconciled = try await environment.reconcileAccountsAndPairs(pairs: pairs)
             let events = try await environment.activityRepository.load()
             await MainActor.run {
-                appModel.applyPersistedState(pairs: pairs, events: events.sorted { $0.date > $1.date }, using: environment.statusService)
+                appModel.applyPersistedState(
+                    pairs: reconciled.pairs,
+                    accounts: reconciled.accounts,
+                    events: events.sorted { $0.date > $1.date },
+                    using: environment.statusService
+                )
                 appModel.applyInitialPairSelectionIfNeeded()
                 configureQuickActions()
             }
@@ -266,12 +268,14 @@ struct MainWindowView: View {
         do {
             let updatedPairs = appModel.pairs.filter { $0.id != pair.id }
             try await environment.pairRepository.save(updatedPairs)
+            try await environment.conflictStateRepository.remove(pairID: pair.id)
 
             let updatedEvents = appModel.activityEvents.filter { $0.pairID != pair.id }
             try await environment.activityRepository.save(updatedEvents)
 
             appModel.applyPersistedState(
                 pairs: updatedPairs,
+                accounts: appModel.accounts,
                 events: updatedEvents.sorted { $0.date > $1.date },
                 using: environment.statusService
             )
@@ -309,13 +313,18 @@ struct MainWindowView: View {
 
     private func run(_ operation: PairOperationKind, for pair: SyncPair) async {
         await MainActor.run {
-            environment.pairDetailViewModel.setOperationInFlight(true)
+            environment.pairDetailViewModel.setOperationPhase(.queued)
             environment.pairDetailViewModel.setError(nil)
         }
 
         do {
             let syncService = try await makeSyncService()
-            let outcome = try await perform(operation, with: syncService, for: pair)
+            let outcome = try await environment.operationCoordinator.enqueue(pairID: pair.id, label: operation.queueLabel) {
+                await MainActor.run {
+                    environment.pairDetailViewModel.setOperationPhase(.running)
+                }
+                return await perform(operation, with: syncService, for: pair)
+            }
             let updatedPair = outcome.pair
             try await replacePair(updatedPair)
 
@@ -330,6 +339,14 @@ struct MainWindowView: View {
                 ),
                 latestSeverity: updatedPair.lastKnownSeverity
             )
+
+            if operation == .syncNow, updatedPair.lastKnownSeverity == .warning {
+                try? await environment.notificationClient.send(
+                    title: AppCopy.current.pushBlockedNotificationTitle,
+                    body: "\(pair.name): \(outcome.details ?? outcome.message)"
+                )
+            }
+
             await MainActor.run {
                 appModel.refreshBackgroundState()
             }
@@ -338,95 +355,62 @@ struct MainWindowView: View {
             let localizedError = localizedMessage(for: error, copy: copy)
             let detailedError = detailedMessage(for: error, copy: copy)
 
-            if case .syncNow = operation,
-               error is SyncService.LocalFolderEmptyPushBlockedError {
-                var blockedPair = pair
-                blockedPair.lastKnownSeverity = .warning
-                try? await replacePair(blockedPair)
+            var failedPair = pair
+            failedPair.lastKnownSeverity = .alarm
+            try? await replacePair(failedPair)
 
-                await environment.pairDetailViewModel.record(
-                    ActivityEvent(
-                        id: UUID(),
-                        date: Date(),
-                        message: copy.manualPushBlockedTitle,
-                        severity: .warning,
-                        pairID: pair.id,
-                        details: localizedError
-                    ),
-                    latestSeverity: .warning
-                )
-                try? await environment.notificationClient.send(
-                    title: copy.pushBlockedNotificationTitle,
-                    body: "\(pair.name): \(localizedError)"
-                )
-                await MainActor.run {
-                    environment.pairDetailViewModel.setError(localizedError)
-                    appModel.refreshBackgroundState()
-                }
-            } else {
-                var failedPair = pair
-                failedPair.lastKnownSeverity = .alarm
-                try? await replacePair(failedPair)
-
-                await environment.pairDetailViewModel.record(
-                    ActivityEvent(
-                        id: UUID(),
-                        date: Date(),
-                        message: operation.failurePrefix(using: copy),
-                        severity: .alarm,
-                        pairID: pair.id,
-                        details: detailedError
-                    ),
-                    latestSeverity: .alarm
-                )
-                await MainActor.run {
-                    environment.pairDetailViewModel.setError(detailedError)
-                    appModel.refreshBackgroundState()
-                }
+            await environment.pairDetailViewModel.record(
+                ActivityEvent(
+                    id: UUID(),
+                    date: Date(),
+                    message: failureMessage(for: operation, copy: copy),
+                    severity: .alarm,
+                    pairID: pair.id,
+                    details: detailedError
+                ),
+                latestSeverity: .alarm
+            )
+            await MainActor.run {
+                environment.pairDetailViewModel.setError(localizedError)
+                appModel.refreshBackgroundState()
             }
         }
 
         await MainActor.run {
-            environment.pairDetailViewModel.setOperationInFlight(false)
+            environment.pairDetailViewModel.setOperationPhase(.idle)
         }
     }
 
-    private func perform(_ operation: PairOperationKind, with syncService: SyncService, for pair: SyncPair) async throws -> PairOperationOutcome {
+    private func perform(_ operation: PairOperationKind, with syncService: SyncService, for pair: SyncPair) async -> PairOperationOutcome {
         var updatedPair = pair
 
         switch operation {
         case .syncNow:
-            try await syncService.push(pair)
-            updatedPair.lastKnownSeverity = .healthy
-            updatedPair.lastSyncAt = Date()
+            let outcome = await syncService.push(pair)
+            updatedPair.lastKnownSeverity = outcome.severity
+            if outcome.shouldUpdateLastSync {
+                updatedPair.lastSyncAt = Date()
+            }
             return PairOperationOutcome(
                 pair: updatedPair,
-                message: AppCopy.current.manualSyncCompleted,
-                details: nil
+                message: eventMessage(for: operation, outcome: outcome),
+                details: outcome.details
             )
         case .checkYandex:
-            let outcome = try await syncService.check(pair)
+            let outcome = await syncService.check(pair)
             updatedPair.lastKnownSeverity = outcome.severity
-            let details = outcome.severity == .warning
-                ? AppCopy.current.checkWarningDetails(
-                    differenceCount: outcome.differenceCount,
-                    logDescription: outcome.log.detailedDescription
-                )
-                : nil
             return PairOperationOutcome(
                 pair: updatedPair,
-                message: outcome.severity == .warning
-                    ? AppCopy.current.manualCheckWarningDetected
-                    : AppCopy.current.manualCheckCompleted,
-                details: details
+                message: eventMessage(for: operation, outcome: outcome),
+                details: outcome.details
             )
         case .pullFromYandex:
-            try await syncService.pull(pair)
-            updatedPair.lastKnownSeverity = .healthy
+            let outcome = await syncService.pull(pair)
+            updatedPair.lastKnownSeverity = outcome.severity
             return PairOperationOutcome(
                 pair: updatedPair,
-                message: AppCopy.current.manualPullCompleted,
-                details: nil
+                message: eventMessage(for: operation, outcome: outcome),
+                details: outcome.details
             )
         }
     }
@@ -440,11 +424,7 @@ struct MainWindowView: View {
     }
 
     private func detailedMessage(for error: Error, copy: AppCopy) -> String {
-        if let commandError = error as? SyncService.CommandFailedError {
-            return commandError.detailedDescription
-        }
-
-        return localizedMessage(for: error, copy: copy)
+        localizedMessage(for: error, copy: copy)
     }
 
     private func replacePair(_ pair: SyncPair) async throws {
@@ -470,7 +450,38 @@ struct MainWindowView: View {
         return SyncService(
             processClient: RcloneProcessClient(executablePath: executablePath),
             configPath: environment.paths.rcloneConfigFile.path,
-            excludeFileStore: PersistentRcloneExcludeFileStore(paths: environment.paths)
+            excludeFileStore: PersistentRcloneExcludeFileStore(paths: environment.paths),
+            baselineRepository: environment.conflictStateRepository
         )
+    }
+
+    private func failureMessage(for operation: PairOperationKind, copy: AppCopy) -> String {
+        switch operation {
+        case .syncNow:
+            return copy.manualSyncFailedPrefix
+        case .checkYandex:
+            return copy.manualCheckFailedPrefix
+        case .pullFromYandex:
+            return copy.manualPullFailedPrefix
+        }
+    }
+
+    private func eventMessage(for operation: PairOperationKind, outcome: SyncService.OperationOutcome) -> String {
+        let copy = AppCopy.current
+
+        switch operation {
+        case .syncNow:
+            if outcome.severity == .healthy {
+                return copy.manualSyncCompleted
+            }
+            return outcome.shouldUpdateLastSync ? copy.manualConflictReconciledTitle : copy.manualPushBlockedTitle
+        case .checkYandex:
+            return outcome.summary
+        case .pullFromYandex:
+            if outcome.severity == .healthy {
+                return copy.manualPullCompleted
+            }
+            return outcome.updatedBaseline ? copy.manualConflictReconciledTitle : copy.manualPullBlockedTitle
+        }
     }
 }

@@ -11,7 +11,8 @@ final class OnboardingViewModelTests: XCTestCase {
                 step: step,
                 rcloneLocation: step == .installRclone ? nil : "/opt/homebrew/bin/rclone",
                 brewInstallCommand: "brew install rclone",
-                remoteCreateCommand: "rclone config create yd-app yandex --config /tmp/rclone.conf"
+                remoteCreateCommand: "rclone config create yd-app yandex --config /tmp/rclone.conf",
+                configPath: "/tmp/rclone.conf"
             )
         }
     }

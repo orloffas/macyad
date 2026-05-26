@@ -1,5 +1,9 @@
 # Design: Macyad Native Swift Rewrite
 
+> [!NOTE]
+> Обновление от `2026-05-26`: актуальный продуктовый baseline для нативной версии уже включает `multi-account`,
+> baseline-aware conflict safety, serial execution для всех sync-like операций и явный notification settings flow.
+
 ## Контекст
 
 Текущая версия `Macyad` собрана как `Tauri`-приложение с `React` UI и `Rust` backend. По итогам ручного тестирования и UX-оценки пользователь подтвердил, что текущий интерфейс и shell-поведение не подходят для целевого продукта:
@@ -38,8 +42,91 @@
 | UI-стратегия | `SwiftUI-first + narrow AppKit bridge` |
 | Shell-модель | `Dock app + menu bar helper` |
 | Поведение после onboarding | Приложение стартует в фоне, живёт в `menu bar`, окно открывается по требованию |
-| Scope первой нативной версии | `parity + cleanup docs/branding` |
+| Scope первой нативной версии | `parity + safety + account management + docs/branding cleanup` |
 | Роль `AppKit` | Только точечные `PlatformAdapters`, без расползания в feature UI |
+| Несколько Yandex account | Поддерживаются как first-class сущности через account picker и `accounts.json` |
+| Конфликтная политика | `Block` по умолчанию, `Keep Both Copies` только для ручных операций |
+| Scheduled behavior | `scheduled Push to Yandex` всегда non-destructive и не делает auto-reconcile |
+| Execution model | В один момент времени выполняется только одна sync-like операция на весь app process |
+| Notifications | Системные уведомления только для `warning` и `alarm`, permission/test flow вынесены в `Settings` |
+| App-managed config | `rclone.conf` лежит в `~/Library/Application Support/MacYaD/rclone/rclone.conf` |
+
+## Актуальный safety contract
+
+### Serial execution
+
+Приложение не запускает `Push to Yandex`, `Pull from Yandex`, `Check Yandex` и `scheduled Push to Yandex` параллельно.
+
+- manual actions и background scheduler используют один global serial coordinator;
+- если операция уже идёт, следующая попадает в очередь и получает состояние `queued`;
+- это исключает overlap между несколькими pair и между ручными и фоновыми действиями.
+
+### Baseline-aware conflict safety
+
+Для каждой `pair` хранится baseline согласованного состояния:
+
+- `local snapshot`
+- `remote snapshot`
+- `updatedAt`
+
+Snapshot-ы сериализуются отдельно от `pairs.json` в `~/Library/Application Support/MacYaD/conflicts/`.
+
+Если baseline отсутствует:
+
+- при идентичном `local` и `remote` он создаётся автоматически;
+- если стороны уже разошлись, destructive `Push/Pull` блокируется до ручного reconcile.
+
+### Conflict policy
+
+У каждой `pair` есть `Conflict policy`.
+
+- `Block Push/Pull on conflict` — default policy. `Push` блокируется при remote drift, `Pull` блокируется при local drift.
+- `Keep Both Copies` — manual-only policy. Remote version сохраняет исходное имя, локальная версия переносится в conflict-copy с timestamp.
+
+`scheduled Push to Yandex` никогда не запускает keep-both reconcile автоматически.
+
+### Check semantics
+
+`Check Yandex` использует одновременно:
+
+- `rclone check` log;
+- baseline-aware сравнение `local`, `remote` и последнего согласованного состояния.
+
+User-facing классификация:
+
+- `clean`
+- `baseline missing`
+- `remote-only drift`
+- `local-only drift`
+- `true conflicts`
+
+### Activity and logs
+
+- `Activity` хранится 48 часов;
+- для `warning` и `alarm` в `Details` сохраняются `exit code`, `stderr`, `stdout` и сама `rclone` command line.
+
+## Account model и `rclone` config
+
+Нативная версия больше не опирается на неявный hardcoded `[yd]`.
+
+У `YandexAccount` есть:
+
+- `displayName`
+- `remoteName`
+- `configPath`
+- `isManaged`
+- `remoteRootHint`
+
+У `SyncPair` есть:
+
+- `accountID`
+- полный `remotePath`, собранный внутри контекста выбранного account
+
+`Settings` должны явно отвечать на вопросы:
+
+1. какой `remoteName` относится к какому Yandex account;
+2. где лежит `rclone.conf`;
+3. как переподключить, пересоздать или удалить managed remote.
 
 ## Архитектурный подход
 
@@ -164,6 +251,11 @@ Macyad
 - launch at login;
 - default schedule;
 - notifications policy;
+- notification permission status и `Send Test Notification`;
+- список подключённых Yandex account;
+- `Add account`;
+- `Reconnect/Recreate managed remote`;
+- `Remove account` с блокировкой, если этот account уже используется в pair;
 - `rclone` integration policy;
 - support/debug information.
 
@@ -213,7 +305,9 @@ Onboarding state должен быть сохраняемым: пользова�
 - обязательные поля:
   - `Pair name`
   - локальная папка через `folder picker`
-  - `remote path`
+  - `Yandex account`
+  - `remote subpath`
+  - `Conflict policy`
   - `schedule`
   - `delete policy`
 - рядом показывается compact summary того, что будет происходить.
@@ -233,6 +327,8 @@ Onboarding state должен быть сохраняемым: пользова�
 - `Check Yandex`;
 - `Pull From Yandex`;
 - `schedule`;
+- `account`;
+- `conflict policy`;
 - `local path` / `remote path`;
 - `last run` / `next run`;
 - короткое объяснение текущего состояния.
@@ -281,6 +377,8 @@ Inspector показывает:
 7. Сделать copy affordance для команд и подобных значений с нативным visual feedback.
 8. Исправить close behavior: закрытие окна не должно завершать приложение.
 9. Привести project docs и QA-артефакты к русскому default, включая текущие английские документы вроде `qa-macyad-mvp-checklist.md`.
+10. Явно показать пользователю, где лежит `rclone.conf` и как устроено управление account.
+11. Добавить короткие descriptions для `Push to Yandex`, `Check Yandex` и `Pull from Yandex`, чтобы продуктовое поведение читалось без изучения исходников.
 
 ## App lifecycle и scene model
 

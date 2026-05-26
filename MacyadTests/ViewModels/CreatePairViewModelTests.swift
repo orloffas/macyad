@@ -3,6 +3,16 @@ import XCTest
 
 @MainActor
 final class CreatePairViewModelTests: XCTestCase {
+    private var account: YandexAccount {
+        YandexAccount(
+            id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+            displayName: "Primary",
+            remoteName: "yd-primary",
+            configPath: "/tmp/rclone.conf",
+            isManaged: true
+        )
+    }
+
     private final class StubFolderPicker: FolderPicking {
         func pickFolder() -> (bookmark: Data, displayPath: String)? {
             (Data("bookmark".utf8), "/Users/test/Work Docs")
@@ -10,7 +20,11 @@ final class CreatePairViewModelTests: XCTestCase {
     }
 
     func testChooseFolderFillsDisplayPath() {
-        let model = CreatePairViewModel(folderPicker: StubFolderPicker(), pairService: PairService())
+        let model = CreatePairViewModel(
+            accounts: [account],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
 
         model.chooseFolder()
 
@@ -20,12 +34,14 @@ final class CreatePairViewModelTests: XCTestCase {
 
     func testInitUsesProvidedDefaultSchedule() {
         let model = CreatePairViewModel(
+            accounts: [account],
             folderPicker: StubFolderPicker(),
             pairService: PairService(),
             defaultScheduleMinutes: 45
         )
 
         XCTAssertEqual(model.scheduleMinutes, 45)
+        XCTAssertEqual(model.selectedAccountID, account.id)
     }
 
     func testInitFromExistingPairPopulatesEditableFields() {
@@ -34,7 +50,9 @@ final class CreatePairViewModelTests: XCTestCase {
             name: "Docs",
             localFolderBookmark: Data("bookmark".utf8),
             localFolderDisplayPath: "/Users/test/Docs",
-            remotePath: "yd:/docs",
+            remotePath: "yd-primary:/docs",
+            accountID: account.id,
+            conflictPolicy: .keepBoth,
             scheduleMinutes: 20,
             deletePolicy: .keepRemoteDeletesManual,
             lastKnownSeverity: .warning,
@@ -44,6 +62,7 @@ final class CreatePairViewModelTests: XCTestCase {
 
         let model = CreatePairViewModel(
             existingPair: existingPair,
+            accounts: [account],
             folderPicker: StubFolderPicker(),
             pairService: PairService()
         )
@@ -52,7 +71,10 @@ final class CreatePairViewModelTests: XCTestCase {
         XCTAssertEqual(model.name, "Docs")
         XCTAssertEqual(model.localFolderBookmark, Data("bookmark".utf8))
         XCTAssertEqual(model.localFolderDisplayPath, "/Users/test/Docs")
-        XCTAssertEqual(model.remotePath, "yd:/docs")
+        XCTAssertEqual(model.selectedAccountID, account.id)
+        XCTAssertEqual(model.remoteSubpath, "docs")
+        XCTAssertEqual(model.resolvedRemotePath, "yd-primary:/docs")
+        XCTAssertEqual(model.conflictPolicy, .keepBoth)
         XCTAssertEqual(model.scheduleMinutes, 20)
         XCTAssertEqual(model.deletePolicy, .keepRemoteDeletesManual)
         XCTAssertEqual(model.syncExcludesText, ".DS_Store\n*.tmp")
@@ -65,7 +87,9 @@ final class CreatePairViewModelTests: XCTestCase {
             name: "Docs",
             localFolderBookmark: Data("bookmark".utf8),
             localFolderDisplayPath: "/Users/test/Docs",
-            remotePath: "yd:/docs",
+            remotePath: "yd-primary:/docs",
+            accountID: account.id,
+            conflictPolicy: .block,
             scheduleMinutes: 20,
             deletePolicy: .mirrorToYandex,
             lastKnownSeverity: .alarm,
@@ -76,6 +100,7 @@ final class CreatePairViewModelTests: XCTestCase {
 
         let model = CreatePairViewModel(
             existingPair: existingPair,
+            accounts: [account],
             folderPicker: StubFolderPicker(),
             pairService: PairService()
         )
@@ -85,8 +110,10 @@ final class CreatePairViewModelTests: XCTestCase {
         let updatedPair = try model.buildPair()
 
         XCTAssertEqual(updatedPair.id, existingPair.id)
-        XCTAssertEqual(updatedPair.lastKnownSeverity, .alarm)
+        XCTAssertEqual(updatedPair.lastKnownSeverity, Severity.alarm)
         XCTAssertEqual(updatedPair.lastSyncAt, existingPair.lastSyncAt)
+        XCTAssertEqual(updatedPair.accountID, account.id)
+        XCTAssertEqual(updatedPair.conflictPolicy, .block)
         XCTAssertEqual(updatedPair.syncExcludes, [".DS_Store", "Thumbs.db", "*.tmp"])
         XCTAssertEqual(updatedPair.checkAdditionalExcludes, ["Desktop.ini", "*.bak"])
     }
