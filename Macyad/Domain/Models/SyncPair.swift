@@ -20,7 +20,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         ".VolumeIcon.icns",
         ".com.apple.timemachine.donotpresent",
         ".com.apple.timemachine.supported",
-        "Icon[]",
+        "Icon?",
         "Thumbs.db",
         "desktop.ini",
         "$RECYCLE.BIN/**",

@@ -162,6 +162,10 @@ final class SyncServiceTests: XCTestCase {
             error.localizedDescription,
             "rclone sync /tmp/source yd:/target exited with code 12: permission denied"
         )
+        XCTAssertEqual(
+            error.summaryDescription,
+            "rclone exited with code 12: permission denied"
+        )
         XCTAssertTrue(error.detailedDescription.contains("NOTICE: remote object would be replaced"))
         XCTAssertTrue(error.detailedDescription.contains("permission denied"))
     }

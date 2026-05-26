@@ -63,6 +63,10 @@ public struct SyncService: Sendable {
             AppCopy.current.rcloneCommandFailed(command: command, exitCode: exitCode, stderr: stderr)
         }
 
+        public var summaryDescription: String {
+            AppCopy.current.rcloneCommandSummary(exitCode: exitCode, stderr: stderr)
+        }
+
         public var detailedDescription: String {
             AppCopy.current.rcloneCommandLog(
                 command: command,

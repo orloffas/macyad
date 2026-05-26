@@ -21,6 +21,7 @@ final class SyncPairTests: XCTestCase {
         let pair = try JSONDecoder().decode(SyncPair.self, from: Data(json.utf8))
 
         XCTAssertEqual(pair.syncExcludes, SyncPair.defaultSyncExcludes)
+        XCTAssertTrue(pair.syncExcludes.contains("Icon?"))
         XCTAssertEqual(pair.checkAdditionalExcludes, [String]())
         XCTAssertNil(pair.lastScheduledPushAttemptAt)
     }

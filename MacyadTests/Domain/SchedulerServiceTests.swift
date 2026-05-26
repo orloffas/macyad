@@ -93,6 +93,7 @@ final class SchedulerServiceTests: XCTestCase {
         }
 
         XCTAssertTrue(summary.contains("exited with code 9"))
+        XCTAssertTrue(summary.contains("network exploded"))
         XCTAssertTrue(details.contains("network exploded"))
     }
 
