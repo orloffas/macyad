@@ -49,6 +49,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(viewModel.accounts) { account in
+                        let removalState = viewModel.accountRemovalState(for: account, pairs: appModel.pairs)
                         VStack(alignment: .leading, spacing: 10) {
                             LabeledContent(copy.accountDisplayNameLabel, value: account.displayName)
                             LabeledContent(copy.accountRemoteNameLabel, value: account.remoteName)
@@ -85,7 +86,19 @@ struct SettingsView: View {
                             HStack {
                                 Spacer()
                                 Button(copy.removeAccountButtonTitle, role: .destructive) {
-                                    Task { await viewModel.removeAccount(account) }
+                                    Task { await viewModel.removeAccount(account, pairs: appModel.pairs) }
+                                }
+                                .disabled(!removalState.canRemove)
+                            }
+
+                            if let inlineMessage = removalState.inlineMessage {
+                                HStack {
+                                    Spacer()
+                                    Text(inlineMessage)
+                                        .font(.footnote)
+                                        .foregroundStyle(.orange)
+                                        .multilineTextAlignment(.trailing)
+                                        .frame(maxWidth: 300, alignment: .trailing)
                                 }
                             }
                         }

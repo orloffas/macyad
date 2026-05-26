@@ -72,6 +72,31 @@ public struct AccountService: Sendable {
         return accounts.filter { $0.id != account.id }
     }
 
+    public func removalState(
+        for account: YandexAccount,
+        pairs: [SyncPair],
+        copy: AppCopy = .current
+    ) -> AccountRemovalState {
+        let blockingPairNames = pairs
+            .filter { $0.accountID == account.id }
+            .map(\.name)
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+
+        guard !blockingPairNames.isEmpty else {
+            return AccountRemovalState(
+                canRemove: true,
+                blockingPairNames: [],
+                inlineMessage: nil
+            )
+        }
+
+        return AccountRemovalState(
+            canRemove: false,
+            blockingPairNames: blockingPairNames,
+            inlineMessage: copy.accountRemovalBlockedMessage(pairNames: blockingPairNames)
+        )
+    }
+
     public func reconcileAccounts(
         storedAccounts: [YandexAccount],
         pairs: [SyncPair],
