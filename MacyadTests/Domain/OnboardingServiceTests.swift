@@ -21,6 +21,7 @@ final class OnboardingServiceTests: XCTestCase {
 
         XCTAssertEqual(state.step, .installRclone)
         XCTAssertEqual(state.brewInstallCommand, "brew install rclone")
+        XCTAssertEqual(state.configPath, "/tmp/MacyadTests/rclone/rclone.conf")
     }
 
     func testDetectedRcloneProducesRemoteSetupStep() async throws {
@@ -38,8 +39,9 @@ final class OnboardingServiceTests: XCTestCase {
         XCTAssertEqual(state.step, .configureRemote)
         XCTAssertEqual(state.rcloneLocation, "/opt/homebrew/bin/rclone")
         XCTAssertTrue(state.remoteCreateCommand.hasPrefix("rclone --config "))
-        XCTAssertTrue(state.remoteCreateCommand.contains(" config create yd yandex"))
+        XCTAssertTrue(state.remoteCreateCommand.contains(" config create macyad-yandex yandex"))
         XCTAssertTrue(state.remoteCreateCommand.contains(configURL.path))
+        XCTAssertEqual(state.configPath, configURL.path)
     }
 
     func testDetectedRcloneWithStandardConfiguredRemoteProducesCreateFirstPairStep() async throws {

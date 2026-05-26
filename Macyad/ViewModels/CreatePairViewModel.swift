@@ -9,10 +9,13 @@ public protocol FolderPicking {
 @MainActor
 public final class CreatePairViewModel: ObservableObject {
     private let existingPair: SyncPair?
+    public let availableAccounts: [YandexAccount]
     @Published public var name = ""
     @Published public var localFolderBookmark = Data()
     @Published public var localFolderDisplayPath: String?
-    @Published public var remotePath = "yd:/"
+    @Published public var selectedAccountID = SyncPair.unassignedAccountID
+    @Published public var remoteSubpath = ""
+    @Published public var conflictPolicy: ConflictPolicy = .block
     @Published public var scheduleMinutes = 30
     @Published public var deletePolicy: SyncPair.DeletePolicy = .mirrorToYandex
     @Published public var syncExcludesText = SyncPair.defaultSyncExcludes.joined(separator: "\n")
@@ -28,22 +31,27 @@ public final class CreatePairViewModel: ObservableObject {
     public var canSave: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         localFolderDisplayPath != nil &&
-        !remotePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        selectedAccountID != SyncPair.unassignedAccountID &&
+        !resolvedRemotePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     public init(
         existingPair: SyncPair? = nil,
+        accounts: [YandexAccount],
         folderPicker: FolderPicking,
         pairService: PairService,
         defaultScheduleMinutes: Int = AppPreferences.defaults.defaultScheduleMinutes
     ) {
         self.existingPair = existingPair
+        self.availableAccounts = accounts.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
         self.folderPicker = folderPicker
         self.pairService = pairService
         self.name = existingPair?.name ?? ""
         self.localFolderBookmark = existingPair?.localFolderBookmark ?? Data()
         self.localFolderDisplayPath = existingPair?.localFolderDisplayPath
-        self.remotePath = existingPair?.remotePath ?? "yd:/"
+        self.selectedAccountID = existingPair?.accountID ?? self.availableAccounts.first?.id ?? SyncPair.unassignedAccountID
+        self.remoteSubpath = existingPair.map(\.parsedRemoteSubpath) ?? ""
+        self.conflictPolicy = existingPair?.conflictPolicy ?? .block
         self.scheduleMinutes = existingPair?.scheduleMinutes ?? defaultScheduleMinutes
         self.deletePolicy = existingPair?.deletePolicy ?? .mirrorToYandex
         self.syncExcludesText = Self.makeExcludeText(from: existingPair?.syncExcludes ?? SyncPair.defaultSyncExcludes)
@@ -62,6 +70,7 @@ public final class CreatePairViewModel: ObservableObject {
     public func buildPair() throws -> SyncPair {
         let syncExcludes = parseExcludeText(syncExcludesText)
         let checkAdditionalExcludes = parseExcludeText(checkAdditionalExcludesText)
+        let resolvedRemotePath = self.resolvedRemotePath
 
         if let existingPair {
             return try pairService.updatePair(
@@ -69,7 +78,9 @@ public final class CreatePairViewModel: ObservableObject {
                 name: name,
                 localFolderBookmark: localFolderBookmark,
                 localFolderDisplayPath: localFolderDisplayPath ?? "",
-                remotePath: remotePath,
+                remotePath: resolvedRemotePath,
+                accountID: selectedAccountID,
+                conflictPolicy: conflictPolicy,
                 scheduleMinutes: scheduleMinutes,
                 deletePolicy: deletePolicy,
                 syncExcludes: syncExcludes,
@@ -81,12 +92,22 @@ public final class CreatePairViewModel: ObservableObject {
             name: name,
             localFolderBookmark: localFolderBookmark,
             localFolderDisplayPath: localFolderDisplayPath ?? "",
-            remotePath: remotePath,
+            remotePath: resolvedRemotePath,
+            accountID: selectedAccountID,
+            conflictPolicy: conflictPolicy,
             scheduleMinutes: scheduleMinutes,
             deletePolicy: deletePolicy,
             syncExcludes: syncExcludes,
             checkAdditionalExcludes: checkAdditionalExcludes
         )
+    }
+
+    public var resolvedRemotePath: String {
+        guard let account = availableAccounts.first(where: { $0.id == selectedAccountID }) else {
+            return ""
+        }
+
+        return SyncPair.composeRemotePath(remoteName: account.remoteName, remoteSubpath: remoteSubpath)
     }
 
     private func parseExcludeText(_ text: String) -> [String] {

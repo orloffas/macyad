@@ -13,7 +13,8 @@ public final class OnboardingViewModel: ObservableObject {
         step: .installRclone,
         rcloneLocation: nil,
         brewInstallCommand: "brew install rclone",
-        remoteCreateCommand: ""
+        remoteCreateCommand: "",
+        configPath: ""
     )
     @Published public var isRefreshing = false
     @Published public var lastCopiedCommand: String?

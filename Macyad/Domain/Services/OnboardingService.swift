@@ -5,7 +5,7 @@ public protocol OnboardingServicing: Sendable {
 }
 
 public struct OnboardingService: OnboardingServicing {
-    private static let managedRemoteName = "yd"
+    private static let suggestedRemoteName = "macyad-yandex"
 
     public let locator: RcloneLocating
     public let paths: AppPaths
@@ -19,7 +19,7 @@ public struct OnboardingService: OnboardingServicing {
 
     public func refresh() async throws -> OnboardingState {
         let location = try await locator.locate()
-        let hasConfiguredRemote = configuredRemoteExists(at: configURL)
+        let hasConfiguredRemote = !RcloneConfigInspector(configURL: configURL).remoteNames().isEmpty
         let step: OnboardingState.Step
 
         if location == nil {
@@ -36,16 +36,9 @@ public struct OnboardingService: OnboardingServicing {
             brewInstallCommand: "brew install rclone",
             remoteCreateCommand: RcloneCommandBuilder.remoteCreateCommand(
                 configPath: configURL.path,
-                remoteName: Self.managedRemoteName
-            )
+                remoteName: Self.suggestedRemoteName
+            ),
+            configPath: configURL.path
         )
-    }
-
-    private func configuredRemoteExists(at configPath: URL) -> Bool {
-        guard let contents = try? String(contentsOf: configPath, encoding: .utf8) else {
-            return false
-        }
-
-        return contents.contains("[\(Self.managedRemoteName)]")
     }
 }

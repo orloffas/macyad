@@ -4,6 +4,7 @@ public struct PairService: Sendable {
     public enum ValidationError: Error, Equatable, LocalizedError {
         case emptyName
         case missingLocalFolder
+        case missingAccount
         case emptyRemotePath
         case invalidSchedule
 
@@ -15,6 +16,8 @@ public struct PairService: Sendable {
                 copy.pairValidationEmptyName
             case .missingLocalFolder:
                 copy.pairValidationMissingLocalFolder
+            case .missingAccount:
+                copy.pairValidationMissingAccount
             case .emptyRemotePath:
                 copy.pairValidationEmptyRemotePath
             case .invalidSchedule:
@@ -30,6 +33,8 @@ public struct PairService: Sendable {
         localFolderBookmark: Data,
         localFolderDisplayPath: String,
         remotePath: String,
+        accountID: UUID,
+        conflictPolicy: ConflictPolicy,
         scheduleMinutes: Int,
         deletePolicy: SyncPair.DeletePolicy,
         syncExcludes: [String] = SyncPair.defaultSyncExcludes,
@@ -40,6 +45,7 @@ public struct PairService: Sendable {
             localFolderBookmark: localFolderBookmark,
             localFolderDisplayPath: localFolderDisplayPath,
             remotePath: remotePath,
+            accountID: accountID,
             scheduleMinutes: scheduleMinutes
         )
 
@@ -49,6 +55,8 @@ public struct PairService: Sendable {
             localFolderBookmark: fields.localFolderBookmark,
             localFolderDisplayPath: fields.localFolderDisplayPath,
             remotePath: fields.remotePath,
+            accountID: fields.accountID,
+            conflictPolicy: conflictPolicy,
             scheduleMinutes: fields.scheduleMinutes,
             deletePolicy: deletePolicy,
             lastKnownSeverity: .healthy,
@@ -63,6 +71,8 @@ public struct PairService: Sendable {
         localFolderBookmark: Data,
         localFolderDisplayPath: String,
         remotePath: String,
+        accountID: UUID,
+        conflictPolicy: ConflictPolicy,
         scheduleMinutes: Int,
         deletePolicy: SyncPair.DeletePolicy,
         syncExcludes: [String],
@@ -73,6 +83,7 @@ public struct PairService: Sendable {
             localFolderBookmark: localFolderBookmark,
             localFolderDisplayPath: localFolderDisplayPath,
             remotePath: remotePath,
+            accountID: accountID,
             scheduleMinutes: scheduleMinutes
         )
 
@@ -82,6 +93,8 @@ public struct PairService: Sendable {
             localFolderBookmark: fields.localFolderBookmark,
             localFolderDisplayPath: fields.localFolderDisplayPath,
             remotePath: fields.remotePath,
+            accountID: fields.accountID,
+            conflictPolicy: conflictPolicy,
             scheduleMinutes: fields.scheduleMinutes,
             deletePolicy: deletePolicy,
             lastKnownSeverity: existingPair.lastKnownSeverity,
@@ -97,12 +110,14 @@ public struct PairService: Sendable {
         localFolderBookmark: Data,
         localFolderDisplayPath: String,
         remotePath: String,
+        accountID: UUID,
         scheduleMinutes: Int
     ) throws -> (
         name: String,
         localFolderBookmark: Data,
         localFolderDisplayPath: String,
         remotePath: String,
+        accountID: UUID,
         scheduleMinutes: Int
     ) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -114,6 +129,9 @@ public struct PairService: Sendable {
         }
         guard !localFolderBookmark.isEmpty, !trimmedLocalFolderPath.isEmpty else {
             throw ValidationError.missingLocalFolder
+        }
+        guard accountID != SyncPair.unassignedAccountID else {
+            throw ValidationError.missingAccount
         }
         guard !trimmedRemotePath.isEmpty else {
             throw ValidationError.emptyRemotePath
@@ -127,6 +145,7 @@ public struct PairService: Sendable {
             localFolderBookmark: localFolderBookmark,
             localFolderDisplayPath: trimmedLocalFolderPath,
             remotePath: trimmedRemotePath,
+            accountID: accountID,
             scheduleMinutes: scheduleMinutes
         )
     }

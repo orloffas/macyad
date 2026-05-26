@@ -59,11 +59,15 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         "*.crdownload",
     ]
 
+    public static let unassignedAccountID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+
     public let id: UUID
     public var name: String
     public var localFolderBookmark: Data
     public var localFolderDisplayPath: String
     public var remotePath: String
+    public var accountID: UUID
+    public var conflictPolicy: ConflictPolicy
     public var scheduleMinutes: Int
     public var deletePolicy: DeletePolicy
     public var lastKnownSeverity: Severity
@@ -78,6 +82,8 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         localFolderBookmark: Data,
         localFolderDisplayPath: String,
         remotePath: String,
+        accountID: UUID = SyncPair.unassignedAccountID,
+        conflictPolicy: ConflictPolicy = .block,
         scheduleMinutes: Int,
         deletePolicy: DeletePolicy,
         lastKnownSeverity: Severity,
@@ -91,6 +97,8 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         self.localFolderBookmark = localFolderBookmark
         self.localFolderDisplayPath = localFolderDisplayPath
         self.remotePath = remotePath
+        self.accountID = accountID
+        self.conflictPolicy = conflictPolicy
         self.scheduleMinutes = scheduleMinutes
         self.deletePolicy = deletePolicy
         self.lastKnownSeverity = lastKnownSeverity
@@ -106,6 +114,8 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         case localFolderBookmark
         case localFolderDisplayPath
         case remotePath
+        case accountID
+        case conflictPolicy
         case scheduleMinutes
         case deletePolicy
         case lastKnownSeverity
@@ -122,6 +132,8 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         localFolderBookmark = try container.decode(Data.self, forKey: .localFolderBookmark)
         localFolderDisplayPath = try container.decode(String.self, forKey: .localFolderDisplayPath)
         remotePath = try container.decode(String.self, forKey: .remotePath)
+        accountID = try container.decodeIfPresent(UUID.self, forKey: .accountID) ?? SyncPair.unassignedAccountID
+        conflictPolicy = try container.decodeIfPresent(ConflictPolicy.self, forKey: .conflictPolicy) ?? .block
         scheduleMinutes = try container.decode(Int.self, forKey: .scheduleMinutes)
         deletePolicy = try container.decode(DeletePolicy.self, forKey: .deletePolicy)
         lastKnownSeverity = try container.decode(Severity.self, forKey: .lastKnownSeverity)
@@ -137,6 +149,49 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
 
     public var nextScheduledReferenceAt: Date? {
         [lastSyncAt, lastScheduledPushAttemptAt].compactMap { $0 }.max()
+    }
+
+    public var hasAssignedAccount: Bool {
+        accountID != Self.unassignedAccountID
+    }
+
+    public var parsedRemoteName: String? {
+        Self.remoteName(from: remotePath)
+    }
+
+    public var parsedRemoteSubpath: String {
+        Self.remoteSubpath(from: remotePath)
+    }
+
+    public static func remoteName(from remotePath: String) -> String? {
+        let trimmed = remotePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let separatorIndex = trimmed.firstIndex(of: ":"), separatorIndex > trimmed.startIndex else {
+            return nil
+        }
+
+        return String(trimmed[..<separatorIndex])
+    }
+
+    public static func remoteSubpath(from remotePath: String) -> String {
+        let trimmed = remotePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let separatorIndex = trimmed.firstIndex(of: ":") else {
+            return trimmed
+        }
+
+        let suffix = trimmed[trimmed.index(after: separatorIndex)...]
+        return String(suffix).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    public static func composeRemotePath(remoteName: String, remoteSubpath: String) -> String {
+        let trimmedRemoteName = remoteName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSubpath = remoteSubpath.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+        guard !trimmedSubpath.isEmpty else {
+            return "\(trimmedRemoteName):/"
+        }
+
+        return "\(trimmedRemoteName):/\(trimmedSubpath)"
     }
 
     private func orderedUnique(_ patterns: [String]) -> [String] {

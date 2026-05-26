@@ -24,6 +24,8 @@ final class SyncPairTests: XCTestCase {
         XCTAssertTrue(pair.syncExcludes.contains("Icon?"))
         XCTAssertEqual(pair.checkAdditionalExcludes, [String]())
         XCTAssertNil(pair.lastScheduledPushAttemptAt)
+        XCTAssertEqual(pair.accountID, SyncPair.unassignedAccountID)
+        XCTAssertEqual(pair.conflictPolicy, .block)
     }
 
     func testDecodePreservesExplicitExcludeLists() throws {
@@ -49,5 +51,11 @@ final class SyncPairTests: XCTestCase {
         XCTAssertEqual(pair.syncExcludes, [".DS_Store"])
         XCTAssertEqual(pair.checkAdditionalExcludes, ["Thumbs.db"])
         XCTAssertEqual(pair.lastScheduledPushAttemptAt, Date(timeIntervalSinceReferenceDate: 1234))
+    }
+
+    func testRemotePathHelpersSplitAndComposeFullPath() {
+        XCTAssertEqual(SyncPair.remoteName(from: "yd:/Docs/Work"), "yd")
+        XCTAssertEqual(SyncPair.remoteSubpath(from: "yd:/Docs/Work"), "Docs/Work")
+        XCTAssertEqual(SyncPair.composeRemotePath(remoteName: "yd", remoteSubpath: "Docs/Work"), "yd:/Docs/Work")
     }
 }

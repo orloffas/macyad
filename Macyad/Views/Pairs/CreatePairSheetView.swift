@@ -33,13 +33,27 @@ struct CreatePairSheetView: View {
                     }
                 }
 
-                TextField(copy.remotePathPlaceholder, text: $viewModel.remotePath)
+                Picker(copy.accountPickerLabel, selection: $viewModel.selectedAccountID) {
+                    ForEach(viewModel.availableAccounts) { account in
+                        Text("\(account.displayName) (\(account.remoteName))").tag(account.id)
+                    }
+                }
+
+                TextField(copy.remoteSubpathLabel, text: $viewModel.remoteSubpath)
+
+                LabeledContent(copy.remotePathTitle, value: viewModel.resolvedRemotePath)
+                    .foregroundStyle(.secondary)
 
                 Stepper(copy.intervalTitle(minutes: viewModel.scheduleMinutes), value: $viewModel.scheduleMinutes, in: 5...240, step: 5)
 
                 Picker(copy.deletePolicyLabel, selection: $viewModel.deletePolicy) {
                     Text(copy.deletePolicyMirrorTitle).tag(SyncPair.DeletePolicy.mirrorToYandex)
                     Text(copy.deletePolicyManualTitle).tag(SyncPair.DeletePolicy.keepRemoteDeletesManual)
+                }
+
+                Picker(copy.conflictPolicyLabel, selection: $viewModel.conflictPolicy) {
+                    Text(copy.conflictPolicyBlockTitle).tag(ConflictPolicy.block)
+                    Text(copy.conflictPolicyKeepBothTitle).tag(ConflictPolicy.keepBoth)
                 }
 
                 Section {
@@ -66,6 +80,8 @@ struct CreatePairSheetView: View {
                     Text(summaryText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                } footer: {
+                    Text(copy.conflictPolicyDescription)
                 }
             }
             .formStyle(.grouped)
@@ -99,7 +115,7 @@ struct CreatePairSheetView: View {
         let folder = viewModel.localFolderDisplayPath ?? copy.localFolderNotSelectedCompact
         return copy.createPairSummary(
             folder: folder,
-            remotePath: viewModel.remotePath,
+            remotePath: viewModel.resolvedRemotePath,
             scheduleMinutes: viewModel.scheduleMinutes
         )
     }

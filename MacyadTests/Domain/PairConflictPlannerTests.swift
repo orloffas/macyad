@@ -1,0 +1,80 @@
+import XCTest
+@testable import MacyadCore
+
+final class PairConflictPlannerTests: XCTestCase {
+    func testAnalyzeClassifiesRemoteOnlyAndConflictPaths() {
+        let planner = PairConflictPlanner()
+        let baseline = PairConflictBaselineState(
+            pairID: UUID(),
+            localSnapshot: snapshot(
+                ("unchanged.txt", "aaa"),
+                ("remote-only.txt", "bbb"),
+                ("conflict.txt", "ccc")
+            ),
+            remoteSnapshot: snapshot(
+                ("unchanged.txt", "aaa"),
+                ("remote-only.txt", "bbb"),
+                ("conflict.txt", "ccc")
+            ),
+            updatedAt: Date()
+        )
+
+        let local = snapshot(
+            ("unchanged.txt", "aaa"),
+            ("remote-only.txt", "bbb"),
+            ("conflict.txt", "local")
+        )
+        let remote = snapshot(
+            ("unchanged.txt", "aaa"),
+            ("remote-only.txt", "remote"),
+            ("conflict.txt", "remote")
+        )
+
+        let analysis = planner.analyze(baseline: baseline, localSnapshot: local, remoteSnapshot: remote)
+
+        XCTAssertEqual(analysis.remoteOnlyChanged.map(\.path), ["remote-only.txt"])
+        XCTAssertEqual(analysis.conflicts.map(\.path), ["conflict.txt"])
+        XCTAssertEqual(analysis.changeCountForPushBlock, 2)
+        XCTAssertEqual(analysis.sampleRemoteDriftPath, "remote-only.txt")
+    }
+
+    func testAnalyzeClassifiesDeleteVsModifyConflict() {
+        let planner = PairConflictPlanner()
+        let baseline = PairConflictBaselineState(
+            pairID: UUID(),
+            localSnapshot: snapshot(("Docs/file.txt", "aaa")),
+            remoteSnapshot: snapshot(("Docs/file.txt", "aaa")),
+            updatedAt: Date()
+        )
+
+        let analysis = planner.analyze(
+            baseline: baseline,
+            localSnapshot: snapshot(),
+            remoteSnapshot: snapshot(("Docs/file.txt", "remote"))
+        )
+
+        XCTAssertEqual(analysis.conflicts.count, 1)
+        XCTAssertEqual(analysis.conflicts.first?.disposition, .deleteVsModifyConflict)
+    }
+
+    func testBootstrapCreatesBaselineOnlyWhenSnapshotsMatch() {
+        let planner = PairConflictPlanner()
+        let now = Date(timeIntervalSince1970: 1_000)
+        let cleanSnapshot = snapshot(("Docs/file.txt", "aaa"))
+
+        switch planner.bootstrapDisposition(pairID: UUID(), localSnapshot: cleanSnapshot, remoteSnapshot: cleanSnapshot, now: now) {
+        case let .baselineCreated(state):
+            XCTAssertEqual(state.localSnapshot, cleanSnapshot)
+            XCTAssertEqual(state.remoteSnapshot, cleanSnapshot)
+            XCTAssertEqual(state.updatedAt, now)
+        case .baselineMissingWithDrift:
+            XCTFail("Expected clean bootstrap")
+        }
+    }
+
+    private func snapshot(_ files: (String, String)...) -> PairSnapshot {
+        PairSnapshot(entries: files.map { path, hash in
+            PairSnapshotEntry(path: path, size: Int64(hash.count), modTime: Date(timeIntervalSince1970: 1_000), md5: hash)
+        })
+    }
+}

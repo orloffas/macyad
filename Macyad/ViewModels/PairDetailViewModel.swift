@@ -3,9 +3,15 @@ import Combine
 
 @MainActor
 public final class PairDetailViewModel: ObservableObject {
+    public enum OperationPhase: Equatable {
+        case idle
+        case queued
+        case running
+    }
+
     @Published public private(set) var latestSeverity: Severity = .healthy
     @Published public private(set) var events: [ActivityEvent] = []
-    @Published public private(set) var isRunningOperation = false
+    @Published public private(set) var operationPhase: OperationPhase = .idle
     @Published public private(set) var lastErrorMessage: String?
 
     private let activityRepository: ActivityRepository
@@ -19,6 +25,7 @@ public final class PairDetailViewModel: ObservableObject {
         guard let pair else {
             events = []
             lastErrorMessage = nil
+            operationPhase = .idle
             return
         }
 
@@ -30,7 +37,11 @@ public final class PairDetailViewModel: ObservableObject {
     }
 
     public func setOperationInFlight(_ isRunning: Bool) {
-        isRunningOperation = isRunning
+        operationPhase = isRunning ? .running : .idle
+    }
+
+    public func setOperationPhase(_ phase: OperationPhase) {
+        operationPhase = phase
     }
 
     public func setError(_ message: String?) {

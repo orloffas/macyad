@@ -5,6 +5,14 @@ public struct RcloneCommandBuilder {
         "rclone --config \(shellQuoted(configPath)) config create \(remoteName) yandex"
     }
 
+    public static func remoteReconnectCommand(configPath: String, remoteName: String) -> String {
+        "rclone --config \(shellQuoted(configPath)) config reconnect \(remoteName):"
+    }
+
+    public static func remoteDeleteCommand(configPath: String, remoteName: String) -> String {
+        "rclone --config \(shellQuoted(configPath)) config delete \(remoteName)"
+    }
+
     public static func syncArguments(for pair: SyncPair, configPath: String, excludeFilePath: String? = nil) -> [String] {
         withConfig(configPath, command: syncArguments(for: pair, excludeFilePath: excludeFilePath))
     }
@@ -39,6 +47,29 @@ public struct RcloneCommandBuilder {
             patterns: pair.syncExcludes,
             excludeFilePath: excludeFilePath
         )
+    }
+
+    public static func lsjsonArguments(path: String, configPath: String? = nil, excludeFilePath: String? = nil) -> [String] {
+        let command = withExcludes(
+            ["lsjson", path, "-R", "--files-only", "--hash", "--hash-type", "MD5"],
+            patterns: [],
+            excludeFilePath: excludeFilePath
+        )
+
+        guard let configPath else {
+            return command
+        }
+
+        return withConfig(configPath, command: command)
+    }
+
+    public static func copyToArguments(sourcePath: String, destinationPath: String, configPath: String? = nil) -> [String] {
+        let command = ["copyto", sourcePath, destinationPath]
+        guard let configPath else {
+            return command
+        }
+
+        return withConfig(configPath, command: command)
     }
 
     private static func withConfig(_ configPath: String, command: [String]) -> [String] {

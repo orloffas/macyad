@@ -46,6 +46,11 @@ struct PairDetailView: View {
                                 .textSelection(.enabled)
                         }
                         GridRow {
+                            Text(copy.accountTitle)
+                                .foregroundStyle(.secondary)
+                            Text(accountName(for: pair))
+                        }
+                        GridRow {
                             Text(copy.scheduleFieldTitle)
                                 .foregroundStyle(.secondary)
                             Text(copy.minutesValue(pair.scheduleMinutes))
@@ -54,6 +59,11 @@ struct PairDetailView: View {
                             Text(copy.deletePolicyFieldTitle)
                                 .foregroundStyle(.secondary)
                             Text(deletePolicyTitle(pair.deletePolicy))
+                        }
+                        GridRow {
+                            Text(copy.conflictPolicyFieldTitle)
+                                .foregroundStyle(.secondary)
+                            Text(conflictPolicyTitle(pair.conflictPolicy))
                         }
                         GridRow {
                             Text(copy.lastSyncTitle)
@@ -122,16 +132,24 @@ struct PairDetailView: View {
     private var actionButtons: some View {
         let copy = appModel.copy
 
-        return HStack(spacing: 8) {
-            Button(copy.syncButtonTitle) { onSyncNow?() }
-                .help(copy.pushActionDescription)
-            Button(copy.checkButtonTitle) { onCheckYandex?() }
-                .help(copy.checkActionDescription)
-            Button(copy.pullButtonTitle) { onPullFromYandex?() }
-                .help(copy.pullActionDescription)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Button(copy.syncButtonTitle) { onSyncNow?() }
+                    .help(copy.pushActionDescription)
+                Button(copy.checkButtonTitle) { onCheckYandex?() }
+                    .help(copy.checkActionDescription)
+                Button(copy.pullButtonTitle) { onPullFromYandex?() }
+                    .help(copy.pullActionDescription)
+            }
+
+            if viewModel.operationPhase != .idle {
+                Text(operationPhaseTitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .controlSize(.small)
-        .disabled(viewModel.isRunningOperation)
+        .disabled(viewModel.operationPhase != .idle)
     }
 
     private var managementButtons: some View {
@@ -235,6 +253,17 @@ struct PairDetailView: View {
         }
     }
 
+    private func conflictPolicyTitle(_ policy: ConflictPolicy) -> String {
+        let copy = appModel.copy
+
+        switch policy {
+        case .block:
+            return copy.conflictPolicyBlockTitle
+        case .keepBoth:
+            return copy.conflictPolicyKeepBothTitle
+        }
+    }
+
     private func lastSyncTitle(for pair: SyncPair) -> String {
         let copy = appModel.copy
 
@@ -254,5 +283,20 @@ struct PairDetailView: View {
 
         let nextRun = lastScheduledReferenceAt.addingTimeInterval(TimeInterval(pair.scheduleMinutes * 60))
         return copy.formatTimestamp(nextRun)
+    }
+
+    private func accountName(for pair: SyncPair) -> String {
+        appModel.accounts.first(where: { $0.id == pair.accountID })?.displayName ?? pair.parsedRemoteName ?? "—"
+    }
+
+    private var operationPhaseTitle: String {
+        switch viewModel.operationPhase {
+        case .idle:
+            return ""
+        case .queued:
+            return appModel.copy.operationQueued
+        case .running:
+            return appModel.copy.operationRunning
+        }
     }
 }

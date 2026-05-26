@@ -59,6 +59,58 @@ public struct AppCopy: Sendable {
         isRussian ? "Запускать при входе" : "Launch at login"
     }
 
+    public var notificationsSectionTitle: String {
+        isRussian ? "Уведомления" : "Notifications"
+    }
+
+    public var notificationsStatusLabel: String {
+        isRussian ? "Статус разрешений" : "Permission status"
+    }
+
+    public var notificationsRequestButtonTitle: String {
+        isRussian ? "Запросить доступ" : "Request permission"
+    }
+
+    public var notificationsSendTestButtonTitle: String {
+        isRussian ? "Отправить test notification" : "Send test notification"
+    }
+
+    public var notificationsLastAttemptLabel: String {
+        isRussian ? "Последняя попытка" : "Last attempt"
+    }
+
+    public var notificationsStatusAuthorized: String {
+        isRussian ? "Разрешено" : "Authorized"
+    }
+
+    public var notificationsStatusDenied: String {
+        isRussian ? "Запрещено" : "Denied"
+    }
+
+    public var notificationsStatusNotDetermined: String {
+        isRussian ? "Ещё не запрошено" : "Not requested yet"
+    }
+
+    public var notificationsStatusProvisional: String {
+        isRussian ? "Временный доступ" : "Provisional"
+    }
+
+    public var notificationsStatusEphemeral: String {
+        isRussian ? "Ephemeral" : "Ephemeral"
+    }
+
+    public var notificationsStatusUnknown: String {
+        isRussian ? "Неизвестно" : "Unknown"
+    }
+
+    public var notificationsTestTitle: String {
+        isRussian ? "MacYaD: test notification" : "MacYaD: test notification"
+    }
+
+    public var notificationsTestBody: String {
+        isRussian ? "Если вы видите это уведомление, системные уведомления работают." : "If you can see this, macOS notifications are working."
+    }
+
     public func defaultScheduleTitle(minutes: Int) -> String {
         isRussian ? "Интервал по умолчанию: \(minutes) мин" : "Default interval: \(minutes) min"
     }
@@ -83,6 +135,70 @@ public struct AppCopy: Sendable {
 
     public var applicationSectionTitle: String {
         isRussian ? "Приложение" : "Application"
+    }
+
+    public var accountsSectionTitle: String {
+        isRussian ? "Yandex accounts" : "Yandex accounts"
+    }
+
+    public var addAccountButtonTitle: String {
+        isRussian ? "Добавить account" : "Add account"
+    }
+
+    public var removeAccountButtonTitle: String {
+        isRussian ? "Удалить account" : "Remove account"
+    }
+
+    public var reconnectAccountButtonTitle: String {
+        isRussian ? "Reconnect account" : "Reconnect account"
+    }
+
+    public var recreateAccountButtonTitle: String {
+        isRussian ? "Recreate managed remote" : "Recreate managed remote"
+    }
+
+    public var accountDisplayNameLabel: String {
+        isRussian ? "Имя account" : "Account name"
+    }
+
+    public var accountRemoteNameLabel: String {
+        isRussian ? "Имя remote" : "Remote name"
+    }
+
+    public var accountConfigPathLabel: String {
+        isRussian ? "Файл config rclone" : "rclone config file"
+    }
+
+    public var accountManagedLabel: String {
+        isRussian ? "Managed remote" : "Managed remote"
+    }
+
+    public var accountInUseHint: String {
+        isRussian ? "Нельзя удалить account, пока на него ссылаются пары." : "An account can't be removed while pairs still reference it."
+    }
+
+    public var accountRemoteNameHint: String {
+        isRussian ? "Это имя секции remote внутри rclone.conf." : "This is the remote section name inside rclone.conf."
+    }
+
+    public var accountValidationEmptyDisplayName: String {
+        isRussian ? "Введите имя account." : "Enter an account name."
+    }
+
+    public var accountValidationEmptyRemoteName: String {
+        isRussian ? "Введите имя remote." : "Enter a remote name."
+    }
+
+    public var accountValidationDuplicateRemoteName: String {
+        isRussian ? "Такой remote уже добавлен." : "That remote is already added."
+    }
+
+    public var accountValidationInUse: String {
+        isRussian ? "Сначала удалите или переназначьте пары, использующие этот account." : "Reassign or delete the pairs using this account first."
+    }
+
+    public var noAccountsHint: String {
+        isRussian ? "Сначала добавьте хотя бы один Yandex account. Пары без account не создаются." : "Add at least one Yandex account first. Pairs can't be created without an account."
     }
 
     public var pairsSectionTitle: String {
@@ -141,6 +257,14 @@ public struct AppCopy: Sendable {
         isRussian ? "Push to Yandex заблокирован" : "Push to Yandex blocked"
     }
 
+    public var manualPullBlockedTitle: String {
+        isRussian ? "Pull from Yandex заблокирован" : "Pull from Yandex blocked"
+    }
+
+    public var manualConflictReconciledTitle: String {
+        isRussian ? "Конфликт обработан, обе копии сохранены" : "Conflict reconciled, both copies preserved"
+    }
+
     public var manualCheckFailedPrefix: String {
         isRussian ? "Не удалось проверить Yandex" : "Failed to check Yandex"
     }
@@ -161,6 +285,10 @@ public struct AppCopy: Sendable {
 
     public var createRemoteTitle: String {
         isRussian ? "Создать remote yd в config MacYaD" : "Create the yd remote in MacYaD config"
+    }
+
+    public var onboardingAccountsHint: String {
+        isRussian ? "После установки rclone откройте Settings и добавьте Yandex account. Там же видно путь к rclone.conf." : "After installing rclone, open Settings and add a Yandex account. The same screen shows the rclone.conf path."
     }
 
     public var createFirstPairHint: String {
@@ -291,6 +419,38 @@ public struct AppCopy: Sendable {
         isRussian ? "Путь на Yandex" : "Yandex path"
     }
 
+    public var accountPickerLabel: String {
+        isRussian ? "Yandex account" : "Yandex account"
+    }
+
+    public var remoteSubpathLabel: String {
+        isRussian ? "Путь внутри account" : "Path inside account"
+    }
+
+    public var remoteSubpathDescription: String {
+        isRussian ? "Пара сохранит полный путь как remoteName:/path и будет явно привязана к выбранному account." : "The pair stores the full remoteName:/path and is explicitly bound to the selected account."
+    }
+
+    public var conflictPolicyLabel: String {
+        isRussian ? "Conflict policy" : "Conflict policy"
+    }
+
+    public var conflictPolicyBlockTitle: String {
+        isRussian ? "Блокировать Push/Pull при конфликте" : "Block Push/Pull on conflict"
+    }
+
+    public var conflictPolicyKeepBothTitle: String {
+        isRussian ? "Сохранять обе копии" : "Keep both copies"
+    }
+
+    public var conflictPolicyDescription: String {
+        if isRussian {
+            return "Block ничего не меняет при drift/conflict. Keep Both доступен только для ручных действий и создаёт conflict-copy, а оригинальное имя остаётся у версии на стороне remote."
+        }
+
+        return "Block never mutates data when drift or conflicts are found. Keep Both is manual-only and creates a conflict copy while the remote version keeps the original name."
+    }
+
     public func intervalTitle(minutes: Int) -> String {
         isRussian ? "Интервал: \(minutes) мин" : "Interval: \(minutes) min"
     }
@@ -377,6 +537,14 @@ public struct AppCopy: Sendable {
 
     public var remotePathTitle: String {
         isRussian ? "Путь на Yandex" : "Yandex path"
+    }
+
+    public var accountTitle: String {
+        isRussian ? "Yandex account" : "Yandex account"
+    }
+
+    public var conflictPolicyFieldTitle: String {
+        isRussian ? "Conflict policy" : "Conflict policy"
     }
 
     public var scheduleFieldTitle: String {
@@ -481,12 +649,24 @@ public struct AppCopy: Sendable {
         isRussian ? "После первого успешного Push to Yandex" : "After the first successful Push to Yandex"
     }
 
+    public var operationQueued: String {
+        isRussian ? "В очереди" : "Queued"
+    }
+
+    public var operationRunning: String {
+        isRussian ? "Выполняется" : "Running"
+    }
+
     public var pairValidationEmptyName: String {
         isRussian ? "Введите имя пары." : "Enter a pair name."
     }
 
     public var pairValidationMissingLocalFolder: String {
         isRussian ? "Выберите локальную папку." : "Choose a local folder."
+    }
+
+    public var pairValidationMissingAccount: String {
+        isRussian ? "Сначала выберите Yandex account." : "Choose a Yandex account first."
     }
 
     public var pairValidationEmptyRemotePath: String {
@@ -608,6 +788,10 @@ public struct AppCopy: Sendable {
         isRussian ? "Плановый Push to Yandex заблокирован" : "Scheduled Push to Yandex blocked"
     }
 
+    public var scheduledPushConflictBlockedTitle: String {
+        isRussian ? "Плановый Push to Yandex остановлен из-за drift/conflict" : "Scheduled Push to Yandex blocked by drift/conflict"
+    }
+
     public var pushBlockedNotificationTitle: String {
         isRussian ? "MacYaD: Push to Yandex заблокирован" : "MacYaD: Push to Yandex blocked"
     }
@@ -616,6 +800,83 @@ public struct AppCopy: Sendable {
         isRussian
             ? "Локальная папка пуста. Сначала выполните Pull From Yandex; Push to Yandex заблокирован, чтобы не очистить Yandex."
             : "Local folder is empty. Run Pull From Yandex first; Push to Yandex was blocked to avoid clearing Yandex."
+    }
+
+    public var baselineMissingBlockedSummary: String {
+        isRussian ? "Базовое согласованное состояние ещё не создано. Push/Pull заблокирован, пока не будет понятно, какая сторона изменилась." : "The agreed baseline is missing. Push/Pull is blocked until the current state is reconciled."
+    }
+
+    public func remoteDriftBlockedSummary(count: Int, samplePath: String?) -> String {
+        if isRussian {
+            if let samplePath {
+                return "На стороне remote есть \(count) измен. Example: \(samplePath). Push to Yandex заблокирован."
+            }
+            return "На стороне remote есть \(count) измен. Push to Yandex заблокирован."
+        }
+
+        if let samplePath {
+            return "The remote side has \(count) change(s). Example: \(samplePath). Push to Yandex was blocked."
+        }
+
+        return "The remote side has \(count) change(s). Push to Yandex was blocked."
+    }
+
+    public func localDriftBlockedSummary(count: Int, samplePath: String?) -> String {
+        if isRussian {
+            if let samplePath {
+                return "Локальная сторона содержит \(count) измен. Example: \(samplePath). Pull from Yandex заблокирован."
+            }
+            return "Локальная сторона содержит \(count) измен. Pull from Yandex заблокирован."
+        }
+
+        if let samplePath {
+            return "The local side has \(count) change(s). Example: \(samplePath). Pull from Yandex was blocked."
+        }
+
+        return "The local side has \(count) change(s). Pull from Yandex was blocked."
+    }
+
+    public func keepBothSummary(conflictCount: Int, samplePath: String?) -> String {
+        if isRussian {
+            if let samplePath {
+                return "Обнаружено \(conflictCount) conflict path(s). Оригинал на стороне remote сохранён, локальная версия ушла в conflict-copy. Example: \(samplePath)."
+            }
+            return "Обнаружено \(conflictCount) conflict path(s). Оригинал на стороне remote сохранён, локальная версия ушла в conflict-copy."
+        }
+
+        if let samplePath {
+            return "Detected \(conflictCount) conflict path(s). The remote version kept the original name, and the local version was saved as a conflict copy. Example: \(samplePath)."
+        }
+
+        return "Detected \(conflictCount) conflict path(s). The remote version kept the original name, and the local version was saved as a conflict copy."
+    }
+
+    public func baselineAwareCheckSummary(_ classification: String) -> String {
+        if isRussian {
+            return "Check Yandex: \(classification)"
+        }
+
+        return "Check Yandex: \(classification)"
+    }
+
+    public var checkClassificationClean: String {
+        isRussian ? "состояние чистое" : "clean"
+    }
+
+    public var checkClassificationBaselineMissing: String {
+        isRussian ? "baseline ещё не создан" : "baseline missing"
+    }
+
+    public func checkClassificationRemoteOnly(count: Int) -> String {
+        isRussian ? "изменения только на стороне remote: \(count)" : "remote-only drift: \(count)"
+    }
+
+    public func checkClassificationLocalOnly(count: Int) -> String {
+        isRussian ? "изменения только локально: \(count)" : "local-only drift: \(count)"
+    }
+
+    public func checkClassificationConflicts(count: Int) -> String {
+        isRussian ? "конфликты: \(count)" : "conflicts: \(count)"
     }
 
     public func checkWarningDetails(differenceCount: Int?, logDescription: String) -> String {

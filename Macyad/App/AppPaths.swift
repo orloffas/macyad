@@ -5,7 +5,9 @@ public struct AppPaths: Sendable {
     public let workspaceRoot: URL
     public let rcloneFiltersDirectory: URL
     public let rcloneConfigFile: URL
+    public let conflictStateDirectory: URL
     public let pairsFile: URL
+    public let accountsFile: URL
     public let preferencesFile: URL
     public let activityFile: URL
 
@@ -31,6 +33,7 @@ public struct AppPaths: Sendable {
             attributes: nil
         )
         try fileManager.createDirectory(at: paths.rcloneFiltersDirectory, withIntermediateDirectories: true, attributes: nil)
+        try fileManager.createDirectory(at: paths.conflictStateDirectory, withIntermediateDirectories: true, attributes: nil)
 
         return paths
     }
@@ -41,7 +44,9 @@ public struct AppPaths: Sendable {
             workspaceRoot: rootURL.appendingPathComponent("Workspace", isDirectory: true),
             rcloneFiltersDirectory: rootURL.appendingPathComponent("rclone", isDirectory: true).appendingPathComponent("filters", isDirectory: true),
             rcloneConfigFile: rootURL.appendingPathComponent("rclone", isDirectory: true).appendingPathComponent("rclone.conf"),
+            conflictStateDirectory: rootURL.appendingPathComponent("conflicts", isDirectory: true),
             pairsFile: rootURL.appendingPathComponent("pairs.json"),
+            accountsFile: rootURL.appendingPathComponent("accounts.json"),
             preferencesFile: rootURL.appendingPathComponent("preferences.json"),
             activityFile: rootURL.appendingPathComponent("activity.json")
         )

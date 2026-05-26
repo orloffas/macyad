@@ -12,8 +12,10 @@ final class AppModel: ObservableObject {
         step: .installRclone,
         rcloneLocation: nil,
         brewInstallCommand: "brew install rclone",
-        remoteCreateCommand: ""
+        remoteCreateCommand: "",
+        configPath: ""
     )
+    @Published var accounts: [YandexAccount] = []
     @Published var pairs: [SyncPair] = []
     @Published private(set) var activityEvents: [ActivityEvent] = []
     @Published var recentEvents: [ActivityEvent] = []
@@ -78,8 +80,9 @@ final class AppModel: ObservableObject {
         normalizeSelection()
     }
 
-    func applyPersistedState(pairs: [SyncPair], events: [ActivityEvent], using service: StatusService) {
+    func applyPersistedState(pairs: [SyncPair], accounts: [YandexAccount], events: [ActivityEvent], using service: StatusService) {
         self.pairs = pairs
+        self.accounts = accounts
         activityEvents = events.sorted { $0.date > $1.date }
         recentEvents = Array(activityEvents.prefix(3))
 

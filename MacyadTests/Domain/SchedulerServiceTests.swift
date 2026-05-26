@@ -8,16 +8,18 @@ final class SchedulerServiceTests: XCTestCase {
         defer { AppLanguageState.update(previousLanguage) }
 
         let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let duePair = makePair(name: "Due", severity: .healthy, lastSyncAt: now.addingTimeInterval(-2_000))
+        let notDuePair = makePair(name: "NotDue", severity: .healthy, lastSyncAt: now.addingTimeInterval(-300))
         let processClient = RecordingProcessClient()
         let excludeFileStore = StubExcludeFileStore()
         let service = SyncService(
             processClient: processClient,
             localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
-            excludeFileStore: excludeFileStore
+            excludeFileStore: excludeFileStore,
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [duePair, notDuePair])),
+            baselineRepository: InMemoryBaselineStore()
         )
         let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
-        let duePair = makePair(name: "Due", severity: .healthy, lastSyncAt: now.addingTimeInterval(-2_000))
-        let notDuePair = makePair(name: "NotDue", severity: .healthy, lastSyncAt: now.addingTimeInterval(-300))
 
         let results = await scheduler.runScheduledPushes(for: [duePair, notDuePair], now: now)
         let recordedArguments = await processClient.recordedArguments()
@@ -41,16 +43,18 @@ final class SchedulerServiceTests: XCTestCase {
         defer { AppLanguageState.update(previousLanguage) }
 
         let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let healthyPair = makePair(name: "Healthy", severity: .healthy, lastSyncAt: nil)
+        let alarmPair = makePair(name: "Alarm", severity: .alarm, lastSyncAt: nil)
         let processClient = RecordingProcessClient()
         let excludeFileStore = StubExcludeFileStore()
         let service = SyncService(
             processClient: processClient,
             localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
-            excludeFileStore: excludeFileStore
+            excludeFileStore: excludeFileStore,
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [healthyPair, alarmPair])),
+            baselineRepository: InMemoryBaselineStore()
         )
         let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
-        let healthyPair = makePair(name: "Healthy", severity: .healthy, lastSyncAt: nil)
-        let alarmPair = makePair(name: "Alarm", severity: .alarm, lastSyncAt: nil)
 
         let results = await scheduler.runScheduledPushes(for: [healthyPair, alarmPair], now: now)
         let recordedArguments = await processClient.recordedArguments()
@@ -74,18 +78,20 @@ final class SchedulerServiceTests: XCTestCase {
         defer { AppLanguageState.update(previousLanguage) }
 
         let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Broken", severity: .healthy, lastSyncAt: nil)
         let processClient = FailingProcessClient()
         let service = SyncService(
             processClient: processClient,
-            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true)
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+            baselineRepository: InMemoryBaselineStore()
         )
         let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
-        let pair = makePair(name: "Broken", severity: .healthy, lastSyncAt: nil)
 
         let results = await scheduler.runScheduledPushes(for: [pair], now: now)
 
         XCTAssertEqual(results.count, 1)
-        XCTAssertEqual(results[0].pair.lastKnownSeverity, .alarm)
+        XCTAssertEqual(results[0].pair.lastKnownSeverity, Severity.alarm)
         XCTAssertNil(results[0].pair.lastSyncAt)
 
         guard case let .failed(summary, details) = results[0].disposition else {
@@ -119,11 +125,11 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertEqual(results[0].pair.lastKnownSeverity, .warning)
         XCTAssertNil(results[0].pair.lastSyncAt)
 
-        guard case let .blockedEmptyLocalFolder(summary, details) = results[0].disposition else {
-            return XCTFail("Expected empty local folder block")
+        guard case let .blocked(summary, details) = results[0].disposition else {
+            return XCTFail("Expected blocked disposition")
         }
 
-        XCTAssertTrue(summary.contains("Local folder is empty"))
+        XCTAssertTrue(summary.contains("blocked"))
         XCTAssertTrue(details.contains("Local folder is empty"))
     }
 
@@ -144,7 +150,7 @@ final class SchedulerServiceTests: XCTestCase {
         let firstResults = await scheduler.runScheduledPushes(for: [pair], now: now)
         let secondResults = await scheduler.runScheduledPushes(for: [firstResults[0].pair], now: now.addingTimeInterval(60))
 
-        guard case .blockedEmptyLocalFolder = firstResults[0].disposition else {
+        guard case .blocked = firstResults[0].disposition else {
             return XCTFail("Expected initial blocked disposition")
         }
 
@@ -167,11 +173,23 @@ final class SchedulerServiceTests: XCTestCase {
             localFolderBookmark: Data("bookmark".utf8),
             localFolderDisplayPath: "/Users/test/\(name)",
             remotePath: "yd:/\(name)",
+            accountID: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
+            conflictPolicy: .block,
             scheduleMinutes: 30,
             deletePolicy: .mirrorToYandex,
             lastKnownSeverity: severity,
             lastSyncAt: lastSyncAt
         )
+    }
+
+    private func cleanSnapshots(for pairs: [SyncPair]) -> [String: PairSnapshot] {
+        var snapshots: [String: PairSnapshot] = [:]
+        let empty = PairSnapshot(entries: [])
+        for pair in pairs {
+            snapshots[pair.localFolderDisplayPath] = empty
+            snapshots[pair.remotePath] = empty
+        }
+        return snapshots
     }
 }
 
@@ -214,5 +232,29 @@ private struct StubLocalFolderInspector: LocalFolderInspecting {
 
     func containsUserVisibleContent(atPath path: String, excludedPatterns: [String]) throws -> Bool {
         containsUserVisibleContent
+    }
+}
+
+private struct StubSnapshotProvider: PairSnapshotProviding {
+    let snapshotsByPath: [String: PairSnapshot]
+
+    func snapshot(for pair: SyncPair, path: String, mode: RcloneExcludeFileMode) async throws -> PairSnapshot {
+        snapshotsByPath[path] ?? PairSnapshot(entries: [])
+    }
+}
+
+private actor InMemoryBaselineStore: PairConflictStateStoring {
+    private var states: [UUID: PairConflictBaselineState] = [:]
+
+    func load(pairID: UUID) async throws -> PairConflictBaselineState? {
+        states[pairID]
+    }
+
+    func save(_ state: PairConflictBaselineState) async throws {
+        states[state.pairID] = state
+    }
+
+    func remove(pairID: UUID) async throws {
+        states[pairID] = nil
     }
 }

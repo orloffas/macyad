@@ -104,10 +104,10 @@ public actor BackgroundSyncController {
             let event = makeEvent(for: result, at: now())
             try? await activityStore.append(event)
 
-            if case .blockedEmptyLocalFolder = result.disposition {
+            if case let .blocked(summary, _) = result.disposition {
                 try? await notificationClient.send(
                     title: copy.pushBlockedNotificationTitle,
-                    body: "\(result.pair.name): \(copy.localFolderEmptyPushBlocked)"
+                    body: "\(result.pair.name): \(summary)"
                 )
             } else if case let .failed(summary, _) = result.disposition {
                 try? await notificationClient.send(
@@ -142,7 +142,7 @@ public actor BackgroundSyncController {
         case .pushed:
             message = copy.scheduledSyncCompleted
             severity = .healthy
-        case .blockedEmptyLocalFolder:
+        case .blocked:
             message = copy.scheduledPushBlockedTitle
             severity = .warning
             return ActivityEvent(
@@ -175,7 +175,7 @@ public actor BackgroundSyncController {
 private extension ScheduledPushDisposition {
     var details: String? {
         switch self {
-        case let .failed(_, details), let .blockedEmptyLocalFolder(_, details):
+        case let .failed(_, details), let .blocked(_, details):
             details
         case .pushed, .skippedByPolicy, .skippedNotDue:
             nil
