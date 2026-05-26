@@ -116,9 +116,16 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
-    func removeAccount(_ account: YandexAccount) async {
+    func accountRemovalState(for account: YandexAccount, pairs: [SyncPair]) -> AccountRemovalState {
+        accountService.removalState(for: account, pairs: pairs, copy: AppCopy.current)
+    }
+
+    func removeAccount(_ account: YandexAccount, pairs: [SyncPair]) async {
+        guard accountRemovalState(for: account, pairs: pairs).canRemove else {
+            return
+        }
+
         do {
-            let pairs = try await pairRepository.load()
             let updatedAccounts = try accountService.removeAccount(account, from: accounts, pairs: pairs)
             try await accountRepository.save(updatedAccounts)
             accounts = updatedAccounts

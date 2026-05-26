@@ -68,4 +68,91 @@ final class AccountServiceTests: XCTestCase {
         XCTAssertEqual(suggestion, "macyad-personal-2")
         _ = service
     }
+
+    func testRemovalStateAllowsUnusedAccount() {
+        let service = AccountService()
+        let account = YandexAccount(
+            id: UUID(),
+            displayName: "Primary",
+            remoteName: "yd-primary",
+            configPath: "/tmp/rclone.conf",
+            isManaged: true
+        )
+
+        let state = service.removalState(for: account, pairs: [], copy: AppCopy(language: .english))
+
+        XCTAssertTrue(state.canRemove)
+        XCTAssertEqual(state.blockingPairNames, [])
+        XCTAssertNil(state.inlineMessage)
+    }
+
+    func testRemovalStateIncludesSingleBlockingPairName() {
+        let service = AccountService()
+        let account = YandexAccount(
+            id: UUID(),
+            displayName: "Primary",
+            remoteName: "yd-primary",
+            configPath: "/tmp/rclone.conf",
+            isManaged: true
+        )
+        let pair = SyncPair(
+            id: UUID(),
+            name: "Docs",
+            localFolderBookmark: Data("bookmark".utf8),
+            localFolderDisplayPath: "/Users/test/Docs",
+            remotePath: "yd-primary:/docs",
+            accountID: account.id,
+            conflictPolicy: .block,
+            scheduleMinutes: 15,
+            deletePolicy: .mirrorToYandex,
+            lastKnownSeverity: .healthy
+        )
+
+        let state = service.removalState(for: account, pairs: [pair], copy: AppCopy(language: .english))
+
+        XCTAssertFalse(state.canRemove)
+        XCTAssertEqual(state.blockingPairNames, ["Docs"])
+        XCTAssertEqual(state.inlineMessage, "This account can't be removed while pair Docs still references it.")
+    }
+
+    func testRemovalStateIncludesAllBlockingPairNames() {
+        let service = AccountService()
+        let account = YandexAccount(
+            id: UUID(),
+            displayName: "Primary",
+            remoteName: "yd-primary",
+            configPath: "/tmp/rclone.conf",
+            isManaged: true
+        )
+        let docs = SyncPair(
+            id: UUID(),
+            name: "Docs",
+            localFolderBookmark: Data("bookmark".utf8),
+            localFolderDisplayPath: "/Users/test/Docs",
+            remotePath: "yd-primary:/docs",
+            accountID: account.id,
+            conflictPolicy: .block,
+            scheduleMinutes: 15,
+            deletePolicy: .mirrorToYandex,
+            lastKnownSeverity: .healthy
+        )
+        let photos = SyncPair(
+            id: UUID(),
+            name: "Photos",
+            localFolderBookmark: Data("bookmark".utf8),
+            localFolderDisplayPath: "/Users/test/Photos",
+            remotePath: "yd-primary:/photos",
+            accountID: account.id,
+            conflictPolicy: .block,
+            scheduleMinutes: 15,
+            deletePolicy: .mirrorToYandex,
+            lastKnownSeverity: .healthy
+        )
+
+        let state = service.removalState(for: account, pairs: [photos, docs], copy: AppCopy(language: .russian))
+
+        XCTAssertFalse(state.canRemove)
+        XCTAssertEqual(state.blockingPairNames, ["Docs", "Photos"])
+        XCTAssertEqual(state.inlineMessage, "Account нельзя удалить, пока к нему привязаны pair: Docs, Photos.")
+    }
 }

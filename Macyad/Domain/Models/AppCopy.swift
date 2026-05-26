@@ -197,6 +197,24 @@ public struct AppCopy: Sendable {
         isRussian ? "Сначала удалите или переназначьте пары, использующие этот account." : "Reassign or delete the pairs using this account first."
     }
 
+    public func accountRemovalBlockedMessage(pairNames: [String]) -> String {
+        let joinedPairNames = pairNames.joined(separator: ", ")
+
+        if isRussian {
+            if pairNames.count == 1 {
+                return "Account нельзя удалить, пока pair \(joinedPairNames) привязана к нему."
+            }
+
+            return "Account нельзя удалить, пока к нему привязаны pair: \(joinedPairNames)."
+        }
+
+        if pairNames.count == 1 {
+            return "This account can't be removed while pair \(joinedPairNames) still references it."
+        }
+
+        return "This account can't be removed while these pairs still reference it: \(joinedPairNames)."
+    }
+
     public var noAccountsHint: String {
         isRussian ? "Сначала добавьте хотя бы один Yandex account. Пары без account не создаются." : "Add at least one Yandex account first. Pairs can't be created without an account."
     }
