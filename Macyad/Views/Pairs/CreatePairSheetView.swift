@@ -108,6 +108,9 @@ struct CreatePairSheetView: View {
         }
         .padding(18)
         .frame(width: 620)
+        .onReceive(appModel.$accounts) { accounts in
+            viewModel.replaceAvailableAccounts(accounts)
+        }
     }
 
     private var summaryText: String {

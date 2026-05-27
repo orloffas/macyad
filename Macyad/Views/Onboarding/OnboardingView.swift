@@ -53,7 +53,7 @@ struct OnboardingView: View {
                         .foregroundStyle(.secondary)
 
                     Button(copy.newPairButtonTitle) {
-                        appModel.isCreatePairSheetPresented = true
+                        appModel.presentCreatePairSheet()
                     }
                     .accessibilityIdentifier("pair.new")
                 }

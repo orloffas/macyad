@@ -44,6 +44,23 @@ final class CreatePairViewModelTests: XCTestCase {
         XCTAssertEqual(model.selectedAccountID, account.id)
     }
 
+    func testReplaceAvailableAccountsSelectsFirstAccountWhenDraftStartedEmpty() {
+        let account = account
+        let model = CreatePairViewModel(
+            accounts: [],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
+
+        XCTAssertEqual(model.selectedAccountID, SyncPair.unassignedAccountID)
+        XCTAssertTrue(model.availableAccounts.isEmpty)
+
+        model.replaceAvailableAccounts([account])
+
+        XCTAssertEqual(model.availableAccounts, [account])
+        XCTAssertEqual(model.selectedAccountID, account.id)
+    }
+
     func testInitFromExistingPairPopulatesEditableFields() {
         let existingPair = SyncPair(
             id: UUID(),

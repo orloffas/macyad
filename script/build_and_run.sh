@@ -9,9 +9,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${MACYAD_BUILD_DIR:-$HOME/Library/Caches/MacYaD/Build}"
 TEST_BUILD_DIR="${MACYAD_TEST_BUILD_DIR:-$HOME/Library/Caches/MacYaD/TestBuild}"
 APP_BUNDLE="$BUILD_DIR/Build/Products/Debug/$APP_NAME.app"
+STAGED_APP_DIR="${MACYAD_STAGED_APP_DIR:-$HOME/Applications}"
+STAGED_APP_BUNDLE="$STAGED_APP_DIR/$APP_NAME.app"
+LAUNCH_APP_BUNDLE="$STAGED_APP_BUNDLE"
 PROJECT_PATH="$ROOT_DIR/$PROJECT"
 PACKAGE_DIR="$BUILD_DIR/Package"
 DMG_PATH="$PACKAGE_DIR/$APP_NAME.dmg"
+LSREGISTER_BIN="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
 MODE="run"
 LAUNCH_STYLE="foreground"
@@ -105,6 +109,7 @@ clean_build_artifacts() {
 clean_everywhere() {
   clean_build_artifacts
   rm -rf \
+    "$STAGED_APP_BUNDLE" \
     "$HOME/Library/Application Support/MacYaD" \
     "$HOME/Library/Application Support/macyad" \
     "$HOME/Library/Saved Application State/$BUNDLE_ID.savedState" \
@@ -115,9 +120,9 @@ clean_everywhere() {
 
 open_app() {
   if [[ "${1:-foreground}" == "foreground" ]]; then
-    /usr/bin/open "$APP_BUNDLE" --args --force-foreground
+    /usr/bin/open "$LAUNCH_APP_BUNDLE" --args --force-foreground
   else
-    /usr/bin/open -g "$APP_BUNDLE"
+    /usr/bin/open -g "$LAUNCH_APP_BUNDLE"
   fi
 }
 
@@ -130,7 +135,7 @@ verify_launched_app() {
 
   for attempt in {1..10}; do
     app_list="$(/usr/bin/lsappinfo list 2>/dev/null || true)"
-    if [[ "$app_list" == *"bundle path=\"$APP_BUNDLE\""* ]]; then
+    if [[ "$app_list" == *"bundle path=\"$LAUNCH_APP_BUNDLE\""* ]]; then
       return 0
     fi
     sleep 1
@@ -168,6 +173,17 @@ package_dmg() {
     "$DMG_PATH" >/dev/null
 
   echo "Created DMG at $DMG_PATH"
+}
+
+stage_app_bundle() {
+  mkdir -p "$STAGED_APP_DIR"
+  rm -rf "$STAGED_APP_BUNDLE"
+  /usr/bin/ditto "$APP_BUNDLE" "$STAGED_APP_BUNDLE"
+  /usr/bin/touch "$STAGED_APP_BUNDLE"
+
+  if [[ -x "$LSREGISTER_BIN" ]]; then
+    "$LSREGISTER_BIN" -f "$STAGED_APP_BUNDLE" >/dev/null 2>&1 || true
+  fi
 }
 
 prompt_if_interactive() {
@@ -250,6 +266,8 @@ xcodebuild \
   -derivedDataPath "$BUILD_DIR" \
   -destination 'platform=macOS' \
   build
+
+stage_app_bundle
 
 if [[ "$SHOULD_PACKAGE" == "yes" ]]; then
   package_dmg

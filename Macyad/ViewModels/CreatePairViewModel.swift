@@ -9,7 +9,7 @@ public protocol FolderPicking {
 @MainActor
 public final class CreatePairViewModel: ObservableObject {
     private let existingPair: SyncPair?
-    public let availableAccounts: [YandexAccount]
+    @Published public private(set) var availableAccounts: [YandexAccount]
     @Published public var name = ""
     @Published public var localFolderBookmark = Data()
     @Published public var localFolderDisplayPath: String?
@@ -43,7 +43,7 @@ public final class CreatePairViewModel: ObservableObject {
         defaultScheduleMinutes: Int = AppPreferences.defaults.defaultScheduleMinutes
     ) {
         self.existingPair = existingPair
-        self.availableAccounts = accounts.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+        self.availableAccounts = Self.sortAccounts(accounts)
         self.folderPicker = folderPicker
         self.pairService = pairService
         self.name = existingPair?.name ?? ""
@@ -56,6 +56,21 @@ public final class CreatePairViewModel: ObservableObject {
         self.deletePolicy = existingPair?.deletePolicy ?? .mirrorToYandex
         self.syncExcludesText = Self.makeExcludeText(from: existingPair?.syncExcludes ?? SyncPair.defaultSyncExcludes)
         self.checkAdditionalExcludesText = Self.makeExcludeText(from: existingPair?.checkAdditionalExcludes ?? [])
+    }
+
+    public func replaceAvailableAccounts(_ accounts: [YandexAccount]) {
+        let sortedAccounts = Self.sortAccounts(accounts)
+        availableAccounts = sortedAccounts
+
+        guard sortedAccounts.contains(where: { $0.id == selectedAccountID }) else {
+            if let existingPair,
+               sortedAccounts.contains(where: { $0.id == existingPair.accountID }) {
+                selectedAccountID = existingPair.accountID
+            } else {
+                selectedAccountID = sortedAccounts.first?.id ?? SyncPair.unassignedAccountID
+            }
+            return
+        }
     }
 
     public func chooseFolder() {
@@ -122,5 +137,9 @@ public final class CreatePairViewModel: ObservableObject {
 
     private static func makeExcludeText(from patterns: [String]) -> String {
         patterns.joined(separator: "\n")
+    }
+
+    private static func sortAccounts(_ accounts: [YandexAccount]) -> [YandexAccount] {
+        accounts.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
     }
 }

@@ -25,6 +25,7 @@ final class AppModel: ObservableObject {
     var openMainWindow: () -> Void = {}
     var quitApplication: () -> Void = {}
     var refreshBackgroundState: () -> Void = {}
+    var presentCreatePairSheet: () -> Void = {}
     var runSyncNowForSelectedPair: () -> Void = {}
     var runCheckForSelectedPair: () -> Void = {}
     var runPullForSelectedPair: () -> Void = {}

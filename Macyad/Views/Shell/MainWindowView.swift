@@ -84,9 +84,7 @@ struct MainWindowView: View {
                     .accessibilityIdentifier("settings.open")
 
                     Button(copy.newPairButtonTitle, systemImage: "plus") {
-                        Task {
-                            await presentCreatePairSheet()
-                        }
+                        appModel.presentCreatePairSheet()
                     }
                     .accessibilityIdentifier("pair.new")
                 }
@@ -301,6 +299,11 @@ struct MainWindowView: View {
 
     @MainActor
     private func configureQuickActions() {
+        appModel.presentCreatePairSheet = {
+            Task {
+                await presentCreatePairSheet()
+            }
+        }
         appModel.runSyncNowForSelectedPair = {
             runActivePairAction(.syncNow)
         }
