@@ -177,6 +177,12 @@ package_dmg() {
 
 stage_app_bundle() {
   mkdir -p "$STAGED_APP_DIR"
+
+  if [[ -x "$LSREGISTER_BIN" ]]; then
+    "$LSREGISTER_BIN" -u "$STAGED_APP_BUNDLE" >/dev/null 2>&1 || true
+    "$LSREGISTER_BIN" -u "$APP_BUNDLE" >/dev/null 2>&1 || true
+  fi
+
   rm -rf "$STAGED_APP_BUNDLE"
   /usr/bin/ditto "$APP_BUNDLE" "$STAGED_APP_BUNDLE"
   /usr/bin/touch "$STAGED_APP_BUNDLE"
