@@ -20,6 +20,7 @@ final class AppCopyTests: XCTestCase {
         XCTAssertTrue(copy.checkAdditionalExcludesDescription.contains("includes Sync excludes first"))
         XCTAssertEqual(copy.actionsHelpTitle, "What each action does")
         XCTAssertEqual(copy.accountRemovalBlockedMessage(pairNames: ["Docs"]), "This account can't be removed while pair Docs still references it.")
+        XCTAssertEqual(copy.activityCollapsedRunSummary(count: 3), "3 identical events")
     }
 
     func testRussianCopyUsesRussianLabels() {
@@ -40,5 +41,6 @@ final class AppCopyTests: XCTestCase {
         XCTAssertTrue(copy.checkAdditionalExcludesDescription.contains("всегда использует Sync excludes"))
         XCTAssertEqual(copy.actionsHelpTitle, "Что делает каждая команда")
         XCTAssertEqual(copy.accountRemovalBlockedMessage(pairNames: ["Docs", "Photos"]), "Account нельзя удалить, пока к нему привязаны pair: Docs, Photos.")
+        XCTAssertEqual(copy.activityCollapsedRunSummary(count: 3), "3 одинаковых события")
     }
 }
