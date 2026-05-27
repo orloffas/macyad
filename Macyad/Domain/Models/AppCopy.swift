@@ -401,6 +401,14 @@ public struct AppCopy: Sendable {
             : "Events will appear after Push to Yandex, check, or pull operations."
     }
 
+    public func activityCollapsedRunSummary(count: Int) -> String {
+        if isRussian {
+            return "\(count) одинаковых события"
+        }
+
+        return "\(count) identical events"
+    }
+
     public var activityDetailsTitle: String {
         isRussian ? "Подробности события" : "Activity details"
     }
