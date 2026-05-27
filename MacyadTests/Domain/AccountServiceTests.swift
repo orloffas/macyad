@@ -52,6 +52,25 @@ final class AccountServiceTests: XCTestCase {
         XCTAssertNotEqual(result.pairs.first?.accountID, SyncPair.unassignedAccountID)
     }
 
+    func testReconcileAccountsImportsConfiguredRemoteEvenWithoutPairs() {
+        let service = AccountService()
+
+        let result = service.reconcileAccounts(
+            storedAccounts: [],
+            pairs: [],
+            configPath: "/tmp/rclone.conf",
+            configRemoteNames: ["yd-primary"]
+        )
+
+        XCTAssertTrue(result.didMutate)
+        XCTAssertEqual(result.pairs, [])
+        XCTAssertEqual(result.accounts.count, 1)
+        XCTAssertEqual(result.accounts.first?.displayName, "yd-primary")
+        XCTAssertEqual(result.accounts.first?.remoteName, "yd-primary")
+        XCTAssertEqual(result.accounts.first?.configPath, "/tmp/rclone.conf")
+        XCTAssertEqual(result.accounts.first?.isManaged, false)
+    }
+
     func testSuggestedRemoteNameAddsPrefixAndAvoidsCollisions() {
         let service = AccountService()
         let existing = [

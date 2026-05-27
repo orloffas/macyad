@@ -196,6 +196,23 @@ struct MainWindowView: View {
     private func presentCreatePairSheet() async {
         let defaultScheduleMinutes = (try? await environment.preferencesStore.load())?.defaultScheduleMinutes
             ?? AppPreferences.defaults.defaultScheduleMinutes
+
+        do {
+            let previousPairs = appModel.pairs
+            let reconciled = try await environment.reconcileAccountsAndPairs(pairs: appModel.pairs)
+            appModel.applyPersistedState(
+                pairs: reconciled.pairs,
+                accounts: reconciled.accounts,
+                events: appModel.events(for: nil),
+                using: environment.statusService
+            )
+            if reconciled.pairs != previousPairs {
+                await environment.pairDetailViewModel.load(for: appModel.selectedPair)
+            }
+        } catch {
+            environment.pairDetailViewModel.setError(error.localizedDescription)
+        }
+
         createPairViewModel = CreatePairViewModel(
             accounts: appModel.accounts,
             folderPicker: FolderPickerBridge(),
