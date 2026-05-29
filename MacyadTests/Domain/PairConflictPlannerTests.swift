@@ -101,6 +101,44 @@ final class PairConflictPlannerTests: XCTestCase {
         }
     }
 
+    func testAnalysisMarksPureRemoteAdditionsAsSafeInitialPull() {
+        let planner = PairConflictPlanner()
+        let baseline = PairConflictBaselineState(
+            pairID: UUID(),
+            localSnapshot: snapshot(),
+            remoteSnapshot: snapshot(),
+            updatedAt: Date()
+        )
+
+        let analysis = planner.analyze(
+            baseline: baseline,
+            localSnapshot: snapshot(("Docs/shared.txt", "same")),
+            remoteSnapshot: snapshot(("Docs/shared.txt", "same"), ("Docs/remote-only.txt", "remote"))
+        )
+
+        XCTAssertTrue(analysis.allowsSafeInitialPull)
+        XCTAssertFalse(analysis.allowsSafeInitialPush)
+    }
+
+    func testAnalysisDoesNotMarkMixedOneSidedDriftAsSafeInitialAddition() {
+        let planner = PairConflictPlanner()
+        let baseline = PairConflictBaselineState(
+            pairID: UUID(),
+            localSnapshot: snapshot(),
+            remoteSnapshot: snapshot(),
+            updatedAt: Date()
+        )
+
+        let analysis = planner.analyze(
+            baseline: baseline,
+            localSnapshot: snapshot(("Docs/local-only.txt", "local")),
+            remoteSnapshot: snapshot(("Docs/remote-only.txt", "remote"))
+        )
+
+        XCTAssertFalse(analysis.allowsSafeInitialPull)
+        XCTAssertFalse(analysis.allowsSafeInitialPush)
+    }
+
     private func snapshot(_ files: (String, String)...) -> PairSnapshot {
         PairSnapshot(entries: files.map { path, hash in
             PairSnapshotEntry(path: path, size: Int64(hash.count), modTime: Date(timeIntervalSince1970: 1_000), md5: hash)

@@ -103,34 +103,38 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertTrue(details.contains("network exploded"))
     }
 
-    func testRunScheduledPushesBlocksEmptyLocalFolderAsWarning() async {
+    func testRunScheduledPushesAllowsInitialPushWhenRemoteIsEmpty() async {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
         defer { AppLanguageState.update(previousLanguage) }
 
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let processClient = RecordingProcessClient()
+        let pair = makePair(name: "Seed", severity: .healthy, lastSyncAt: nil)
         let service = SyncService(
             processClient: processClient,
-            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false)
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false),
+            snapshotProvider: StubSnapshotProvider(
+                snapshotsByPath: [
+                    pair.localFolderDisplayPath: snapshot(("seed.txt", "local")),
+                    pair.remotePath: PairSnapshot(entries: []),
+                ]
+            ),
+            baselineRepository: InMemoryBaselineStore()
         )
         let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
-        let pair = makePair(name: "Empty", severity: .healthy, lastSyncAt: nil)
 
         let results = await scheduler.runScheduledPushes(for: [pair], now: now)
         let recordedArguments = await processClient.recordedArguments()
 
-        XCTAssertTrue(recordedArguments.isEmpty)
+        XCTAssertEqual(recordedArguments.count, 1)
         XCTAssertEqual(results.count, 1)
-        XCTAssertEqual(results[0].pair.lastKnownSeverity, .warning)
-        XCTAssertNil(results[0].pair.lastSyncAt)
+        XCTAssertEqual(results[0].pair.lastKnownSeverity, .healthy)
+        XCTAssertEqual(results[0].pair.lastSyncAt, now)
 
-        guard case let .blocked(summary, details, _) = results[0].disposition else {
-            return XCTFail("Expected blocked disposition")
+        guard case .pushed = results[0].disposition else {
+            return XCTFail("Expected pushed disposition")
         }
-
-        XCTAssertTrue(summary.contains("blocked"))
-        XCTAssertTrue(details.contains("Local folder is empty"))
     }
 
     func testRunScheduledPushesDoesNotRepeatBlockedAttemptBeforeScheduleInterval() async {
@@ -140,12 +144,19 @@ final class SchedulerServiceTests: XCTestCase {
 
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let processClient = RecordingProcessClient()
+        let pair = makePair(name: "RemoteSeed", severity: .healthy, lastSyncAt: nil)
         let service = SyncService(
             processClient: processClient,
-            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false)
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false),
+            snapshotProvider: StubSnapshotProvider(
+                snapshotsByPath: [
+                    pair.localFolderDisplayPath: PairSnapshot(entries: []),
+                    pair.remotePath: snapshot(("seed.txt", "remote")),
+                ]
+            ),
+            baselineRepository: InMemoryBaselineStore()
         )
         let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
-        let pair = makePair(name: "Empty", severity: .healthy, lastSyncAt: nil)
 
         let firstResults = await scheduler.runScheduledPushes(for: [pair], now: now)
         let secondResults = await scheduler.runScheduledPushes(for: [firstResults[0].pair], now: now.addingTimeInterval(60))
@@ -190,6 +201,12 @@ final class SchedulerServiceTests: XCTestCase {
             snapshots[pair.remotePath] = empty
         }
         return snapshots
+    }
+
+    private func snapshot(_ files: (String, String)...) -> PairSnapshot {
+        PairSnapshot(entries: files.map { path, hash in
+            PairSnapshotEntry(path: path, size: Int64(hash.count), modTime: Date(timeIntervalSince1970: 1_000), md5: hash)
+        })
     }
 }
 

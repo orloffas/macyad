@@ -45,6 +45,53 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertTrue(sentNotifications.isEmpty)
     }
 
+    func testRunCyclePersistsSafeInitialPushIntoEmptyRemote() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Seed", lastSyncAt: nil)
+        let pairStore = InMemoryPairStore(pairs: [pair])
+        let activityStore = InMemoryActivityStore()
+        let notificationClient = RecordingNotificationClient()
+        let scheduler = SchedulerService(
+            policy: PushEligibilityPolicy(),
+            syncService: SyncService(
+                processClient: RecordingProcessClient(),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false),
+                snapshotProvider: StubSnapshotProvider(
+                    snapshotsByPath: [
+                        pair.localFolderDisplayPath: snapshot(("seed.txt", "local")),
+                        pair.remotePath: PairSnapshot(entries: []),
+                    ]
+                ),
+                baselineRepository: InMemoryBaselineStore()
+            )
+        )
+        let controller = BackgroundSyncController(
+            scheduler: scheduler,
+            pairStore: pairStore,
+            activityStore: activityStore,
+            notificationClient: notificationClient,
+            now: { now },
+            sleep: { _ in }
+        )
+
+        await controller.runCycle()
+
+        let savedPairs = try await pairStore.load()
+        let events = try await activityStore.load()
+        let sentNotifications = await notificationClient.sentNotifications()
+
+        XCTAssertEqual(savedPairs[0].lastKnownSeverity, .healthy)
+        XCTAssertEqual(savedPairs[0].lastSyncAt, now)
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events[0].severity, .healthy)
+        XCTAssertTrue(events[0].message.contains("Scheduled Push to Yandex completed"))
+        XCTAssertTrue(sentNotifications.isEmpty)
+    }
+
     func testRunCycleRecordsFailureAndSendsNotification() async throws {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
@@ -91,13 +138,13 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertTrue(sentNotifications[0].body.contains("Photos"))
     }
 
-    func testRunCycleRecordsEmptyLocalFolderBlockAndSendsNotification() async throws {
+    func testRunCycleRecordsRemoteOnlyDriftBlockAndSendsNotification() async throws {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
         defer { AppLanguageState.update(previousLanguage) }
 
         let now = Date(timeIntervalSince1970: 1_716_580_800)
-        let pair = makePair(name: "Empty", lastSyncAt: nil)
+        let pair = makePair(name: "RemoteSeed", lastSyncAt: nil)
         let pairStore = InMemoryPairStore(pairs: [pair])
         let activityStore = InMemoryActivityStore()
         let notificationClient = RecordingNotificationClient()
@@ -105,7 +152,14 @@ final class BackgroundSyncControllerTests: XCTestCase {
             policy: PushEligibilityPolicy(),
             syncService: SyncService(
                 processClient: RecordingProcessClient(),
-                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false)
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false),
+                snapshotProvider: StubSnapshotProvider(
+                    snapshotsByPath: [
+                        pair.localFolderDisplayPath: PairSnapshot(entries: []),
+                        pair.remotePath: snapshot(("seed.txt", "remote")),
+                    ]
+                ),
+                baselineRepository: InMemoryBaselineStore()
             )
         )
         let controller = BackgroundSyncController(
@@ -128,10 +182,10 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertEqual(events.count, 1)
         XCTAssertEqual(events[0].severity, .warning)
         XCTAssertEqual(events[0].message, "Scheduled Push to Yandex blocked")
-        XCTAssertTrue(events[0].details?.contains("Local folder is empty") == true)
+        XCTAssertTrue(events[0].details?.contains("Problem: remote-only changed") == true)
         XCTAssertEqual(sentNotifications.count, 1)
         XCTAssertEqual(sentNotifications[0].title, "MacYaD: Push to Yandex blocked")
-        XCTAssertTrue(sentNotifications[0].body.contains("Empty"))
+        XCTAssertTrue(sentNotifications[0].body.contains("RemoteSeed"))
     }
 
     func testStartDoesNotRunScheduledSyncBeforeFirstInterval() async throws {
@@ -196,6 +250,12 @@ final class BackgroundSyncControllerTests: XCTestCase {
             snapshots[pair.remotePath] = empty
         }
         return snapshots
+    }
+
+    private func snapshot(_ files: (String, String)...) -> PairSnapshot {
+        PairSnapshot(entries: files.map { path, hash in
+            PairSnapshotEntry(path: path, size: Int64(hash.count), modTime: Date(timeIntervalSince1970: 1_000), md5: hash)
+        })
     }
 }
 

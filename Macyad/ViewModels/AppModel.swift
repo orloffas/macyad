@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 import MacyadCore
@@ -29,6 +30,8 @@ final class AppModel: ObservableObject {
     var runSyncNowForSelectedPair: () -> Void = {}
     var runCheckForSelectedPair: () -> Void = {}
     var runPullForSelectedPair: () -> Void = {}
+    var presentIssueReviewWindow: (_ presentingWindow: NSWindow?, _ issueSet: ActivityIssueSet, _ onApply: @escaping (ActivityIssueSet) async -> ActivityReviewApplyResult) -> Void = { _, _, _ in }
+    var closeIssueReviewWindow: () -> Void = {}
     private var didAutoSelectInitialPair = false
 
     var route: AppRoute {

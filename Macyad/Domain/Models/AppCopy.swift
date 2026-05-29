@@ -537,6 +537,52 @@ public struct AppCopy: Sendable {
         isRussian ? "Решение" : "Decision"
     }
 
+    public var issueReviewMeaningSectionTitle: String {
+        isRussian ? "Что это значит" : "What it means"
+    }
+
+    public var issueReviewRawSectionTitle: String {
+        "Raw comparison"
+    }
+
+    public var issueReviewSnapshotsSectionTitle: String {
+        isRussian ? "Снимки" : "Snapshots"
+    }
+
+    public var issueReviewBaselineSectionTitle: String {
+        isRussian ? "Baseline" : "Baseline"
+    }
+
+    public var issueReviewDecisionSectionTitle: String {
+        isRussian ? "Решение" : "Decision"
+    }
+
+    public var issueReviewNoSelectionTitle: String {
+        isRussian ? "Выберите один файл" : "Select one file"
+    }
+
+    public var issueReviewNoSelectionMessage: String {
+        isRussian
+            ? "Выделите одну строку в таблице, чтобы увидеть человеческое объяснение, raw comparison и metadata snapshots."
+            : "Select a single row in the table to inspect the human explanation, raw comparison, and snapshot metadata."
+    }
+
+    public func issueReviewMultipleSelectionTitle(count: Int) -> String {
+        if isRussian {
+            return "Выбрано файлов: \(count)"
+        }
+
+        return "Selected files: \(count)"
+    }
+
+    public func issueReviewMultipleSelectionMessage(unresolvedCount: Int) -> String {
+        if isRussian {
+            return "Для пакетного решения используйте верхнее меню. Без решения пока осталось: \(unresolvedCount)."
+        }
+
+        return "Use the toolbar bulk actions to apply one decision to this selection. Still unresolved: \(unresolvedCount)."
+    }
+
     public var issueDecisionKeepLocalTitle: String {
         isRussian ? "Оставить local" : "Keep local"
     }

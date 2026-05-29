@@ -1,5 +1,6 @@
 import AppKit
 import MacyadCore
+import SwiftUI
 import UserNotifications
 
 @MainActor
@@ -161,5 +162,80 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         await MainActor.run {
             self.notificationRouteHandler(routeToken)
         }
+    }
+}
+
+@MainActor
+final class IssueReviewWindowBridge: NSObject, NSWindowDelegate {
+    private var window: NSWindow?
+    private let preferredMinimumSize = CGSize(width: 980, height: 660)
+
+    func present<Content: View>(
+        title: String,
+        presentingWindow: NSWindow?,
+        @ViewBuilder content: () -> Content
+    ) {
+        let hostingController = NSHostingController(rootView: content())
+        let window = existingWindow(title: title) ?? makeWindow(
+            title: title,
+            presentingWindow: presentingWindow
+        )
+
+        window.contentViewController = hostingController
+        window.title = title
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func close() {
+        window?.close()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let closingWindow = notification.object as? NSWindow, closingWindow === window else {
+            return
+        }
+
+        window = nil
+    }
+
+    private func existingWindow(title: String) -> NSWindow? {
+        guard let window else {
+            return nil
+        }
+
+        window.title = title
+        return window
+    }
+
+    private func makeWindow(title: String, presentingWindow: NSWindow?) -> NSWindow {
+        let screen = presentingWindow?.screen ?? NSApp.mainWindow?.screen ?? NSScreen.main ?? NSScreen.screens.first
+        let visibleFrame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1160, height: 780)
+        let defaultFrame = IssueReviewWindowLayout.defaultFrame(
+            for: visibleFrame,
+            preferredMinimumSize: preferredMinimumSize
+        )
+        let minimumSize = IssueReviewWindowLayout.clampedMinimumSize(
+            for: visibleFrame,
+            preferredMinimumSize: preferredMinimumSize
+        )
+
+        let window = NSWindow(
+            contentRect: defaultFrame,
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+
+        window.title = title
+        window.minSize = minimumSize
+        window.isReleasedWhenClosed = false
+        window.isRestorable = false
+        window.tabbingMode = .disallowed
+        window.delegate = self
+        window.setFrame(defaultFrame, display: true)
+
+        self.window = window
+        return window
     }
 }

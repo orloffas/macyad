@@ -1,3 +1,4 @@
+import AppKit
 import MacyadCore
 import SwiftUI
 
@@ -11,7 +12,8 @@ struct ActivityDetailView: View {
     let onApplyIssueReview: ((ActivityIssueSet) async -> ActivityReviewApplyResult)?
 
     @State private var displayedEvent: ActivityEvent
-    @State private var isIssueReviewPresented = false
+    @State private var didAutoOpenIssueReview = false
+    @State private var hostWindow: NSWindow?
 
     init(
         event: ActivityEvent,
@@ -82,7 +84,7 @@ struct ActivityDetailView: View {
             if displayedEvent.issueSet != nil, onApplyIssueReview != nil {
                 HStack {
                     Button(copy.reviewFilesButtonTitle) {
-                        isIssueReviewPresented = true
+                        presentIssueReviewWindow()
                     }
 
                     Spacer()
@@ -113,25 +115,37 @@ struct ActivityDetailView: View {
         }
         .padding(18)
         .frame(minWidth: 480, idealWidth: 560, maxWidth: 680, minHeight: 360, idealHeight: 440)
+        .background(
+            WindowAccessor { window in
+                hostWindow = window
+            }
+        )
         .onAppear {
-            if initialOpenIssueReview && displayedEvent.issueSet != nil {
-                isIssueReviewPresented = true
+            if initialOpenIssueReview, displayedEvent.issueSet != nil, !didAutoOpenIssueReview {
+                didAutoOpenIssueReview = true
+                presentIssueReviewWindow()
             }
         }
-        .sheet(isPresented: $isIssueReviewPresented) {
-            if let issueSet = displayedEvent.issueSet, let onApplyIssueReview {
-                IssueReviewSheetView(issueSet: issueSet) { updatedIssueSet in
-                    let result = await onApplyIssueReview(updatedIssueSet)
-                    if let replacementEvent = result.replacementEvent {
-                        displayedEvent = replacementEvent
-                    }
-                    if result.shouldDismissDetail {
-                        dismiss()
-                    }
-                    return result
-                }
-                .environmentObject(appModel)
+        .onDisappear {
+            appModel.closeIssueReviewWindow()
+        }
+    }
+
+    private func presentIssueReviewWindow() {
+        guard let issueSet = displayedEvent.issueSet, let onApplyIssueReview else {
+            return
+        }
+
+        let presentingWindow = hostWindow?.sheetParent ?? hostWindow
+        appModel.presentIssueReviewWindow(presentingWindow, issueSet) { updatedIssueSet in
+            let result = await onApplyIssueReview(updatedIssueSet)
+            if let replacementEvent = result.replacementEvent {
+                displayedEvent = replacementEvent
             }
+            if result.shouldDismissDetail {
+                dismiss()
+            }
+            return result
         }
     }
 

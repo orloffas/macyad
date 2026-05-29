@@ -451,10 +451,11 @@ public struct SyncService: Sendable {
         let summary = baselineMissing
             ? copy.baselineMissingBlockedSummary
             : copy.remoteDriftBlockedSummary(count: analysis.changeCountForPushBlock, samplePath: analysis.sampleRemoteDriftPath)
+        let formatter = ActivityIssueFormatter(copy: copy)
         return OperationOutcome(
             severity: .warning,
             summary: summary,
-            details: structuredIssueDetails(prefix: summary, issueSet: issueSet),
+            details: formatter.issueSetDetails(prefix: summary, issueSet: issueSet),
             issueSet: issueSet
         )
     }
@@ -464,10 +465,11 @@ public struct SyncService: Sendable {
         let summary = baselineMissing
             ? copy.baselineMissingBlockedSummary
             : copy.localDriftBlockedSummary(count: analysis.changeCountForPullBlock, samplePath: analysis.sampleLocalDriftPath)
+        let formatter = ActivityIssueFormatter(copy: copy)
         return OperationOutcome(
             severity: .warning,
             summary: summary,
-            details: structuredIssueDetails(prefix: summary, issueSet: issueSet),
+            details: formatter.issueSetDetails(prefix: summary, issueSet: issueSet),
             issueSet: issueSet
         )
     }
@@ -509,23 +511,8 @@ public struct SyncService: Sendable {
         })
     }
 
-    private func structuredIssueDetails(prefix: String, issueSet: ActivityIssueSet) -> String {
-        guard !issueSet.issues.isEmpty else {
-            return prefix
-        }
-
-        let issueBlocks = issueSet.issues.map { issue in
-            """
-            Path: \(issue.relativePath)
-            Problem: \(describe(issue.problemKind))
-            Differences: \(describe(issue.differences))
-            Local: \(describe(issue.localSnapshot))
-            Remote: \(describe(issue.remoteSnapshot))
-            Baseline: \(describe(issue.baselineSnapshot))
-            """
-        }.joined(separator: "\n\n")
-
-        return "\(prefix)\n\n\(issueBlocks)"
+    private func structuredIssueDetails(prefix: String, issueSet: ActivityIssueSet, copy: AppCopy = .current) -> String {
+        ActivityIssueFormatter(copy: copy).issueSetDetails(prefix: prefix, issueSet: issueSet)
     }
 
     private func filterBaseline(_ baseline: PairConflictBaselineState, for excludes: [String]) -> PairConflictBaselineState {
@@ -682,32 +669,6 @@ public struct SyncService: Sendable {
             return renamed
         }
         return "\(parent.trimmingCharacters(in: CharacterSet(charactersIn: "/")))/\(renamed)"
-    }
-
-    private func describe(_ issueKind: ActivityFileProblemKind) -> String {
-        switch issueKind {
-        case .remoteOnlyChanged:
-            return "remote-only changed"
-        case .localOnlyChanged:
-            return "local-only changed"
-        case .conflict:
-            return "conflict"
-        case .deleteVsModifyConflict:
-            return "delete-vs-modify conflict"
-        }
-    }
-
-    private func describe(_ differences: [ActivityFileDifference]) -> String {
-        differences.map(\.rawValue).joined(separator: ", ")
-    }
-
-    private func describe(_ snapshot: PairSnapshotEntry?) -> String {
-        guard let snapshot else {
-            return "<missing>"
-        }
-        let modTime = snapshot.modTime?.ISO8601Format() ?? "<nil>"
-        let hash = snapshot.md5 ?? "<nil>"
-        return "size=\(snapshot.size), mtime=\(modTime), md5=\(hash)"
     }
 
     private func joinLogs(_ logs: [String]) -> String? {

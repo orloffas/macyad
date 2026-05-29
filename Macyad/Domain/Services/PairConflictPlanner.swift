@@ -58,6 +58,28 @@ public struct PairConflictPlanner: Sendable {
         public var isClean: Bool {
             pathResults.allSatisfy { $0.disposition == .unchanged || $0.disposition == .bothChangedIdentical }
         }
+
+        public var allowsSafeInitialPull: Bool {
+            let changed = pathResults.filter { $0.disposition != .unchanged && $0.disposition != .bothChangedIdentical }
+            guard !changed.isEmpty else {
+                return false
+            }
+
+            return changed.allSatisfy { result in
+                result.disposition == .remoteOnlyChanged && result.local == nil && result.remote != nil
+            }
+        }
+
+        public var allowsSafeInitialPush: Bool {
+            let changed = pathResults.filter { $0.disposition != .unchanged && $0.disposition != .bothChangedIdentical }
+            guard !changed.isEmpty else {
+                return false
+            }
+
+            return changed.allSatisfy { result in
+                result.disposition == .localOnlyChanged && result.local != nil && result.remote == nil
+            }
+        }
     }
 
     public enum BootstrapDisposition: Equatable, Sendable {

@@ -5,21 +5,36 @@ final class SerialOperationCoordinatorTests: XCTestCase {
     func testEnqueueRunsOperationsStrictlyInOrder() async throws {
         let recorder = Recorder()
         let coordinator = SerialOperationCoordinator()
+        let firstStarted = Signal()
+        let releaseFirst = Signal()
 
-        async let first: Int = coordinator.enqueue(pairID: UUID(), label: "first") {
-            await recorder.append("first-start")
-            try? await Task.sleep(for: .milliseconds(50))
-            await recorder.append("first-end")
-            return 1
+        let first = Task {
+            try await coordinator.enqueue(pairID: UUID(), label: "first") {
+                await recorder.append("first-start")
+                await firstStarted.open()
+                await releaseFirst.wait()
+                await recorder.append("first-end")
+                return 1
+            }
         }
 
-        async let second: Int = coordinator.enqueue(pairID: UUID(), label: "second") {
-            await recorder.append("second-start")
-            await recorder.append("second-end")
-            return 2
+        await firstStarted.wait()
+
+        let second = Task {
+            try await coordinator.enqueue(pairID: UUID(), label: "second") {
+                await recorder.append("second-start")
+                await recorder.append("second-end")
+                return 2
+            }
         }
 
-        let values = try await [first, second]
+        while await coordinator.states().count < 2 {
+            await Task.yield()
+        }
+
+        await releaseFirst.open()
+
+        let values = try await [first.value, second.value]
         let events = await recorder.events()
 
         XCTAssertEqual(values, [1, 2])
@@ -77,5 +92,31 @@ private actor Gate {
     func open() {
         continuation?.resume()
         continuation = nil
+    }
+}
+
+private actor Signal {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isOpen else {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func open() {
+        guard !isOpen else {
+            return
+        }
+
+        isOpen = true
+        let pending = waiters
+        waiters.removeAll()
+        pending.forEach { $0.resume() }
     }
 }
