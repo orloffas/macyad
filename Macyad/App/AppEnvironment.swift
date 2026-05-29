@@ -160,7 +160,8 @@ final class AppEnvironment: ObservableObject {
                 processClient: RcloneProcessClient(executablePath: executablePath),
                 configPath: paths.rcloneConfigFile.path,
                 excludeFileStore: PersistentRcloneExcludeFileStore(paths: paths),
-                baselineRepository: self.conflictStateRepository
+                baselineRepository: self.conflictStateRepository,
+                operationInspector: SystemRcloneOperationInspector()
             )
         }, operationCoordinator: operationCoordinator)
 

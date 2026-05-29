@@ -2,25 +2,33 @@ import XCTest
 @testable import MacyadCore
 
 final class SyncServiceTests: XCTestCase {
-    func testPushDoesNotRunRcloneWhenLocalFolderIsEmpty() async throws {
+    func testInitialPushStillBlocksWhenLocalIsEmptyAndRemoteHasFiles() async throws {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
         defer { AppLanguageState.update(previousLanguage) }
 
+        let pair = makePair()
         let processClient = StubProcessClient(result: ("", "", 0))
-        let excludeFileStore = StubExcludeFileStore()
         let service = SyncService(
             processClient: processClient,
             configPath: "/tmp/macyad-rclone.conf",
             localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false),
-            excludeFileStore: excludeFileStore
+            snapshotProvider: StubSnapshotProvider(
+                snapshotsByPath: [
+                    pair.localFolderDisplayPath: PairSnapshot(entries: []),
+                    pair.remotePath: snapshot(("draft.txt", "remote")),
+                ]
+            ),
+            baselineRepository: InMemoryBaselineStore()
         )
 
-        let outcome = await service.push(makePair())
+        let outcome = await service.push(pair)
 
         XCTAssertEqual(outcome.severity, .warning)
-        XCTAssertEqual(outcome.summary, AppCopy.current.manualPushBlockedTitle)
-        XCTAssertTrue(outcome.details?.contains("Local folder is empty") == true)
+        XCTAssertEqual(outcome.summary, AppCopy.current.baselineMissingBlockedSummary)
+        XCTAssertEqual(outcome.issueSet?.issues.map(\.relativePath), ["draft.txt"])
+        XCTAssertEqual(outcome.issueSet?.issues.first?.problemKind, .remoteOnlyChanged)
+        XCTAssertTrue(outcome.details?.contains("Problem: remote-only changed") == true)
 
         let recordedArguments = await processClient.recordedArguments()
         XCTAssertTrue(recordedArguments.isEmpty)
@@ -179,6 +187,7 @@ final class SyncServiceTests: XCTestCase {
         let service = SyncService(
             processClient: processClient,
             configPath: "/tmp/macyad-rclone.conf",
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
             excludeFileStore: excludeFileStore,
             snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
             baselineRepository: InMemoryBaselineStore()
@@ -201,6 +210,136 @@ final class SyncServiceTests: XCTestCase {
             ]]
         )
         XCTAssertEqual(excludeFileStore.preparedModes(), [.sync])
+    }
+
+    func testInitialPullRunsWhenRemoteOnlyFilesCanBeAddedLocally() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let pair = makePair()
+        let processClient = StubProcessClient(result: ("", "", 0))
+        let excludeFileStore = StubExcludeFileStore()
+        let baselineStore = InMemoryBaselineStore()
+        let snapshotProvider = RecordingSnapshotProvider(
+            snapshotsByPath: [
+                pair.localFolderDisplayPath: [
+                    snapshot(("seed.txt", "remote")),
+                ]
+            ]
+        )
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false),
+            excludeFileStore: excludeFileStore,
+            snapshotProvider: snapshotProvider,
+            baselineRepository: baselineStore
+        )
+
+        let outcome = await service.pull(pair)
+        let recordedArguments = await processClient.recordedArguments()
+        let savedBaseline = try await baselineStore.load(pairID: pair.id)
+        let requestedPaths = await snapshotProvider.requestedPaths()
+
+        XCTAssertEqual(outcome.severity, .healthy)
+        XCTAssertTrue(outcome.updatedBaseline)
+        XCTAssertEqual(
+            recordedArguments,
+            [[
+                "--config",
+                "/tmp/macyad-rclone.conf",
+                "copy",
+                "yd:/Work Docs",
+                "/Users/test/Work Docs",
+                "--exclude-from",
+                "/tmp/sync-excludes.txt",
+            ]]
+        )
+        XCTAssertEqual(requestedPaths, [pair.localFolderDisplayPath])
+        XCTAssertEqual(savedBaseline?.localSnapshot.entries.map(\.path), ["seed.txt"])
+        XCTAssertEqual(savedBaseline?.remoteSnapshot.entries.map(\.path), ["seed.txt"])
+        XCTAssertEqual(excludeFileStore.preparedModes(), [.sync])
+    }
+
+    func testInitialPushRunsWhenLocalOnlyFilesCanBeAddedToEmptyRemote() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let pair = makePair()
+        let processClient = StubProcessClient(result: ("", "", 0))
+        let excludeFileStore = StubExcludeFileStore()
+        let baselineStore = InMemoryBaselineStore()
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false),
+            excludeFileStore: excludeFileStore,
+            snapshotProvider: StubSnapshotProvider(
+                snapshotsByPath: [
+                    pair.localFolderDisplayPath: snapshot(("seed.txt", "local")),
+                    pair.remotePath: PairSnapshot(entries: []),
+                ]
+            ),
+            baselineRepository: baselineStore
+        )
+
+        let outcome = await service.push(pair)
+        let recordedArguments = await processClient.recordedArguments()
+        let savedBaseline = try await baselineStore.load(pairID: pair.id)
+
+        XCTAssertEqual(outcome.severity, .healthy)
+        XCTAssertTrue(outcome.shouldUpdateLastSync)
+        XCTAssertTrue(outcome.updatedBaseline)
+        XCTAssertEqual(
+            recordedArguments,
+            [[
+                "--config",
+                "/tmp/macyad-rclone.conf",
+                "sync",
+                "/Users/test/Work Docs",
+                "yd:/Work Docs",
+                "--exclude-from",
+                "/tmp/sync-excludes.txt",
+            ]]
+        )
+        XCTAssertEqual(savedBaseline?.localSnapshot.entries.map(\.path), ["seed.txt"])
+        XCTAssertEqual(excludeFileStore.preparedModes(), [.sync])
+    }
+
+    func testPullSkipsNewScanWhenMatchingRcloneCopyIsAlreadyRunning() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let pair = makePair()
+        let processClient = StubProcessClient(result: ("", "", 0))
+        let snapshotProvider = RecordingSnapshotProvider(snapshotsByPath: [:])
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            snapshotProvider: snapshotProvider,
+            baselineRepository: InMemoryBaselineStore(),
+            operationInspector: StubRcloneOperationInspector(
+                activeOperation: ActiveRcloneCopyOperation(
+                    pid: 4_863,
+                    commandLine: "rclone copy yd:/Work Docs /Users/test/Work Docs --exclude-from /tmp/sync-excludes.txt"
+                )
+            )
+        )
+
+        let outcome = await service.pull(pair)
+        let recordedArguments = await processClient.recordedArguments()
+        let requestedPaths = await snapshotProvider.requestedPaths()
+
+        XCTAssertEqual(outcome.severity, .warning)
+        XCTAssertEqual(outcome.summary, AppCopy.current.manualPullAlreadyRunningTitle)
+        XCTAssertTrue(outcome.details?.contains("PID 4863") == true)
+        XCTAssertTrue(outcome.details?.contains("rclone copy") == true)
+        XCTAssertTrue(recordedArguments.isEmpty)
+        XCTAssertTrue(requestedPaths.isEmpty)
     }
 
     func testPushBlockedByRemoteDriftReturnsStructuredIssueSet() async throws {
@@ -267,6 +406,32 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertEqual(outcome.severity, Severity.warning)
         XCTAssertEqual(outcome.issueSet?.issues.first?.relativePath, "test.txt")
         XCTAssertTrue(outcome.issueSet?.issues.first?.differences.contains(.baselineMissing) == true)
+    }
+
+    func testInitialPushWithMixedOneSidedDriftStillBlocksWhenBaselineMissing() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let pair = makePair()
+        let service = SyncService(
+            processClient: StubProcessClient(result: ("", "", 0)),
+            configPath: "/tmp/macyad-rclone.conf",
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            snapshotProvider: StubSnapshotProvider(
+                snapshotsByPath: [
+                    pair.localFolderDisplayPath: snapshot(("local-only.txt", "local")),
+                    pair.remotePath: snapshot(("remote-only.txt", "remote")),
+                ]
+            ),
+            baselineRepository: InMemoryBaselineStore()
+        )
+
+        let outcome = await service.push(pair)
+
+        XCTAssertEqual(outcome.severity, .warning)
+        XCTAssertEqual(outcome.issueSet?.issues.map(\.relativePath), ["local-only.txt", "remote-only.txt"])
+        XCTAssertTrue(outcome.issueSet?.issues.allSatisfy { $0.differences.contains(.baselineMissing) } == true)
     }
 
     func testApplyResolutionsUpdatesIssueSetForUnresolvedRowsOnly() async throws {
@@ -427,6 +592,36 @@ private struct StubSnapshotProvider: PairSnapshotProviding {
     }
 }
 
+private actor RecordingSnapshotProvider: PairSnapshotProviding {
+    private let snapshotsByPath: [String: [PairSnapshot]]
+    private var requestLog: [String] = []
+    private var requestCounts: [String: Int] = [:]
+
+    init(snapshotsByPath: [String: [PairSnapshot]]) {
+        self.snapshotsByPath = snapshotsByPath
+    }
+
+    func snapshot(for pair: SyncPair, path: String, mode: RcloneExcludeFileMode) async throws -> PairSnapshot {
+        requestLog.append(path)
+        let index = requestCounts[path, default: 0]
+        requestCounts[path] = index + 1
+
+        guard let snapshots = snapshotsByPath[path], !snapshots.isEmpty else {
+            return PairSnapshot(entries: [])
+        }
+
+        if index < snapshots.count {
+            return snapshots[index]
+        }
+
+        return snapshots[snapshots.count - 1]
+    }
+
+    func requestedPaths() -> [String] {
+        requestLog
+    }
+}
+
 private actor InMemoryBaselineStore: PairConflictStateStoring {
     private var states: [UUID: PairConflictBaselineState]
 
@@ -444,5 +639,13 @@ private actor InMemoryBaselineStore: PairConflictStateStoring {
 
     func remove(pairID: UUID) async throws {
         states[pairID] = nil
+    }
+}
+
+private struct StubRcloneOperationInspector: RcloneOperationInspecting {
+    let activeOperation: ActiveRcloneCopyOperation?
+
+    func activeCopyOperation(remotePath: String, localPath: String, configPath: String?) async throws -> ActiveRcloneCopyOperation? {
+        activeOperation
     }
 }

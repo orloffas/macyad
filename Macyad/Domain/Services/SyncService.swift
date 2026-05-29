@@ -123,6 +123,7 @@ public struct SyncService: Sendable {
     public let baselineRepository: PairConflictStateStoring
     public let planner: PairConflictPlanner
     public let localConflictFileManager: LocalConflictFileManaging
+    public let operationInspector: RcloneOperationInspecting
     public let now: @Sendable () -> Date
 
     public init(
@@ -135,6 +136,7 @@ public struct SyncService: Sendable {
         baselineRepository: PairConflictStateStoring? = nil,
         planner: PairConflictPlanner = PairConflictPlanner(),
         localConflictFileManager: LocalConflictFileManaging = LocalConflictFileManager(),
+        operationInspector: RcloneOperationInspecting = NoopRcloneOperationInspector(),
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.processClient = processClient
@@ -150,6 +152,7 @@ public struct SyncService: Sendable {
         self.baselineRepository = baselineRepository ?? NoopPairConflictStateStore()
         self.planner = planner
         self.localConflictFileManager = localConflictFileManager
+        self.operationInspector = operationInspector
         self.now = now
     }
 
@@ -157,23 +160,22 @@ public struct SyncService: Sendable {
         let copy = AppCopy.current
 
         do {
-            guard try localFolderInspector.containsUserVisibleContent(
-                atPath: pair.localFolderDisplayPath,
-                excludedPatterns: pair.syncExcludes
-            ) else {
-                let error = LocalFolderEmptyPushBlockedError(
-                    pairName: pair.name,
-                    localFolderPath: pair.localFolderDisplayPath,
-                    remotePath: pair.remotePath
-                )
-                return OperationOutcome(severity: .warning, summary: copy.manualPushBlockedTitle, details: error.localizedDescription)
-            }
-
             let localSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .sync)
             let remoteSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.remotePath, mode: .sync)
             let baselinePreparation = try await prepareBaseline(pair: pair, localSnapshot: localSnapshot, remoteSnapshot: remoteSnapshot)
             switch baselinePreparation {
             case let .missingWithDrift(analysis):
+                if analysis.allowsSafeInitialPush {
+                    let syncLog = try await runCommand(syncArguments(for: pair))
+                    let baselineUpdated = try await refreshBaseline(for: pair)
+                    return OperationOutcome(
+                        severity: .healthy,
+                        summary: copy.manualSyncCompleted,
+                        details: syncLog.detailedDescriptionIfUseful,
+                        shouldUpdateLastSync: true,
+                        updatedBaseline: baselineUpdated
+                    )
+                }
                 return blockedPushOutcome(analysis: analysis, copy: copy, baselineMissing: true)
             case let .ready(preparation):
                 if executionMode == .scheduled, !preparation.analysis.remoteOnlyChanged.isEmpty || !preparation.analysis.conflicts.isEmpty {
@@ -290,11 +292,54 @@ public struct SyncService: Sendable {
         let copy = AppCopy.current
 
         do {
+            let baseline = try await baselineRepository.load(pairID: pair.id)
+
+            if let activePull = try await operationInspector.activeCopyOperation(
+                remotePath: pair.remotePath,
+                localPath: pair.localFolderDisplayPath,
+                configPath: configPath
+            ) {
+                return OperationOutcome(
+                    severity: .warning,
+                    summary: copy.manualPullAlreadyRunningTitle,
+                    details: copy.manualPullAlreadyRunningDetails(
+                        pairName: pair.name,
+                        pid: activePull.pid,
+                        commandLine: activePull.commandLine
+                    )
+                )
+            }
+
+            if baseline == nil,
+               try localFolderInspector.containsUserVisibleContent(
+                   atPath: pair.localFolderDisplayPath,
+                   excludedPatterns: pair.syncExcludes
+               ) == false {
+                let pullLog = try await runCommand(pullArguments(for: pair))
+                let baselineUpdated = try await refreshBaselineFromLocalSnapshot(for: pair)
+                return OperationOutcome(
+                    severity: .healthy,
+                    summary: copy.manualPullCompleted,
+                    details: pullLog.detailedDescriptionIfUseful,
+                    updatedBaseline: baselineUpdated
+                )
+            }
+
             let localSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .sync)
             let remoteSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.remotePath, mode: .sync)
             let baselinePreparation = try await prepareBaseline(pair: pair, localSnapshot: localSnapshot, remoteSnapshot: remoteSnapshot)
             switch baselinePreparation {
             case let .missingWithDrift(analysis):
+                if analysis.allowsSafeInitialPull {
+                    let pullLog = try await runCommand(pullArguments(for: pair))
+                    let baselineUpdated = try await refreshBaseline(for: pair)
+                    return OperationOutcome(
+                        severity: .healthy,
+                        summary: copy.manualPullCompleted,
+                        details: pullLog.detailedDescriptionIfUseful,
+                        updatedBaseline: baselineUpdated
+                    )
+                }
                 return blockedPullOutcome(analysis: analysis, copy: copy, baselineMissing: true)
             case let .ready(preparation):
                 if executionMode == .scheduled, !preparation.analysis.localOnlyChanged.isEmpty || !preparation.analysis.conflicts.isEmpty {
@@ -383,6 +428,18 @@ public struct SyncService: Sendable {
             pairID: pair.id,
             localSnapshot: localSnapshot,
             remoteSnapshot: remoteSnapshot,
+            updatedAt: now()
+        )
+        try await baselineRepository.save(state)
+        return true
+    }
+
+    private func refreshBaselineFromLocalSnapshot(for pair: SyncPair) async throws -> Bool {
+        let localSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .sync)
+        let state = PairConflictBaselineState(
+            pairID: pair.id,
+            localSnapshot: localSnapshot,
+            remoteSnapshot: localSnapshot,
             updatedAt: now()
         )
         try await baselineRepository.save(state)
