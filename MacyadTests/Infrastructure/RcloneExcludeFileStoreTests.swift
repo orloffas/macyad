@@ -40,6 +40,32 @@ final class RcloneExcludeFileStoreTests: XCTestCase {
         )
     }
 
+    func testPrepareSyncExcludeFileExpandsLiteralDirectoryPatternsRecursively() throws {
+        let fileManager = FileManager.default
+        let rootURL = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? fileManager.removeItem(at: rootURL) }
+
+        let paths = AppPaths.makeForTesting(rootURL: rootURL)
+        let store = PersistentRcloneExcludeFileStore(paths: paths, fileManager: fileManager)
+        let pair = makePair(
+            syncExcludes: ["aacd64c1-18a5-4454-8baf-aa6f9127deaf", "Connections-OAS-Main (*).db"],
+            checkAdditionalExcludes: []
+        )
+
+        let filePath = try XCTUnwrap(store.prepareExcludeFile(for: pair, mode: .sync))
+        let fileContents = try String(contentsOfFile: filePath, encoding: .utf8)
+
+        XCTAssertEqual(
+            fileContents,
+            """
+            aacd64c1-18a5-4454-8baf-aa6f9127deaf
+            aacd64c1-18a5-4454-8baf-aa6f9127deaf/**
+            Connections-OAS-Main (*).db
+            """
+            + "\n"
+        )
+    }
+
     private func makePair(syncExcludes: [String], checkAdditionalExcludes: [String]) -> SyncPair {
         SyncPair(
             id: UUID(),

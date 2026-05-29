@@ -68,4 +68,24 @@ final class LocalFolderInspectorTests: XCTestCase {
             )
         )
     }
+
+    func testVisibleNestedItemsInsideLiteralExcludedDirectoriesDoNotCountAsUserVisibleContent() throws {
+        let fileManager = FileManager.default
+        let rootURL = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let archiveURL = rootURL.appendingPathComponent("aacd64c1-18a5-4454-8baf-aa6f9127deaf", isDirectory: true)
+        let nestedURL = archiveURL.appendingPathComponent("01-15-2026_11-51-25", isDirectory: true)
+        defer { try? fileManager.removeItem(at: rootURL) }
+
+        try fileManager.createDirectory(at: nestedURL, withIntermediateDirectories: true, attributes: nil)
+        try Data("index".utf8).write(to: nestedURL.appendingPathComponent("Connections-OAS.rdm"))
+
+        let inspector = FileManagerLocalFolderInspector()
+
+        XCTAssertFalse(
+            try inspector.containsUserVisibleContent(
+                atPath: rootURL.path,
+                excludedPatterns: ["aacd64c1-18a5-4454-8baf-aa6f9127deaf"]
+            )
+        )
+    }
 }

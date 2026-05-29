@@ -14,8 +14,14 @@ struct RcloneExcludeMatcher {
     func matches(relativePath: String, isDirectory: Bool) -> Bool {
         let normalizedPath = normalizePath(relativePath)
         let basename = URL(fileURLWithPath: normalizedPath).lastPathComponent
+        let pathComponents = normalizedPath.split(separator: "/").map(String.init)
 
         for pattern in patterns {
+            if isLiteralDirectoryPattern(pattern),
+               pathComponents.contains(normalizePath(pattern)) {
+                return true
+            }
+
             if pattern.hasSuffix("/**") {
                 let directoryPattern = String(pattern.dropLast(3))
                 let normalizedDirectoryPattern = normalizePath(directoryPattern)
@@ -50,6 +56,13 @@ struct RcloneExcludeMatcher {
         }
 
         return false
+    }
+
+    private func isLiteralDirectoryPattern(_ pattern: String) -> Bool {
+        !pattern.hasSuffix("/**")
+            && !pattern.contains("/")
+            && !pattern.contains("*")
+            && !pattern.contains("?")
     }
 
     private func matchesLike(pattern: String, value: String) -> Bool {
