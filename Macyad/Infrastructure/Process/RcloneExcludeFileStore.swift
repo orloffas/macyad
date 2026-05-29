@@ -44,10 +44,34 @@ public struct PersistentRcloneExcludeFileStore: RcloneExcludeFilePreparing, @unc
             sourcePatterns = pair.allCheckExcludes
         }
 
-        var seen = Set<String>()
-        return sourcePatterns
+        let basePatterns = sourcePatterns
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-            .filter { seen.insert($0).inserted }
+        var seen = Set<String>()
+        var expandedPatterns: [String] = []
+
+        for pattern in basePatterns {
+            if seen.insert(pattern).inserted {
+                expandedPatterns.append(pattern)
+            }
+
+            guard shouldExpandRecursively(pattern) else {
+                continue
+            }
+
+            let recursivePattern = "\(pattern)/**"
+            if seen.insert(recursivePattern).inserted {
+                expandedPatterns.append(recursivePattern)
+            }
+        }
+
+        return expandedPatterns
+    }
+
+    private func shouldExpandRecursively(_ pattern: String) -> Bool {
+        !pattern.hasSuffix("/**")
+            && !pattern.contains("/")
+            && !pattern.contains("*")
+            && !pattern.contains("?")
     }
 }
