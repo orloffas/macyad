@@ -112,7 +112,11 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
     }
 
     private func makeApplicationIcon() -> NSImage? {
-        if let bundledImage = NSImage(named: "MenuBarTemplate")?.copy() as? NSImage {
+        if let bundleIcon = bundledApplicationIcon() {
+            return bundleIcon
+        }
+
+        if let bundledImage = NSImage(named: "AppIcon")?.copy() as? NSImage {
             return bundledImage
         }
 
@@ -120,6 +124,26 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
             systemSymbolName: "externaldrive.badge.icloud",
             accessibilityDescription: AppMetadata.displayName
         )?.copy() as? NSImage
+    }
+
+    private func bundledApplicationIcon() -> NSImage? {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let iconFileValue = (info["CFBundleIconFile"] as? String) ?? (info["CFBundleIconName"] as? String)
+        guard let iconFileValue, !iconFileValue.isEmpty else {
+            return nil
+        }
+
+        let resourceName = (iconFileValue as NSString).deletingPathExtension
+        let resourceExtension = (iconFileValue as NSString).pathExtension.isEmpty
+            ? "icns"
+            : (iconFileValue as NSString).pathExtension
+
+        guard let iconURL = Bundle.main.url(forResource: resourceName, withExtension: resourceExtension),
+              let iconImage = NSImage(contentsOf: iconURL)?.copy() as? NSImage else {
+            return nil
+        }
+
+        return iconImage
     }
 
     nonisolated func userNotificationCenter(
