@@ -279,6 +279,18 @@ public struct AppCopy: Sendable {
         isRussian ? "Pull from Yandex заблокирован" : "Pull from Yandex blocked"
     }
 
+    public var manualPullAlreadyRunningTitle: String {
+        isRussian ? "Pull from Yandex уже выполняется" : "Pull from Yandex is already running"
+    }
+
+    public func manualPullAlreadyRunningDetails(pairName: String, pid: Int32, commandLine: String) -> String {
+        if isRussian {
+            return "Для pair \(pairName) уже выполняется rclone copy (PID \(pid)). Повторный Pull from Yandex пропущен, чтобы не запускать второй recursive scan параллельно.\n\nCommand: \(commandLine)"
+        }
+
+        return "An rclone copy is already running for pair \(pairName) (PID \(pid)). Skipped this Pull from Yandex to avoid starting a second recursive scan in parallel.\n\nCommand: \(commandLine)"
+    }
+
     public var manualConflictReconciledTitle: String {
         isRussian ? "Конфликт обработан, обе копии сохранены" : "Conflict reconciled, both copies preserved"
     }

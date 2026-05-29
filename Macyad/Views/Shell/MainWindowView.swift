@@ -588,7 +588,8 @@ struct MainWindowView: View {
             processClient: RcloneProcessClient(executablePath: executablePath),
             configPath: environment.paths.rcloneConfigFile.path,
             excludeFileStore: PersistentRcloneExcludeFileStore(paths: environment.paths),
-            baselineRepository: environment.conflictStateRepository
+            baselineRepository: environment.conflictStateRepository,
+            operationInspector: SystemRcloneOperationInspector()
         )
     }
 
