@@ -9,6 +9,7 @@ struct MacyadApp: App {
     @StateObject private var appModel = AppModel()
     @State private var statusBarBridge: StatusBarBridge?
     @State private var backgroundSyncController: BackgroundSyncController?
+    @State private var issueReviewWindowBridge = IssueReviewWindowBridge()
 
     var body: some Scene {
         WindowGroup(AppMetadata.displayName) {
@@ -61,6 +62,24 @@ struct MacyadApp: App {
         }
         appModel.quitApplication = {
             NSApp.terminate(nil)
+        }
+        appModel.presentIssueReviewWindow = { [weak appModel] presentingWindow, issueSet, onApply in
+            guard let appModel else {
+                return
+            }
+
+            issueReviewWindowBridge.present(
+                title: appModel.copy.issueReviewTitle,
+                presentingWindow: presentingWindow
+            ) {
+                IssueReviewSheetView(issueSet: issueSet, onApply: onApply) {
+                    issueReviewWindowBridge.close()
+                }
+                .environmentObject(appModel)
+            }
+        }
+        appModel.closeIssueReviewWindow = {
+            issueReviewWindowBridge.close()
         }
         appDelegate.notificationRouteHandler = { routeToken in
             appDelegate.showMainWindow()

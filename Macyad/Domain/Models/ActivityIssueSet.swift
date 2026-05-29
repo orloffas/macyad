@@ -53,6 +53,20 @@ public struct ActivityFileIssue: Codable, Equatable, Hashable, Identifiable, Sen
         self.baselineSnapshot = baselineSnapshot
         self.selectedDecision = selectedDecision
     }
+
+    public var directoryPath: String {
+        let normalizedPath = relativePath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !normalizedPath.isEmpty else {
+            return "/"
+        }
+
+        let components = normalizedPath.split(separator: "/")
+        guard components.count > 1 else {
+            return "/"
+        }
+
+        return "/" + components.dropLast().joined(separator: "/")
+    }
 }
 
 public struct ActivityIssueSet: Codable, Equatable, Sendable {
