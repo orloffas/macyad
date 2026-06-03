@@ -140,10 +140,16 @@ private func pumpLines(
         if chunk.isEmpty { break }
         collected.append(chunk)
         guard let text = String(data: chunk, encoding: .utf8) else { continue }
-        lineBuffer += text
+        // Normalize so we yield each carriage-returned progress update
+        // (rclone's --stats-one-line uses \r to overwrite the same TTY row
+        // and would otherwise accumulate into a single ever-growing line).
+        let normalized = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        lineBuffer += normalized
         var lines = lineBuffer.components(separatedBy: "\n")
         lineBuffer = lines.removeLast()
-        for line in lines {
+        for line in lines where !line.isEmpty {
             continuation.yield(line)
         }
     }

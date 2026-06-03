@@ -44,6 +44,25 @@ final class RcloneProcessClientStreamingTests: XCTestCase {
         XCTAssertTrue(collectedLines.isEmpty)
     }
 
+    func testRunStreamingSplitsCarriageReturnProgressUpdates() async throws {
+        // rclone's --stats-one-line emits progress with \r overwrites; ensure
+        // each update is yielded as its own line instead of accumulating.
+        let client = RcloneProcessClient(executablePath: "/bin/sh")
+        let handle = try await client.runStreaming([
+            "-c",
+            "printf 'progress1\\rprogress2\\rprogress3\\n'"
+        ])
+
+        var collectedLines: [String] = []
+        for await line in handle.lines {
+            collectedLines.append(line)
+        }
+
+        let result = try await handle.completion.value
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(collectedLines, ["progress1", "progress2", "progress3"])
+    }
+
     func testRunStreamingMergesStderrIntoLineStream() async throws {
         // rclone writes most operational output to stderr, so the streaming
         // handle must merge both pipes into the same line stream — otherwise

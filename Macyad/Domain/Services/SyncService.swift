@@ -720,7 +720,17 @@ public struct SyncService: Sendable {
     ) async throws -> RcloneCommandLog {
         let result: (stdout: String, stderr: String, exitCode: Int32)
         if let observer {
-            let handle = try await processClient.runStreaming(arguments)
+            // Live monitor is attached. Augment the arguments so the user
+            // always sees activity — rclone is silent by default when there
+            // is nothing to transfer, which makes the Live monitor look
+            // broken even though the operation is running. `-v` adds INFO
+            // log lines ("There was nothing to transfer.", "Copied" lines),
+            // `--stats=2s --stats-one-line` emits a periodic single-line
+            // progress update so progress is visible mid-operation. The
+            // existing log-parsing path is unaffected because it inspects
+            // the post-completion stdout/stderr.
+            let augmented = arguments + ["-v", "--stats=2s", "--stats-one-line"]
+            let handle = try await processClient.runStreaming(augmented)
             let consumeTask = Task {
                 for await line in handle.lines {
                     await observer.onLine(line)
