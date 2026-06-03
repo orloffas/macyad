@@ -100,42 +100,24 @@ public struct RcloneProcessClient: RcloneProcessRunning {
         let (stream, continuation) = AsyncStream.makeStream(of: String.self, bufferingPolicy: .bufferingNewest(1000))
 
         let completionTask = Task<(stdout: String, stderr: String, exitCode: Int32), Error> {
-            var stdoutChunks: [Data] = []
-            var stderrData = Data()
-            var lineBuffer = ""
-
-            let stdoutHandle = stdoutPipe.fileHandleForReading
-            let stderrHandle = stderrPipe.fileHandleForReading
-
-            let stderrReadTask = Task.detached(priority: .utility) {
-                stderrHandle.readDataToEndOfFile()
+            // Read both stdout and stderr concurrently, yielding lines from each
+            // into the shared stream (rclone writes most operational output to stderr,
+            // so the live monitor would stay empty if we only piped stdout).
+            let stdoutReader = Task.detached(priority: .utility) {
+                pumpLines(from: stdoutPipe.fileHandleForReading, into: continuation)
+            }
+            let stderrReader = Task.detached(priority: .utility) {
+                pumpLines(from: stderrPipe.fileHandleForReading, into: continuation)
             }
 
-            // Read stdout line by line, yielding each complete line to the stream
-            while true {
-                let chunk = stdoutHandle.availableData
-                if chunk.isEmpty { break }
-                stdoutChunks.append(chunk)
-                guard let text = String(data: chunk, encoding: .utf8) else { continue }
-                lineBuffer += text
-                var lines = lineBuffer.components(separatedBy: "\n")
-                lineBuffer = lines.removeLast()
-                for line in lines {
-                    continuation.yield(line)
-                }
-            }
-            // Yield any remaining partial line
-            if !lineBuffer.isEmpty {
-                continuation.yield(lineBuffer)
-            }
+            let stdoutData = await stdoutReader.value
+            let stderrData = await stderrReader.value
             continuation.finish()
 
             process.waitUntilExit()
 
-            stderrData = await stderrReadTask.value
-            let stdout = stdoutChunks.reduce(into: Data()) { $0.append($1) }
             return (
-                stdout: String(decoding: stdout, as: UTF8.self),
+                stdout: String(decoding: stdoutData, as: UTF8.self),
                 stderr: String(decoding: stderrData, as: UTF8.self),
                 exitCode: process.terminationStatus
             )
@@ -145,6 +127,30 @@ public struct RcloneProcessClient: RcloneProcessRunning {
 
         return RcloneStreamingHandle(lines: stream, completion: completionTask)
     }
+}
+
+private func pumpLines(
+    from handle: FileHandle,
+    into continuation: AsyncStream<String>.Continuation
+) -> Data {
+    var collected = Data()
+    var lineBuffer = ""
+    while true {
+        let chunk = handle.availableData
+        if chunk.isEmpty { break }
+        collected.append(chunk)
+        guard let text = String(data: chunk, encoding: .utf8) else { continue }
+        lineBuffer += text
+        var lines = lineBuffer.components(separatedBy: "\n")
+        lineBuffer = lines.removeLast()
+        for line in lines {
+            continuation.yield(line)
+        }
+    }
+    if !lineBuffer.isEmpty {
+        continuation.yield(lineBuffer)
+    }
+    return collected
 }
 
 private func runProcess(
