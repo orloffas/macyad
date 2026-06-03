@@ -16,7 +16,13 @@ public final class CreatePairViewModel: ObservableObject {
     @Published public var selectedAccountID = SyncPair.unassignedAccountID
     @Published public var remoteSubpath = ""
     @Published public var conflictPolicy: ConflictPolicy = .block
-    @Published public var scheduleMinutes = 30
+    @Published public var scheduleMinutes: Int = 30 {
+        didSet {
+            let clamped = scheduleMinutes.clamped(to: 1...1440)
+            if scheduleMinutes != clamped { scheduleMinutes = clamped }
+        }
+    }
+    @Published public var intervalInputText: String = "30"
     @Published public var deletePolicy: SyncPair.DeletePolicy = .mirrorToYandex
     @Published public var syncExcludesText = SyncPair.defaultSyncExcludes.joined(separator: "\n")
     @Published public var checkAdditionalExcludesText = ""
@@ -28,11 +34,19 @@ public final class CreatePairViewModel: ObservableObject {
         existingPair != nil
     }
 
+    public var isIntervalValid: Bool {
+        guard let value = Int(intervalInputText.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            return false
+        }
+        return (1...1440).contains(value)
+    }
+
     public var canSave: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
         localFolderDisplayPath != nil &&
         selectedAccountID != SyncPair.unassignedAccountID &&
-        !resolvedRemotePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !resolvedRemotePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        isIntervalValid
     }
 
     public init(
@@ -52,10 +66,18 @@ public final class CreatePairViewModel: ObservableObject {
         self.selectedAccountID = existingPair?.accountID ?? self.availableAccounts.first?.id ?? SyncPair.unassignedAccountID
         self.remoteSubpath = existingPair.map(\.parsedRemoteSubpath) ?? ""
         self.conflictPolicy = existingPair?.conflictPolicy ?? .block
-        self.scheduleMinutes = existingPair?.scheduleMinutes ?? defaultScheduleMinutes
+        let minutes = existingPair?.scheduleMinutes ?? defaultScheduleMinutes
+        self.scheduleMinutes = minutes.clamped(to: 1...1440)
+        self.intervalInputText = "\(self.scheduleMinutes)"
         self.deletePolicy = existingPair?.deletePolicy ?? .mirrorToYandex
         self.syncExcludesText = Self.makeExcludeText(from: existingPair?.syncExcludes ?? SyncPair.defaultSyncExcludes)
         self.checkAdditionalExcludesText = Self.makeExcludeText(from: existingPair?.checkAdditionalExcludes ?? [])
+    }
+
+    public func commitIntervalText() {
+        guard let value = Int(intervalInputText.trimmingCharacters(in: .whitespacesAndNewlines)),
+              (1...1440).contains(value) else { return }
+        scheduleMinutes = value
     }
 
     public func replaceAvailableAccounts(_ accounts: [YandexAccount]) {
@@ -141,5 +163,11 @@ public final class CreatePairViewModel: ObservableObject {
 
     private static func sortAccounts(_ accounts: [YandexAccount]) -> [YandexAccount] {
         accounts.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+    }
+}
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }

@@ -98,6 +98,81 @@ final class CreatePairViewModelTests: XCTestCase {
         XCTAssertEqual(model.checkAdditionalExcludesText, "Desktop.ini")
     }
 
+    func testScheduleMinutesClampLow() {
+        let model = CreatePairViewModel(
+            accounts: [account],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
+        model.scheduleMinutes = 0
+        XCTAssertEqual(model.scheduleMinutes, 1)
+    }
+
+    func testScheduleMinutesClampHigh() {
+        let model = CreatePairViewModel(
+            accounts: [account],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
+        model.scheduleMinutes = 9999
+        XCTAssertEqual(model.scheduleMinutes, 1440)
+    }
+
+    func testScheduleMinutesPassthrough() {
+        let model = CreatePairViewModel(
+            accounts: [account],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
+        model.scheduleMinutes = 60
+        XCTAssertEqual(model.scheduleMinutes, 60)
+    }
+
+    func testIntervalInputTextInvalidAlpha() {
+        let model = CreatePairViewModel(
+            accounts: [account],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
+        model.intervalInputText = "abc"
+        XCTAssertFalse(model.isIntervalValid)
+    }
+
+    func testIntervalInputTextEmpty() {
+        let model = CreatePairViewModel(
+            accounts: [account],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
+        model.intervalInputText = ""
+        XCTAssertFalse(model.isIntervalValid)
+    }
+
+    func testIntervalInputTextValid() {
+        let model = CreatePairViewModel(
+            accounts: [account],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
+        model.intervalInputText = "60"
+        XCTAssertTrue(model.isIntervalValid)
+        model.commitIntervalText()
+        XCTAssertEqual(model.scheduleMinutes, 60)
+    }
+
+    func testCanSaveFalseWhenIntervalInvalid() {
+        let model = CreatePairViewModel(
+            accounts: [account],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService()
+        )
+        model.name = "Test"
+        model.chooseFolder()
+        model.remoteSubpath = "docs"
+        model.intervalInputText = "abc"
+        XCTAssertFalse(model.canSave)
+    }
+
     func testBuildPairParsesDeduplicatedExcludesAndPreservesEditedPairIdentity() throws {
         let existingPair = SyncPair(
             id: UUID(),
