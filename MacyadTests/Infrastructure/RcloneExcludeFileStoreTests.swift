@@ -16,7 +16,7 @@ final class RcloneExcludeFileStoreTests: XCTestCase {
         let fileContents = try String(contentsOfFile: filePath, encoding: .utf8)
 
         XCTAssertEqual(URL(fileURLWithPath: filePath).deletingLastPathComponent(), paths.rcloneFiltersDirectory)
-        XCTAssertEqual(fileContents, ".DS_Store\n.git/**\n")
+        XCTAssertEqual(fileContents, ".DS_Store\n.DS_Store/**\n.git/**\n")
     }
 
     func testPrepareCheckExcludeFileCombinesSyncAndAdditionalPatterns() throws {
@@ -36,7 +36,7 @@ final class RcloneExcludeFileStoreTests: XCTestCase {
 
         XCTAssertEqual(
             fileContents,
-            ".DS_Store\n.venv/**\n.git/**\n.pytest_cache/**\n"
+            ".DS_Store\n.DS_Store/**\n.venv/**\n.git/**\n.pytest_cache/**\n"
         )
     }
 
