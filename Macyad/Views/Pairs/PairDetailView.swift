@@ -222,14 +222,18 @@ struct PairDetailView: View {
             .disabled(viewModel.operationPhase != .idle)
 
             if viewModel.operationPhase != .idle {
-                Text(operationPhaseTitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if viewModel.operationPhase == .running && viewModel.lastOperationKind != .scheduled,
-               let onOpenLiveMonitor {
-                Button(copy.openLiveMonitorButtonTitle) { onOpenLiveMonitor() }
+                HStack(spacing: 8) {
+                    Text(operationPhaseTitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if viewModel.operationPhase == .running,
+                       viewModel.lastOperationKind != .scheduled,
+                       let onOpenLiveMonitor {
+                        Button(copy.openLiveMonitorButtonTitle, action: onOpenLiveMonitor)
+                            .buttonStyle(.link)
+                            .font(.caption)
+                    }
+                }
             }
         }
         .controlSize(.small)
