@@ -1,5 +1,11 @@
 import Foundation
 
+public enum OverviewPauseSource: Sendable, Equatable {
+    case none
+    case global
+    case perPair
+}
+
 public struct OverviewPairRow: Identifiable, Equatable, Sendable {
     public let id: UUID
     public let name: String
@@ -7,9 +13,10 @@ public struct OverviewPairRow: Identifiable, Equatable, Sendable {
     public let lastSyncTitle: String
     public let isAutoPushEnabled: Bool
     public let isGloballyPaused: Bool
+    public let pauseSource: OverviewPauseSource
 
     public var isPaused: Bool {
-        isGloballyPaused || !isAutoPushEnabled
+        pauseSource != .none
     }
 }
 
@@ -34,13 +41,23 @@ public final class OverviewViewModel: ObservableObject {
                 lastSyncTitle = copy.neverSynced
             }
 
+            let pauseSource: OverviewPauseSource
+            if preferences.isGlobalSchedulerPaused {
+                pauseSource = .global
+            } else if !pair.isAutoPushEnabled {
+                pauseSource = .perPair
+            } else {
+                pauseSource = .none
+            }
+
             return OverviewPairRow(
                 id: pair.id,
                 name: pair.name,
                 severity: severity,
                 lastSyncTitle: lastSyncTitle,
                 isAutoPushEnabled: pair.isAutoPushEnabled,
-                isGloballyPaused: preferences.isGlobalSchedulerPaused
+                isGloballyPaused: preferences.isGlobalSchedulerPaused,
+                pauseSource: pauseSource
             )
         }
     }

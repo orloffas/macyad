@@ -30,9 +30,14 @@ struct OverviewView: View {
                         if row.isPaused {
                             Image(systemName: "pause.circle")
                                 .foregroundStyle(.secondary)
+                            Text(pauseLabel(row.pauseSource, copy: copy))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        } else {
+                            Text(row.severity.rawValue.capitalized)
+                                .foregroundStyle(colorForSeverity(row.severity))
                         }
-                        Text(row.severity.rawValue.capitalized)
-                            .foregroundStyle(colorForSeverity(row.severity))
                     }
                 }
                 TableColumn("Auto-push") { row in
@@ -62,6 +67,26 @@ struct OverviewView: View {
             } else {
                 selectedPairID = nil
             }
+        }
+        .onChange(of: appModel.pairs) { _, _ in refreshRows() }
+        .onChange(of: appModel.preferences) { _, _ in refreshRows() }
+        .onChange(of: appModel.activityEvents) { _, _ in refreshRows() }
+    }
+
+    private func refreshRows() {
+        viewModel.update(
+            pairs: appModel.pairs,
+            events: appModel.activityEvents,
+            preferences: appModel.preferences,
+            copy: appModel.copy
+        )
+    }
+
+    private func pauseLabel(_ source: OverviewPauseSource, copy: AppCopy) -> String {
+        switch source {
+        case .global: copy.pausedByGlobalSettingShort
+        case .perPair: copy.pausedForThisPairShort
+        case .none: ""
         }
     }
 
