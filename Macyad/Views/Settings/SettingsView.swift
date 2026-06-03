@@ -23,6 +23,12 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Toggle(copy.pauseAllSchedulesToggleTitle, isOn: globalSchedulerPausedBinding)
+                } header: {
+                    Text(copy.scheduledPushSectionTitle)
+                }
+
+                Section {
                     LabeledContent(copy.notificationsStatusLabel, value: notificationStatusTitle)
                     HStack {
                         Button(copy.notificationsRequestButtonTitle) {
@@ -221,6 +227,13 @@ struct SettingsView: View {
         Binding(
             get: { viewModel.newAccountRemoteName },
             set: { viewModel.newAccountRemoteName = $0 }
+        )
+    }
+
+    private var globalSchedulerPausedBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.isGlobalSchedulerPaused },
+            set: { viewModel.updateIsGlobalSchedulerPaused($0) }
         )
     }
 

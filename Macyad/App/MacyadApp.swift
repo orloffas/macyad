@@ -10,6 +10,7 @@ struct MacyadApp: App {
     @State private var statusBarBridge: StatusBarBridge?
     @State private var backgroundSyncController: BackgroundSyncController?
     @State private var issueReviewWindowBridge = IssueReviewWindowBridge()
+    @State private var liveMonitorBridge = LiveMonitorWindowBridge()
 
     var body: some Scene {
         WindowGroup(AppMetadata.displayName) {
@@ -86,6 +87,16 @@ struct MacyadApp: App {
             if let routeToken {
                 appModel.applyActivityRoute(routeToken)
             }
+        }
+        appModel.liveMonitorPresenter = liveMonitorBridge
+        appModel.openLiveMonitor = { [weak appModel] pair in
+            guard let appModel else { return }
+            liveMonitorBridge.present(
+                pair: pair,
+                viewModel: liveMonitorBridge.existingViewModel(for: pair.id) ?? LiveMonitorViewModel(),
+                copy: appModel.copy,
+                restartIfExisting: true
+            )
         }
     }
 

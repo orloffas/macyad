@@ -9,9 +9,18 @@ public final class PairDetailViewModel: ObservableObject {
         case running
     }
 
+    public enum PauseSource: Sendable {
+        case none
+        case global
+        case perPair
+    }
+
     @Published public private(set) var latestSeverity: Severity = .healthy
     @Published public private(set) var operationPhase: OperationPhase = .idle
+    @Published public private(set) var lastOperationKind: SyncService.ExecutionMode?
     @Published public private(set) var lastErrorMessage: String?
+
+    public var onToggleAutoPush: ((SyncPair, Bool) async -> Void)?
 
     public init() {}
 
@@ -28,8 +37,11 @@ public final class PairDetailViewModel: ObservableObject {
         operationPhase = isRunning ? .running : .idle
     }
 
-    public func setOperationPhase(_ phase: OperationPhase) {
+    public func setOperationPhase(_ phase: OperationPhase, kind: SyncService.ExecutionMode? = nil) {
         operationPhase = phase
+        if let kind {
+            lastOperationKind = kind
+        }
     }
 
     public func setLatestSeverity(_ severity: Severity) {
@@ -38,5 +50,11 @@ public final class PairDetailViewModel: ObservableObject {
 
     public func setError(_ message: String?) {
         lastErrorMessage = message
+    }
+
+    public func pauseSource(for pair: SyncPair, preferences: AppPreferences) -> PauseSource {
+        if preferences.isGlobalSchedulerPaused { return .global }
+        if !pair.isAutoPushEnabled { return .perPair }
+        return .none
     }
 }

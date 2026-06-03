@@ -6,6 +6,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var selectedLanguage = AppPreferences.defaults.selectedLanguage
     @Published var launchAtLogin = AppPreferences.defaults.launchAtLoginEnabled
     @Published var defaultScheduleMinutes = AppPreferences.defaults.defaultScheduleMinutes
+    @Published var isGlobalSchedulerPaused = AppPreferences.defaults.isGlobalSchedulerPaused
     @Published var accounts: [YandexAccount] = []
     @Published var newAccountDisplayName = ""
     @Published var newAccountRemoteName = ""
@@ -184,6 +185,10 @@ final class SettingsViewModel: ObservableObject {
         AppLanguage(code: selectedLanguage)
     }
 
+    var currentPreferences: AppPreferences {
+        makePreferences()
+    }
+
     private func persist() async {
         do {
             try await preferencesStore.save(makePreferences())
@@ -192,11 +197,17 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
+    func updateIsGlobalSchedulerPaused(_ paused: Bool) {
+        isGlobalSchedulerPaused = paused
+        Task { await persist() }
+    }
+
     private func apply(_ preferences: AppPreferences) {
         loadedLanguage = preferences.selectedLanguage
         selectedLanguage = preferences.selectedLanguage
         launchAtLogin = preferences.launchAtLoginEnabled
         defaultScheduleMinutes = preferences.defaultScheduleMinutes
+        isGlobalSchedulerPaused = preferences.isGlobalSchedulerPaused
         languageDidChange(preferences.appLanguage)
     }
 
@@ -241,7 +252,8 @@ final class SettingsViewModel: ObservableObject {
         AppPreferences(
             selectedLanguage: selectedLanguage,
             launchAtLoginEnabled: launchAtLogin,
-            defaultScheduleMinutes: defaultScheduleMinutes
+            defaultScheduleMinutes: defaultScheduleMinutes,
+            isGlobalSchedulerPaused: isGlobalSchedulerPaused
         )
     }
 }
