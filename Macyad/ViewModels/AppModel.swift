@@ -8,7 +8,6 @@ final class AppModel: ObservableObject {
     @Published var language = AppLanguageState.current
     @Published var sidebarSelection: SidebarSelection = .route(.onboarding)
     @Published var isCreatePairSheetPresented = false
-    @Published var isInspectorVisible = true
     @Published var onboardingState = OnboardingState(
         step: .installRclone,
         rcloneLocation: nil,
@@ -32,6 +31,8 @@ final class AppModel: ObservableObject {
     var runPullForSelectedPair: () -> Void = {}
     var presentIssueReviewWindow: (_ presentingWindow: NSWindow?, _ issueSet: ActivityIssueSet, _ onApply: @escaping (ActivityIssueSet) async -> ActivityReviewApplyResult) -> Void = { _, _, _ in }
     var closeIssueReviewWindow: () -> Void = {}
+    var liveMonitorPresenter: LiveMonitorPresenting?
+    var openLiveMonitor: ((SyncPair) -> Void)?
     private var didAutoSelectInitialPair = false
 
     var route: AppRoute {

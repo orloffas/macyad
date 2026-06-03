@@ -6,6 +6,7 @@ struct PairDetailView: View {
     let pair: SyncPair?
     let displaySeverity: Severity
     @ObservedObject var viewModel: PairDetailViewModel
+    var preferences: AppPreferences = .defaults
     var onSyncNow: (() -> Void)? = nil
     var onCheckYandex: (() -> Void)? = nil
     var onPullFromYandex: (() -> Void)? = nil
@@ -13,6 +14,7 @@ struct PairDetailView: View {
     var onDeletePair: (() -> Void)? = nil
     var canDeletePair = true
     var onApplyIssueReview: ((ActivityEvent, ActivityIssueSet) async -> ActivityReviewApplyResult)? = nil
+    var onOpenLiveMonitor: (() -> Void)? = nil
     @State private var selectedActivityEvent: ActivityEvent?
     @State private var autoOpenIssueReview = false
 
@@ -171,14 +173,34 @@ struct PairDetailView: View {
 
     private func titleBlock(pair: SyncPair) -> some View {
         let copy = appModel.copy
+        let source = viewModel.pauseSource(for: pair, preferences: preferences)
 
         return VStack(alignment: .leading, spacing: 5) {
             Text(pair.name)
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text(copy.lastStatusTitle(severityTitle(displaySeverity)))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text(copy.lastStatusTitle(severityTitle(displaySeverity)))
+                    .foregroundStyle(.secondary)
+
+                if source != .none {
+                    let tooltip = source == .global
+                        ? copy.pausedByGlobalSettingTooltip
+                        : copy.pausedForThisPairTooltip
+                    Image(systemName: "pause.circle")
+                        .foregroundStyle(.secondary)
+                        .help(tooltip)
+                }
+            }
+
+            Toggle("Auto-push", isOn: Binding(
+                get: { pair.isAutoPushEnabled },
+                set: { newValue in
+                    Task { await viewModel.onToggleAutoPush?(pair, newValue) }
+                }
+            ))
+            .controlSize(.small)
         }
     }
 
@@ -194,15 +216,20 @@ struct PairDetailView: View {
                 Button(copy.pullButtonTitle) { onPullFromYandex?() }
                     .help(copy.pullActionDescription)
             }
+            .disabled(viewModel.operationPhase != .idle)
 
             if viewModel.operationPhase != .idle {
                 Text(operationPhaseTitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            if viewModel.operationPhase == .running && viewModel.lastOperationKind != .scheduled,
+               let onOpenLiveMonitor {
+                Button(copy.openLiveMonitorButtonTitle) { onOpenLiveMonitor() }
+            }
         }
         .controlSize(.small)
-        .disabled(viewModel.operationPhase != .idle)
     }
 
     private var managementButtons: some View {

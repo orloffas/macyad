@@ -35,6 +35,13 @@ struct MainWindowView: View {
         case missingRclone
     }
 
+    private struct LiveMonitorClosureObserver: RcloneOutputObserver {
+        let onLineCallback: @Sendable @MainActor (String) -> Void
+        func onLine(_ line: String) async {
+            await onLineCallback(line)
+        }
+    }
+
     @Environment(\.openSettings) private var openSettings
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var environment: AppEnvironment
@@ -90,13 +97,7 @@ struct MainWindowView: View {
                 }
             }
         } detail: {
-            HSplitView {
-                contentPane
-
-                if appModel.isInspectorVisible {
-                    inspectorPane
-                }
-            }
+            contentPane
         }
         .sheet(
             isPresented: Binding(
@@ -146,50 +147,46 @@ struct MainWindowView: View {
             case .route(.onboarding):
                 OnboardingView(viewModel: environment.onboardingViewModel)
             case .route(.overview):
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(appModel.route.title(using: copy))
-                        .font(.title2)
-                        .fontWeight(.semibold)
-
-                    LabeledContent(copy.overviewStatusLabel, value: appModel.statusSummary.title)
-                    LabeledContent(copy.overviewWorkspaceLabel, value: environment.paths.workspaceRoot.path)
-                    LabeledContent(copy.overviewPairsLabel, value: "\(appModel.pairs.count)")
-
-                    Spacer()
-                }
-                .padding(20)
+                OverviewView(
+                    viewModel: environment.overviewViewModel,
+                    onSelectPair: { id in appModel.sidebarSelection = .pair(id) },
+                    onToggleAutoPush: { id, value in
+                        if let index = appModel.pairs.firstIndex(where: { $0.id == id }) {
+                            appModel.pairs[index].isAutoPushEnabled = value
+                            Task { try? await environment.pairRepository.save(appModel.pairs) }
+                        }
+                    }
+                )
             case .pair:
                 PairDetailView(
                     pair: appModel.selectedPair,
                     displaySeverity: appModel.selectedPair?.lastKnownSeverity ?? .healthy,
                     viewModel: environment.pairDetailViewModel,
+                    preferences: environment.settingsViewModel.currentPreferences,
                     onSyncNow: { runActivePairAction(.syncNow) },
                     onCheckYandex: { runActivePairAction(.checkYandex) },
                     onPullFromYandex: { runActivePairAction(.pullFromYandex) },
                     onEditPair: { presentEditPairSheet() },
                     onDeletePair: { pairPendingDeletion = appModel.selectedPair },
                     canDeletePair: appModel.pairs.count > 1,
-                    onApplyIssueReview: applyIssueReview
+                    onApplyIssueReview: applyIssueReview,
+                    onOpenLiveMonitor: {
+                        if let pair = appModel.selectedPair {
+                            appModel.openLiveMonitor?(pair)
+                        }
+                    }
                 )
+                .onAppear {
+                    environment.pairDetailViewModel.onToggleAutoPush = { pair, newValue in
+                        if let index = appModel.pairs.firstIndex(where: { $0.id == pair.id }) {
+                            appModel.pairs[index].isAutoPushEnabled = newValue
+                            try? await environment.pairRepository.save(appModel.pairs)
+                        }
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private var inspectorPane: some View {
-        let copy = appModel.copy
-
-        return VStack(alignment: .leading, spacing: 10) {
-            Text(copy.inspectorTitle)
-                .font(.headline)
-
-            LabeledContent(copy.warningsLabel, value: "\(appModel.statusSummary.warningCount)")
-            LabeledContent(copy.alarmsLabel, value: "\(appModel.statusSummary.alarmCount)")
-
-            Spacer()
-        }
-        .padding(16)
-        .frame(minWidth: 220, idealWidth: 240, maxWidth: 260, maxHeight: .infinity, alignment: .topLeading)
     }
 
     @MainActor
@@ -248,12 +245,19 @@ struct MainWindowView: View {
             let pairs = try await environment.pairRepository.load()
             let reconciled = try await environment.reconcileAccountsAndPairs(pairs: pairs)
             let events = try await environment.activityRepository.load()
+            let preferences = (try? await environment.preferencesStore.load()) ?? .defaults
             await MainActor.run {
                 appModel.applyPersistedState(
                     pairs: reconciled.pairs,
                     accounts: reconciled.accounts,
                     events: events.sorted { $0.date > $1.date },
                     using: environment.statusService
+                )
+                environment.overviewViewModel.update(
+                    pairs: reconciled.pairs,
+                    events: events,
+                    preferences: preferences,
+                    copy: appModel.copy
                 )
                 appModel.applyInitialPairSelectionIfNeeded()
                 configureQuickActions()
@@ -344,18 +348,35 @@ struct MainWindowView: View {
     }
 
     private func run(_ operation: PairOperationKind, for pair: SyncPair) async {
+        let bridge = appModel.liveMonitorPresenter as? LiveMonitorWindowBridge
+        let liveMonitorViewModel = await MainActor.run {
+            bridge?.existingViewModel(for: pair.id) ?? LiveMonitorViewModel()
+        }
+        let observer = LiveMonitorClosureObserver { [weak liveMonitorViewModel] line in
+            liveMonitorViewModel?.appendLine(line)
+        }
+
         await MainActor.run {
-            environment.pairDetailViewModel.setOperationPhase(.queued)
+            environment.pairDetailViewModel.setOperationPhase(.queued, kind: .manual)
             environment.pairDetailViewModel.setError(nil)
+            appModel.openLiveMonitor = { [weak appModel] openPair in
+                guard let appModel else { return }
+                bridge?.present(
+                    pair: openPair,
+                    viewModel: liveMonitorViewModel,
+                    copy: appModel.copy,
+                    restartIfExisting: true
+                )
+            }
         }
 
         do {
             let syncService = try await makeSyncService()
             let outcome = try await environment.operationCoordinator.enqueue(pairID: pair.id, label: operation.queueLabel) {
                 await MainActor.run {
-                    environment.pairDetailViewModel.setOperationPhase(.running)
+                    environment.pairDetailViewModel.setOperationPhase(.running, kind: .manual)
                 }
-                return await perform(operation, with: syncService, for: pair)
+                return await perform(operation, with: syncService, for: pair, observer: observer)
             }
             let updatedPair = outcome.pair
             try await replacePair(updatedPair)
@@ -387,6 +408,7 @@ struct MainWindowView: View {
                 appModel.appendActivityEvent(event)
                 environment.pairDetailViewModel.setLatestSeverity(updatedPair.lastKnownSeverity)
                 appModel.refreshBackgroundState()
+                liveMonitorViewModel.setExitStatus(.success)
             }
         } catch {
             let copy = AppCopy.current
@@ -410,6 +432,7 @@ struct MainWindowView: View {
                 environment.pairDetailViewModel.setError(localizedError)
                 environment.pairDetailViewModel.setLatestSeverity(.alarm)
                 appModel.refreshBackgroundState()
+                liveMonitorViewModel.setExitStatus(.failed(code: 1))
             }
         }
 
@@ -418,12 +441,12 @@ struct MainWindowView: View {
         }
     }
 
-    private func perform(_ operation: PairOperationKind, with syncService: SyncService, for pair: SyncPair) async -> PairOperationOutcome {
+    private func perform(_ operation: PairOperationKind, with syncService: SyncService, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async -> PairOperationOutcome {
         var updatedPair = pair
 
         switch operation {
         case .syncNow:
-            let outcome = await syncService.push(pair)
+            let outcome = await syncService.push(pair, observer: observer)
             updatedPair.lastKnownSeverity = outcome.severity
             if outcome.shouldUpdateLastSync {
                 updatedPair.lastSyncAt = Date()
@@ -435,7 +458,7 @@ struct MainWindowView: View {
                 issueSet: outcome.issueSet
             )
         case .checkYandex:
-            let outcome = await syncService.check(pair)
+            let outcome = await syncService.check(pair, observer: observer)
             updatedPair.lastKnownSeverity = outcome.severity
             return PairOperationOutcome(
                 pair: updatedPair,
@@ -444,7 +467,7 @@ struct MainWindowView: View {
                 issueSet: outcome.issueSet
             )
         case .pullFromYandex:
-            let outcome = await syncService.pull(pair)
+            let outcome = await syncService.pull(pair, observer: observer)
             updatedPair.lastKnownSeverity = outcome.severity
             return PairOperationOutcome(
                 pair: updatedPair,
