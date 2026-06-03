@@ -173,6 +173,39 @@ final class CreatePairViewModelTests: XCTestCase {
         XCTAssertFalse(model.canSave)
     }
 
+    func testIntervalInputTextSyncsWhenScheduleMinutesChangesViaStepper() {
+        let model = CreatePairViewModel(
+            accounts: [account],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService(),
+            defaultScheduleMinutes: 30
+        )
+        XCTAssertEqual(model.intervalInputText, "30")
+
+        model.scheduleMinutes = 60
+        XCTAssertEqual(model.intervalInputText, "60")
+        XCTAssertTrue(model.isIntervalValid)
+
+        model.scheduleMinutes = 1440
+        XCTAssertEqual(model.intervalInputText, "1440")
+
+        model.scheduleMinutes = 0
+        XCTAssertEqual(model.scheduleMinutes, 1)
+        XCTAssertEqual(model.intervalInputText, "1")
+    }
+
+    func testIntervalInputTextNotOverwrittenWhenStepperLeavesItUnchanged() {
+        let model = CreatePairViewModel(
+            accounts: [account],
+            folderPicker: StubFolderPicker(),
+            pairService: PairService(),
+            defaultScheduleMinutes: 30
+        )
+        model.intervalInputText = "30"
+        model.scheduleMinutes = 30
+        XCTAssertEqual(model.intervalInputText, "30")
+    }
+
     func testBuildPairParsesDeduplicatedExcludesAndPreservesEditedPairIdentity() throws {
         let existingPair = SyncPair(
             id: UUID(),
