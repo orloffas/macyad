@@ -58,4 +58,45 @@ final class SyncPairTests: XCTestCase {
         XCTAssertEqual(SyncPair.remoteSubpath(from: "yd:/Docs/Work"), "Docs/Work")
         XCTAssertEqual(SyncPair.composeRemotePath(remoteName: "yd", remoteSubpath: "Docs/Work"), "yd:/Docs/Work")
     }
+
+    func testLegacyDecodeDefaultsIsAutoPushEnabledToTrue() throws {
+        let json = """
+        {
+          "id": "8A6DFB16-5E36-49E5-A406-0549A5135363",
+          "name": "Docs",
+          "localFolderBookmark": "Ym9va21hcms=",
+          "localFolderDisplayPath": "/Users/test/Docs",
+          "remotePath": "yd:/Docs",
+          "scheduleMinutes": 30,
+          "deletePolicy": "mirrorToYandex",
+          "lastKnownSeverity": "healthy",
+          "lastSyncAt": null
+        }
+        """
+        let pair = try JSONDecoder().decode(SyncPair.self, from: Data(json.utf8))
+        XCTAssertTrue(pair.isAutoPushEnabled)
+    }
+
+    func testRoundTripIsAutoPushEnabled() throws {
+        let json = """
+        {
+          "id": "8A6DFB16-5E36-49E5-A406-0549A5135363",
+          "name": "Docs",
+          "localFolderBookmark": "Ym9va21hcms=",
+          "localFolderDisplayPath": "/Users/test/Docs",
+          "remotePath": "yd:/Docs",
+          "scheduleMinutes": 30,
+          "deletePolicy": "mirrorToYandex",
+          "lastKnownSeverity": "healthy",
+          "lastSyncAt": null,
+          "isAutoPushEnabled": false
+        }
+        """
+        let pair = try JSONDecoder().decode(SyncPair.self, from: Data(json.utf8))
+        XCTAssertFalse(pair.isAutoPushEnabled)
+
+        let encoded = try JSONEncoder().encode(pair)
+        let decoded = try JSONDecoder().decode(SyncPair.self, from: encoded)
+        XCTAssertFalse(decoded.isAutoPushEnabled)
+    }
 }

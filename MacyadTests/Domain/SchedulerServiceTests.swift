@@ -177,6 +177,70 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertTrue(policy.canRunScheduledPush(for: makePair(name: "Warning", severity: .warning, lastSyncAt: nil)))
     }
 
+    func testSnapshotAPIGlobalPausedSkipsAllPairs() async {
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair1 = makePair(name: "A", severity: .healthy, lastSyncAt: nil)
+        let pair2 = makePair(name: "B", severity: .healthy, lastSyncAt: nil)
+        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncServiceProvider: { fatalError("should not be called") })
+        let pausedPrefs = AppPreferences(selectedLanguage: "en", launchAtLoginEnabled: true, defaultScheduleMinutes: 15, isGlobalSchedulerPaused: true)
+        let snapshot = SchedulerSnapshot(pairs: [pair1, pair2], preferences: pausedPrefs)
+
+        let results = await scheduler.runScheduledPushes(snapshot: snapshot, now: now)
+
+        XCTAssertEqual(results.count, 2)
+        XCTAssertEqual(results[0].disposition, .skippedByPolicy)
+        XCTAssertEqual(results[1].disposition, .skippedByPolicy)
+    }
+
+    func testSnapshotAPIGlobalRunningPerPairOffSkipsThatPair() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        var pairOff = makePair(name: "Off", severity: .healthy, lastSyncAt: nil)
+        pairOff.isAutoPushEnabled = false
+        let pairOn = makePair(name: "On", severity: .healthy, lastSyncAt: nil)
+        let processClient = RecordingProcessClient()
+        let service = SyncService(
+            processClient: processClient,
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pairOff, pairOn])),
+            baselineRepository: InMemoryBaselineStore()
+        )
+        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let prefs = AppPreferences.defaults
+        let snapshot = SchedulerSnapshot(pairs: [pairOff, pairOn], preferences: prefs)
+
+        let results = await scheduler.runScheduledPushes(snapshot: snapshot, now: now)
+
+        XCTAssertEqual(results[0].disposition, .skippedByPolicy)
+        XCTAssertEqual(results[1].disposition, .pushed)
+    }
+
+    func testSnapshotAPIBothOnAndDuePushRuns() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Both", severity: .healthy, lastSyncAt: nil)
+        let processClient = RecordingProcessClient()
+        let service = SyncService(
+            processClient: processClient,
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+            baselineRepository: InMemoryBaselineStore()
+        )
+        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let snapshot = SchedulerSnapshot(pairs: [pair], preferences: .defaults)
+
+        let results = await scheduler.runScheduledPushes(snapshot: snapshot, now: now)
+
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].disposition, .pushed)
+    }
+
     private func makePair(name: String, severity: Severity, lastSyncAt: Date?) -> SyncPair {
         SyncPair(
             id: UUID(),
@@ -229,6 +293,16 @@ private actor RecordingProcessClient: RcloneProcessRunning {
         return ("", "", 0)
     }
 
+    func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle {
+        let result = try await run(arguments)
+        let (stream, continuation) = AsyncStream.makeStream(of: String.self)
+        continuation.finish()
+        return RcloneStreamingHandle(
+            lines: stream,
+            completion: Task { result }
+        )
+    }
+
     func recordedArguments() -> [[String]] {
         argumentsLog
     }
@@ -237,6 +311,16 @@ private actor RecordingProcessClient: RcloneProcessRunning {
 private actor FailingProcessClient: RcloneProcessRunning {
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
         ("", "network exploded", 9)
+    }
+
+    func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle {
+        let result = try await run(arguments)
+        let (stream, continuation) = AsyncStream.makeStream(of: String.self)
+        continuation.finish()
+        return RcloneStreamingHandle(
+            lines: stream,
+            completion: Task { result }
+        )
     }
 }
 

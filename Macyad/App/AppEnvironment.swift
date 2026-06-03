@@ -55,6 +55,7 @@ final class AppEnvironment: ObservableObject {
     let settingsViewModel: SettingsViewModel
     let activityRepository: ActivityRepository
     let pairDetailViewModel: PairDetailViewModel
+    let overviewViewModel: OverviewViewModel
     let notificationClient: UserNotificationControlling
     let operationCoordinator: SerialOperationCoordinator
 
@@ -99,6 +100,7 @@ final class AppEnvironment: ObservableObject {
             pasteboard: PasteboardBridge()
         )
         self.pairDetailViewModel = PairDetailViewModel()
+        self.overviewViewModel = OverviewViewModel()
     }
 
     static func bootstrap(arguments: [String] = ProcessInfo.processInfo.arguments) throws -> AppEnvironment {
@@ -168,6 +170,7 @@ final class AppEnvironment: ObservableObject {
         return BackgroundSyncController(
             scheduler: scheduler,
             pairStore: pairRepository,
+            preferencesStore: preferencesStore,
             activityStore: activityRepository,
             notificationClient: notificationClient,
             stateDidChange: stateDidChange

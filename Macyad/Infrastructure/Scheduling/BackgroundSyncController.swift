@@ -10,8 +10,13 @@ public protocol ActivityStoreControlling: Sendable {
     func append(_ event: ActivityEvent) async throws
 }
 
+public protocol PreferencesStoreControlling: Sendable {
+    func load() async throws -> AppPreferences
+}
+
 extension PairRepository: PairStoreControlling {}
 extension ActivityRepository: ActivityStoreControlling {}
+extension AppPreferencesStore: PreferencesStoreControlling {}
 extension UserNotificationClient: UserNotificationSending {}
 
 public actor BackgroundSyncController {
@@ -20,6 +25,7 @@ public actor BackgroundSyncController {
 
     private let scheduler: SchedulerService
     private let pairStore: PairStoreControlling
+    private let preferencesStore: PreferencesStoreControlling
     private let activityStore: ActivityStoreControlling
     private let notificationClient: UserNotificationSending
     private let now: @Sendable () -> Date
@@ -31,6 +37,7 @@ public actor BackgroundSyncController {
     public init(
         scheduler: SchedulerService,
         pairStore: PairStoreControlling,
+        preferencesStore: PreferencesStoreControlling,
         activityStore: ActivityStoreControlling,
         notificationClient: UserNotificationSending,
         now: @escaping @Sendable () -> Date = Date.init,
@@ -39,6 +46,7 @@ public actor BackgroundSyncController {
     ) {
         self.scheduler = scheduler
         self.pairStore = pairStore
+        self.preferencesStore = preferencesStore
         self.activityStore = activityStore
         self.notificationClient = notificationClient
         self.now = now
@@ -81,7 +89,9 @@ public actor BackgroundSyncController {
             return
         }
 
-        let results = await scheduler.runScheduledPushes(for: pairs, now: now())
+        let preferences = (try? await preferencesStore.load()) ?? .defaults
+        let snapshot = SchedulerSnapshot(pairs: pairs, preferences: preferences)
+        let results = await scheduler.runScheduledPushes(snapshot: snapshot, now: now())
         let eventfulResults = results.filter { $0.disposition.recordsActivityEvent }
 
         guard !eventfulResults.isEmpty else {

@@ -156,7 +156,7 @@ public struct SyncService: Sendable {
         self.now = now
     }
 
-    public func push(_ pair: SyncPair, executionMode: ExecutionMode = .manual) async -> OperationOutcome {
+    public func push(_ pair: SyncPair, executionMode: ExecutionMode = .manual, observer: RcloneOutputObserver? = nil) async -> OperationOutcome {
         let copy = AppCopy.current
 
         do {
@@ -166,7 +166,7 @@ public struct SyncService: Sendable {
             switch baselinePreparation {
             case let .missingWithDrift(analysis):
                 if analysis.allowsSafeInitialPush {
-                    let syncLog = try await runCommand(syncArguments(for: pair))
+                    let syncLog = try await runCommand(syncArguments(for: pair), observer: observer)
                     let baselineUpdated = try await refreshBaseline(for: pair)
                     return OperationOutcome(
                         severity: .healthy,
@@ -186,7 +186,7 @@ public struct SyncService: Sendable {
                     return blockedPushOutcome(analysis: preparation.analysis, copy: copy, baselineMissing: false)
                 }
 
-                let syncLog = try await runCommand(syncArguments(for: pair))
+                let syncLog = try await runCommand(syncArguments(for: pair), observer: observer)
                 let baselineUpdated = try await refreshBaseline(for: pair)
                 return OperationOutcome(
                     severity: .healthy,
@@ -203,13 +203,13 @@ public struct SyncService: Sendable {
         }
     }
 
-    public func check(_ pair: SyncPair) async -> OperationOutcome {
+    public func check(_ pair: SyncPair, observer: RcloneOutputObserver? = nil) async -> OperationOutcome {
         let copy = AppCopy.current
 
         do {
             let checkLocalSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .check)
             let checkRemoteSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.remotePath, mode: .check)
-            let checkLog = try await runCommand(checkArguments(for: pair), allowWarningExitCode: true)
+            let checkLog = try await runCommand(checkArguments(for: pair), allowWarningExitCode: true, observer: observer)
 
             if let baseline = try await baselineRepository.load(pairID: pair.id) {
                 let filteredBaseline = filterBaseline(baseline, for: pair.allCheckExcludes)
@@ -288,7 +288,7 @@ public struct SyncService: Sendable {
         }
     }
 
-    public func pull(_ pair: SyncPair, executionMode: ExecutionMode = .manual) async -> OperationOutcome {
+    public func pull(_ pair: SyncPair, executionMode: ExecutionMode = .manual, observer: RcloneOutputObserver? = nil) async -> OperationOutcome {
         let copy = AppCopy.current
 
         do {
@@ -315,7 +315,7 @@ public struct SyncService: Sendable {
                    atPath: pair.localFolderDisplayPath,
                    excludedPatterns: pair.syncExcludes
                ) == false {
-                let pullLog = try await runCommand(pullArguments(for: pair))
+                let pullLog = try await runCommand(pullArguments(for: pair), observer: observer)
                 let baselineUpdated = try await refreshBaselineFromLocalSnapshot(for: pair)
                 return OperationOutcome(
                     severity: .healthy,
@@ -331,7 +331,7 @@ public struct SyncService: Sendable {
             switch baselinePreparation {
             case let .missingWithDrift(analysis):
                 if analysis.allowsSafeInitialPull {
-                    let pullLog = try await runCommand(pullArguments(for: pair))
+                    let pullLog = try await runCommand(pullArguments(for: pair), observer: observer)
                     let baselineUpdated = try await refreshBaseline(for: pair)
                     return OperationOutcome(
                         severity: .healthy,
@@ -350,7 +350,7 @@ public struct SyncService: Sendable {
                     return blockedPullOutcome(analysis: preparation.analysis, copy: copy, baselineMissing: false)
                 }
 
-                let pullLog = try await runCommand(pullArguments(for: pair))
+                let pullLog = try await runCommand(pullArguments(for: pair), observer: observer)
                 let baselineUpdated = try await refreshBaseline(for: pair)
                 return OperationOutcome(
                     severity: .healthy,
@@ -366,7 +366,7 @@ public struct SyncService: Sendable {
         }
     }
 
-    public func applyResolutions(_ issueSet: ActivityIssueSet, for pair: SyncPair) async -> OperationOutcome {
+    public func applyResolutions(_ issueSet: ActivityIssueSet, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async -> OperationOutcome {
         let copy = AppCopy.current
         var logs: [String] = []
         let issuesToApply = issueSet.issues.filter { $0.selectedDecision != .later }
@@ -374,7 +374,7 @@ public struct SyncService: Sendable {
 
         do {
             for issue in issuesToApply {
-                logs.append(contentsOf: try await applyResolution(issue, for: pair))
+                logs.append(contentsOf: try await applyResolution(issue, for: pair, observer: observer))
             }
 
             if remainingIssues.isEmpty {
@@ -530,16 +530,16 @@ public struct SyncService: Sendable {
         )
     }
 
-    private func applyResolution(_ issue: ActivityFileIssue, for pair: SyncPair) async throws -> [String] {
+    private func applyResolution(_ issue: ActivityFileIssue, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> [String] {
         switch issue.selectedDecision {
         case .later:
             return []
         case .keepLocal:
-            return try await applyKeepLocal(issue, for: pair)
+            return try await applyKeepLocal(issue, for: pair, observer: observer)
         case .keepRemote:
-            return try await applyKeepRemote(issue, for: pair)
+            return try await applyKeepRemote(issue, for: pair, observer: observer)
         case .keepBoth:
-            return try await applyKeepBoth(issue, for: pair)
+            return try await applyKeepBoth(issue, for: pair, observer: observer)
         }
     }
 
@@ -551,14 +551,15 @@ public struct SyncService: Sendable {
         return SyncPair.composeRemotePath(remoteName: remoteName, remoteSubpath: remoteSubpath)
     }
 
-    private func applyKeepLocal(_ issue: ActivityFileIssue, for pair: SyncPair) async throws -> [String] {
+    private func applyKeepLocal(_ issue: ActivityFileIssue, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> [String] {
         if issue.localSnapshot != nil {
             let log = try await runCommand(
                 RcloneCommandBuilder.copyToArguments(
                     sourcePath: localConflictFileManager.canonicalLocalURL(for: pair, relativePath: issue.relativePath).path,
                     destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
                     configPath: configPath
-                )
+                ),
+                observer: observer
             )
             return [log.detailedDescription]
         }
@@ -568,7 +569,8 @@ public struct SyncService: Sendable {
                 RcloneCommandBuilder.deleteFileArguments(
                     path: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
                     configPath: configPath
-                )
+                ),
+                observer: observer
             )
             return [log.detailedDescription]
         }
@@ -576,14 +578,15 @@ public struct SyncService: Sendable {
         return []
     }
 
-    private func applyKeepRemote(_ issue: ActivityFileIssue, for pair: SyncPair) async throws -> [String] {
+    private func applyKeepRemote(_ issue: ActivityFileIssue, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> [String] {
         if issue.remoteSnapshot != nil {
             let log = try await runCommand(
                 RcloneCommandBuilder.copyToArguments(
                     sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
                     destinationPath: localConflictFileManager.canonicalLocalURL(for: pair, relativePath: issue.relativePath).path,
                     configPath: configPath
-                )
+                ),
+                observer: observer
             )
             return [log.detailedDescription]
         }
@@ -596,7 +599,7 @@ public struct SyncService: Sendable {
         return []
     }
 
-    private func applyKeepBoth(_ issue: ActivityFileIssue, for pair: SyncPair) async throws -> [String] {
+    private func applyKeepBoth(_ issue: ActivityFileIssue, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> [String] {
         let resolutionDate = now()
         let localConflictRelativePath = renamedConflictRelativePath(issue.relativePath, source: "local", at: resolutionDate)
         let remoteConflictRelativePath = renamedConflictRelativePath(issue.relativePath, source: "remote", at: resolutionDate)
@@ -614,7 +617,8 @@ public struct SyncService: Sendable {
                     sourcePath: localConflictURL.path,
                     destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: localConflictRelativePath),
                     configPath: configPath
-                )
+                ),
+                observer: observer
             )
             logs.append(uploadLog.detailedDescription)
         }
@@ -626,7 +630,8 @@ public struct SyncService: Sendable {
                     sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
                     destinationPath: localRemoteConflictURL.path,
                     configPath: configPath
-                )
+                ),
+                observer: observer
             )
             logs.append(downloadLog.detailedDescription)
 
@@ -635,7 +640,8 @@ public struct SyncService: Sendable {
                     sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
                     destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: remoteConflictRelativePath),
                     configPath: configPath
-                )
+                ),
+                observer: observer
             )
             logs.append(remoteCopyLog.detailedDescription)
 
@@ -643,7 +649,8 @@ public struct SyncService: Sendable {
                 RcloneCommandBuilder.deleteFileArguments(
                     path: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
                     configPath: configPath
-                )
+                ),
+                observer: observer
             )
             logs.append(remoteDeleteLog.detailedDescription)
         }
@@ -706,8 +713,24 @@ public struct SyncService: Sendable {
         return RcloneCommandBuilder.pullArguments(for: pair, configPath: configPath, excludeFilePath: excludeFilePath)
     }
 
-    private func runCommand(_ arguments: [String], allowWarningExitCode: Bool = false) async throws -> RcloneCommandLog {
-        let result = try await processClient.run(arguments)
+    private func runCommand(
+        _ arguments: [String],
+        allowWarningExitCode: Bool = false,
+        observer: RcloneOutputObserver? = nil
+    ) async throws -> RcloneCommandLog {
+        let result: (stdout: String, stderr: String, exitCode: Int32)
+        if let observer {
+            let handle = try await processClient.runStreaming(arguments)
+            let consumeTask = Task {
+                for await line in handle.lines {
+                    await observer.onLine(line)
+                }
+            }
+            result = try await handle.completion.value
+            await consumeTask.value
+        } else {
+            result = try await processClient.run(arguments)
+        }
         let log = RcloneCommandLog(
             command: arguments,
             stdout: result.stdout,

@@ -1,5 +1,17 @@
 import Foundation
 
+public struct SchedulerSnapshot: Sendable {
+    public let pairs: [SyncPair]
+    public let preferences: AppPreferences
+
+    public init(pairs: [SyncPair], preferences: AppPreferences) {
+        self.pairs = pairs
+        self.preferences = preferences
+    }
+}
+
+public typealias SchedulerSnapshotProvider = @Sendable () async -> SchedulerSnapshot
+
 public enum ScheduledPushDisposition: Equatable, Sendable {
     case pushed
     case skippedByPolicy
@@ -85,7 +97,14 @@ public actor SchedulerService {
         task = nil
     }
 
-    public func runScheduledPushes(for pairs: [SyncPair], now: Date = Date()) async -> [ScheduledPushResult] {
+    public func runScheduledPushes(snapshot: SchedulerSnapshot, now: Date = Date()) async -> [ScheduledPushResult] {
+        guard !snapshot.preferences.isGlobalSchedulerPaused else {
+            return snapshot.pairs.map { ScheduledPushResult(pair: $0, disposition: .skippedByPolicy) }
+        }
+        return await runScheduledPushes(for: snapshot.pairs, now: now)
+    }
+
+    func runScheduledPushes(for pairs: [SyncPair], now: Date = Date()) async -> [ScheduledPushResult] {
         let copy = AppCopy.current
         let dueEligiblePairs = pairs.filter { policy.canRunScheduledPush(for: $0) && isDue($0, now: now) }
 

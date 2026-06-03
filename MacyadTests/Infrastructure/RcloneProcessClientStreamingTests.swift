@@ -1,0 +1,46 @@
+import XCTest
+@testable import MacyadCore
+
+final class RcloneProcessClientStreamingTests: XCTestCase {
+    func testRunStreamingCollectsLinesInOrder() async throws {
+        let client = RcloneProcessClient(executablePath: "/usr/bin/printf")
+        let handle = try await client.runStreaming(["line1\nline2\nline3\n"])
+
+        var collectedLines: [String] = []
+        for await line in handle.lines {
+            collectedLines.append(line)
+        }
+
+        let result = try await handle.completion.value
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(collectedLines, ["line1", "line2", "line3"])
+    }
+
+    func testRunStreamingExitCodeNonZero() async throws {
+        let client = RcloneProcessClient(executablePath: "/bin/sh")
+        let handle = try await client.runStreaming(["-c", "printf 'out\n'; exit 42"])
+
+        var collectedLines: [String] = []
+        for await line in handle.lines {
+            collectedLines.append(line)
+        }
+
+        let result = try await handle.completion.value
+        XCTAssertEqual(result.exitCode, 42)
+        XCTAssertEqual(collectedLines, ["out"])
+    }
+
+    func testRunStreamingEmptyOutput() async throws {
+        let client = RcloneProcessClient(executablePath: "/usr/bin/true")
+        let handle = try await client.runStreaming([])
+
+        var collectedLines: [String] = []
+        for await line in handle.lines {
+            collectedLines.append(line)
+        }
+
+        let result = try await handle.completion.value
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(collectedLines.isEmpty)
+    }
+}

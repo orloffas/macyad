@@ -549,6 +549,16 @@ private actor StubProcessClient: RcloneProcessRunning {
         return result
     }
 
+    func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle {
+        let r = try await run(arguments)
+        let (stream, continuation) = AsyncStream.makeStream(of: String.self)
+        continuation.finish()
+        return RcloneStreamingHandle(
+            lines: stream,
+            completion: Task { r }
+        )
+    }
+
     func recordedArguments() -> [[String]] {
         argumentsLog
     }

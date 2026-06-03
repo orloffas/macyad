@@ -1,7 +1,13 @@
 import Foundation
 
+public struct RcloneStreamingHandle: Sendable {
+    public let lines: AsyncStream<String>
+    public let completion: Task<(stdout: String, stderr: String, exitCode: Int32), Error>
+}
+
 public protocol RcloneProcessRunning: Sendable {
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32)
+    func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle
 }
 
 public struct ActiveRcloneCopyOperation: Equatable, Sendable {
@@ -79,6 +85,65 @@ public struct RcloneProcessClient: RcloneProcessRunning {
 
     public func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
         try await runProcess(executablePath: executablePath, arguments: arguments)
+    }
+
+    public func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executablePath)
+        process.arguments = arguments
+
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+
+        let (stream, continuation) = AsyncStream.makeStream(of: String.self, bufferingPolicy: .bufferingNewest(1000))
+
+        let completionTask = Task<(stdout: String, stderr: String, exitCode: Int32), Error> {
+            var stdoutChunks: [Data] = []
+            var stderrData = Data()
+            var lineBuffer = ""
+
+            let stdoutHandle = stdoutPipe.fileHandleForReading
+            let stderrHandle = stderrPipe.fileHandleForReading
+
+            let stderrReadTask = Task.detached(priority: .utility) {
+                stderrHandle.readDataToEndOfFile()
+            }
+
+            // Read stdout line by line, yielding each complete line to the stream
+            while true {
+                let chunk = stdoutHandle.availableData
+                if chunk.isEmpty { break }
+                stdoutChunks.append(chunk)
+                guard let text = String(data: chunk, encoding: .utf8) else { continue }
+                lineBuffer += text
+                var lines = lineBuffer.components(separatedBy: "\n")
+                lineBuffer = lines.removeLast()
+                for line in lines {
+                    continuation.yield(line)
+                }
+            }
+            // Yield any remaining partial line
+            if !lineBuffer.isEmpty {
+                continuation.yield(lineBuffer)
+            }
+            continuation.finish()
+
+            process.waitUntilExit()
+
+            stderrData = await stderrReadTask.value
+            let stdout = stdoutChunks.reduce(into: Data()) { $0.append($1) }
+            return (
+                stdout: String(decoding: stdout, as: UTF8.self),
+                stderr: String(decoding: stderrData, as: UTF8.self),
+                exitCode: process.terminationStatus
+            )
+        }
+
+        try process.run()
+
+        return RcloneStreamingHandle(lines: stream, completion: completionTask)
     }
 }
 
