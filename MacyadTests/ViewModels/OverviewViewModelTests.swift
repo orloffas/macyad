@@ -122,4 +122,45 @@ final class OverviewViewModelTests: XCTestCase {
         XCTAssertEqual(vm.rows[0].severity, .healthy)
         XCTAssertEqual(vm.rows[1].severity, .alarm)
     }
+
+    func testPauseSourceNoneWhenBothEnabled() {
+        let pair = makePair(isAutoPushEnabled: true)
+        let vm = OverviewViewModel()
+
+        vm.update(pairs: [pair], events: [], preferences: defaultPrefs, copy: copy)
+
+        XCTAssertEqual(vm.rows[0].pauseSource, .none)
+        XCTAssertFalse(vm.rows[0].isPaused)
+    }
+
+    func testPauseSourcePerPairWhenAutoPushDisabled() {
+        let pair = makePair(isAutoPushEnabled: false)
+        let vm = OverviewViewModel()
+
+        vm.update(pairs: [pair], events: [], preferences: defaultPrefs, copy: copy)
+
+        XCTAssertEqual(vm.rows[0].pauseSource, .perPair)
+        XCTAssertTrue(vm.rows[0].isPaused)
+    }
+
+    func testPauseSourceGlobalWhenGloballyPaused() {
+        let pair = makePair(isAutoPushEnabled: true)
+        let pausedPrefs = AppPreferences(selectedLanguage: "en", launchAtLoginEnabled: false, defaultScheduleMinutes: 15, isGlobalSchedulerPaused: true)
+        let vm = OverviewViewModel()
+
+        vm.update(pairs: [pair], events: [], preferences: pausedPrefs, copy: copy)
+
+        XCTAssertEqual(vm.rows[0].pauseSource, .global)
+        XCTAssertTrue(vm.rows[0].isPaused)
+    }
+
+    func testGlobalPauseTakesPrecedenceOverPerPair() {
+        let pair = makePair(isAutoPushEnabled: false)
+        let pausedPrefs = AppPreferences(selectedLanguage: "en", launchAtLoginEnabled: false, defaultScheduleMinutes: 15, isGlobalSchedulerPaused: true)
+        let vm = OverviewViewModel()
+
+        vm.update(pairs: [pair], events: [], preferences: pausedPrefs, copy: copy)
+
+        XCTAssertEqual(vm.rows[0].pauseSource, .global)
+    }
 }

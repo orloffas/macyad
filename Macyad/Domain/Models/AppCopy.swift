@@ -994,6 +994,14 @@ public struct AppCopy: Sendable {
         isRussian ? "Приостановлено для этой pair" : "Paused for this pair"
     }
 
+    public var pausedByGlobalSettingShort: String {
+        isRussian ? "Пауза (глобально)" : "Paused (global)"
+    }
+
+    public var pausedForThisPairShort: String {
+        isRussian ? "Пауза (эта пара)" : "Paused (this pair)"
+    }
+
     public var openLiveMonitorButtonTitle: String {
         isRussian ? "Открыть Live monitor" : "Open Live monitor"
     }

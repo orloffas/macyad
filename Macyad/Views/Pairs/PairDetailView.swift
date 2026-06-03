@@ -191,6 +191,9 @@ struct PairDetailView: View {
                     Image(systemName: "pause.circle")
                         .foregroundStyle(.secondary)
                         .help(tooltip)
+                    Text(tooltip)
+                        .foregroundStyle(.secondary)
+                        .font(.callout)
                 }
             }
 
