@@ -75,6 +75,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
     public var lastScheduledPushAttemptAt: Date?
     public var syncExcludes: [String]
     public var checkAdditionalExcludes: [String]
+    public var isAutoPushEnabled: Bool
 
     public init(
         id: UUID,
@@ -90,7 +91,8 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         lastSyncAt: Date? = nil,
         lastScheduledPushAttemptAt: Date? = nil,
         syncExcludes: [String] = SyncPair.defaultSyncExcludes,
-        checkAdditionalExcludes: [String] = []
+        checkAdditionalExcludes: [String] = [],
+        isAutoPushEnabled: Bool = true
     ) {
         self.id = id
         self.name = name
@@ -106,6 +108,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         self.lastScheduledPushAttemptAt = lastScheduledPushAttemptAt
         self.syncExcludes = syncExcludes
         self.checkAdditionalExcludes = checkAdditionalExcludes
+        self.isAutoPushEnabled = isAutoPushEnabled
     }
 
     enum CodingKeys: String, CodingKey {
@@ -123,6 +126,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         case lastScheduledPushAttemptAt
         case syncExcludes
         case checkAdditionalExcludes
+        case isAutoPushEnabled
     }
 
     public init(from decoder: Decoder) throws {
@@ -141,6 +145,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         lastScheduledPushAttemptAt = try container.decodeIfPresent(Date.self, forKey: .lastScheduledPushAttemptAt)
         syncExcludes = try container.decodeIfPresent([String].self, forKey: .syncExcludes) ?? SyncPair.defaultSyncExcludes
         checkAdditionalExcludes = try container.decodeIfPresent([String].self, forKey: .checkAdditionalExcludes) ?? []
+        isAutoPushEnabled = try container.decodeIfPresent(Bool.self, forKey: .isAutoPushEnabled) ?? true
     }
 
     public var allCheckExcludes: [String] {

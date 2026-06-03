@@ -24,6 +24,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let controller = BackgroundSyncController(
             scheduler: scheduler,
             pairStore: pairStore,
+            preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
             activityStore: activityStore,
             notificationClient: notificationClient,
             now: { now },
@@ -72,6 +73,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let controller = BackgroundSyncController(
             scheduler: scheduler,
             pairStore: pairStore,
+            preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
             activityStore: activityStore,
             notificationClient: notificationClient,
             now: { now },
@@ -114,6 +116,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let controller = BackgroundSyncController(
             scheduler: scheduler,
             pairStore: pairStore,
+            preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
             activityStore: activityStore,
             notificationClient: notificationClient,
             now: { now },
@@ -165,6 +168,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let controller = BackgroundSyncController(
             scheduler: scheduler,
             pairStore: pairStore,
+            preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
             activityStore: activityStore,
             notificationClient: notificationClient,
             now: { now },
@@ -209,6 +213,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let controller = BackgroundSyncController(
             scheduler: scheduler,
             pairStore: pairStore,
+            preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
             activityStore: activityStore,
             notificationClient: RecordingNotificationClient(),
             now: { now },
@@ -303,11 +308,31 @@ private actor RecordingProcessClient: RcloneProcessRunning {
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
         ("", "", 0)
     }
+
+    func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle {
+        let result = try await run(arguments)
+        let (stream, continuation) = AsyncStream.makeStream(of: String.self)
+        continuation.finish()
+        return RcloneStreamingHandle(
+            lines: stream,
+            completion: Task { result }
+        )
+    }
 }
 
 private actor FailingProcessClient: RcloneProcessRunning {
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
         ("NOTICE: remote object would be replaced", "permission denied", 12)
+    }
+
+    func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle {
+        let result = try await run(arguments)
+        let (stream, continuation) = AsyncStream.makeStream(of: String.self)
+        continuation.finish()
+        return RcloneStreamingHandle(
+            lines: stream,
+            completion: Task { result }
+        )
     }
 }
 
@@ -328,6 +353,18 @@ private struct StubSnapshotProvider: PairSnapshotProviding {
 
     func snapshot(for pair: SyncPair, path: String, mode: RcloneExcludeFileMode) async throws -> PairSnapshot {
         snapshotsByPath[path] ?? PairSnapshot(entries: [])
+    }
+}
+
+private actor InMemoryPreferencesStore: PreferencesStoreControlling {
+    private let preferences: AppPreferences
+
+    init(preferences: AppPreferences) {
+        self.preferences = preferences
+    }
+
+    func load() async throws -> AppPreferences {
+        preferences
     }
 }
 
