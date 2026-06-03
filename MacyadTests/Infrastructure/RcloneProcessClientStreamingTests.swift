@@ -43,4 +43,33 @@ final class RcloneProcessClientStreamingTests: XCTestCase {
         XCTAssertEqual(result.exitCode, 0)
         XCTAssertTrue(collectedLines.isEmpty)
     }
+
+    func testRunStreamingMergesStderrIntoLineStream() async throws {
+        // rclone writes most operational output to stderr, so the streaming
+        // handle must merge both pipes into the same line stream — otherwise
+        // the live monitor stays empty during real syncs.
+        let client = RcloneProcessClient(executablePath: "/bin/sh")
+        let handle = try await client.runStreaming([
+            "-c",
+            "printf 'out-line\\n'; printf 'err-line\\n' 1>&2"
+        ])
+
+        var collectedLines: [String] = []
+        for await line in handle.lines {
+            collectedLines.append(line)
+        }
+
+        let result = try await handle.completion.value
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            collectedLines.contains("out-line"),
+            "stdout line missing from merged stream: \(collectedLines)"
+        )
+        XCTAssertTrue(
+            collectedLines.contains("err-line"),
+            "stderr line missing from merged stream: \(collectedLines)"
+        )
+        XCTAssertEqual(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "out-line")
+        XCTAssertEqual(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines), "err-line")
+    }
 }
