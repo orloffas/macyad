@@ -53,4 +53,36 @@ final class AppCopyTests: XCTestCase {
         XCTAssertEqual(copy.accountRemovalBlockedMessage(pairNames: ["Docs", "Photos"]), "Account нельзя удалить, пока к нему привязаны pair: Docs, Photos.")
         XCTAssertEqual(copy.activityCollapsedRunSummary(count: 3), "3 одинаковых события")
     }
+
+    func testNewKeysEnglish() {
+        let copy = AppCopy(language: .english)
+
+        XCTAssertEqual(copy.pauseAllSchedulesToggleTitle, "Pause all scheduled pushes")
+        XCTAssertEqual(copy.scheduledPushSectionTitle, "Scheduled push")
+        XCTAssertEqual(copy.pausedByGlobalSettingTooltip, "Paused by global setting")
+        XCTAssertEqual(copy.pausedForThisPairTooltip, "Paused for this pair")
+        XCTAssertEqual(copy.openLiveMonitorButtonTitle, "Open Live monitor")
+        XCTAssertEqual(copy.liveMonitorWindowTitle("MyPair"), "Live monitor — MyPair")
+        XCTAssertEqual(copy.intervalValidationError, "Interval must be 1–1440 minutes")
+        XCTAssertEqual(copy.liveMonitorRunningFooter, "Running…")
+        XCTAssertEqual(copy.liveMonitorExitedSuccessFooter, "Exited successfully")
+        XCTAssertEqual(copy.liveMonitorExitedFailedFooter(code: 1), "Failed (code 1)")
+        XCTAssertEqual(copy.liveMonitorExitedFailedFooter(code: 127), "Failed (code 127)")
+    }
+
+    func testNewKeysRussian() {
+        let copy = AppCopy(language: .russian)
+
+        XCTAssertEqual(copy.pauseAllSchedulesToggleTitle, "Приостановить все scheduled push")
+        XCTAssertEqual(copy.scheduledPushSectionTitle, "Scheduled push")
+        XCTAssertEqual(copy.pausedByGlobalSettingTooltip, "Приостановлено глобальной настройкой")
+        XCTAssertEqual(copy.pausedForThisPairTooltip, "Приостановлено для этой pair")
+        XCTAssertEqual(copy.openLiveMonitorButtonTitle, "Открыть Live monitor")
+        XCTAssertEqual(copy.liveMonitorWindowTitle("МояПара"), "Live monitor — МояПара")
+        XCTAssertEqual(copy.intervalValidationError, "Интервал должен быть от 1 до 1440 минут")
+        XCTAssertEqual(copy.liveMonitorRunningFooter, "Выполняется…")
+        XCTAssertEqual(copy.liveMonitorExitedSuccessFooter, "Завершено успешно")
+        XCTAssertEqual(copy.liveMonitorExitedFailedFooter(code: 1), "Ошибка (код 1)")
+        XCTAssertEqual(copy.liveMonitorExitedFailedFooter(code: 127), "Ошибка (код 127)")
+    }
 }

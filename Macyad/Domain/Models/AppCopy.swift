@@ -978,6 +978,46 @@ public struct AppCopy: Sendable {
         """
     }
 
+    public var pauseAllSchedulesToggleTitle: String {
+        isRussian ? "Приостановить все scheduled push" : "Pause all scheduled pushes"
+    }
+
+    public var scheduledPushSectionTitle: String {
+        "Scheduled push"
+    }
+
+    public var pausedByGlobalSettingTooltip: String {
+        isRussian ? "Приостановлено глобальной настройкой" : "Paused by global setting"
+    }
+
+    public var pausedForThisPairTooltip: String {
+        isRussian ? "Приостановлено для этой pair" : "Paused for this pair"
+    }
+
+    public var openLiveMonitorButtonTitle: String {
+        isRussian ? "Открыть Live monitor" : "Open Live monitor"
+    }
+
+    public func liveMonitorWindowTitle(_ pairName: String) -> String {
+        "Live monitor — \(pairName)"
+    }
+
+    public var intervalValidationError: String {
+        isRussian ? "Интервал должен быть от 1 до 1440 минут" : "Interval must be 1–1440 minutes"
+    }
+
+    public var liveMonitorRunningFooter: String {
+        isRussian ? "Выполняется…" : "Running…"
+    }
+
+    public var liveMonitorExitedSuccessFooter: String {
+        isRussian ? "Завершено успешно" : "Exited successfully"
+    }
+
+    public func liveMonitorExitedFailedFooter(code: Int32) -> String {
+        isRussian ? "Ошибка (код \(code))" : "Failed (code \(code))"
+    }
+
     public var scheduledSyncBootstrapFailure: String {
         isRussian
             ? "Не удалось инициализировать scheduled Push to Yandex."
