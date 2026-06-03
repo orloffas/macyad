@@ -27,6 +27,7 @@ final class SettingsViewModel: ObservableObject {
     private var didLoad = false
     private var loadedLanguage = AppPreferences.defaults.selectedLanguage
     var languageDidChange: @MainActor (AppLanguage) -> Void = { _ in }
+    var preferencesDidChange: @MainActor (AppPreferences) -> Void = { _ in }
 
     init(
         preferencesStore: AppPreferencesStore,
@@ -72,11 +73,13 @@ final class SettingsViewModel: ObservableObject {
         selectedLanguage = language
         isRestartPromptPresented = language != loadedLanguage
         languageDidChange(selectedAppLanguage)
+        preferencesDidChange(makePreferences())
         Task { await persist() }
     }
 
     func updateDefaultScheduleMinutes(_ minutes: Int) {
         defaultScheduleMinutes = minutes
+        preferencesDidChange(makePreferences())
         Task { await persist() }
     }
 
@@ -87,6 +90,7 @@ final class SettingsViewModel: ObservableObject {
         do {
             try loginItemService.setEnabled(enabled)
             try await preferencesStore.save(makePreferences())
+            preferencesDidChange(makePreferences())
         } catch {
             launchAtLogin = previousValue
             errorMessage = error.localizedDescription
@@ -199,6 +203,7 @@ final class SettingsViewModel: ObservableObject {
 
     func updateIsGlobalSchedulerPaused(_ paused: Bool) {
         isGlobalSchedulerPaused = paused
+        preferencesDidChange(makePreferences())
         Task { await persist() }
     }
 
@@ -209,6 +214,7 @@ final class SettingsViewModel: ObservableObject {
         defaultScheduleMinutes = preferences.defaultScheduleMinutes
         isGlobalSchedulerPaused = preferences.isGlobalSchedulerPaused
         languageDidChange(preferences.appLanguage)
+        preferencesDidChange(preferences)
     }
 
     private func refreshAccounts() async throws {

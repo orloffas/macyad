@@ -58,6 +58,9 @@ struct MacyadApp: App {
             AppLanguageState.update(language)
             appModel.refreshStatusSummary(using: environment.statusService)
         }
+        environment.settingsViewModel.preferencesDidChange = { [weak appModel = appModel] preferences in
+            appModel?.preferences = preferences
+        }
         appModel.openMainWindow = {
             appDelegate.showMainWindow()
         }

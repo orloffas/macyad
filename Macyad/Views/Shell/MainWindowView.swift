@@ -140,9 +140,7 @@ struct MainWindowView: View {
     }
 
     private var contentPane: some View {
-        let copy = appModel.copy
-
-        return Group {
+        Group {
             switch appModel.sidebarSelection {
             case .route(.onboarding):
                 OnboardingView(viewModel: environment.onboardingViewModel)
@@ -162,7 +160,7 @@ struct MainWindowView: View {
                     pair: appModel.selectedPair,
                     displaySeverity: appModel.selectedPair?.lastKnownSeverity ?? .healthy,
                     viewModel: environment.pairDetailViewModel,
-                    preferences: environment.settingsViewModel.currentPreferences,
+                    preferences: appModel.preferences,
                     onSyncNow: { runActivePairAction(.syncNow) },
                     onCheckYandex: { runActivePairAction(.checkYandex) },
                     onPullFromYandex: { runActivePairAction(.pullFromYandex) },
@@ -247,6 +245,7 @@ struct MainWindowView: View {
             let events = try await environment.activityRepository.load()
             let preferences = (try? await environment.preferencesStore.load()) ?? .defaults
             await MainActor.run {
+                appModel.preferences = preferences
                 appModel.applyPersistedState(
                     pairs: reconciled.pairs,
                     accounts: reconciled.accounts,
