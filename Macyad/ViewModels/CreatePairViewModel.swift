@@ -19,7 +19,14 @@ public final class CreatePairViewModel: ObservableObject {
     @Published public var scheduleMinutes: Int = 30 {
         didSet {
             let clamped = scheduleMinutes.clamped(to: 1...1440)
-            if scheduleMinutes != clamped { scheduleMinutes = clamped }
+            if scheduleMinutes != clamped {
+                scheduleMinutes = clamped
+                return
+            }
+            let canonical = String(scheduleMinutes)
+            if intervalInputText != canonical {
+                intervalInputText = canonical
+            }
         }
     }
     @Published public var intervalInputText: String = "30"

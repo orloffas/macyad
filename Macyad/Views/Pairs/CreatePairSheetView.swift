@@ -44,7 +44,29 @@ struct CreatePairSheetView: View {
                 LabeledContent(copy.remotePathTitle, value: viewModel.resolvedRemotePath)
                     .foregroundStyle(.secondary)
 
-                Stepper(copy.intervalTitle(minutes: viewModel.scheduleMinutes), value: $viewModel.scheduleMinutes, in: 5...240, step: 5)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(copy.scheduleFieldTitle)
+                        Spacer()
+                        TextField("", text: $viewModel.intervalInputText)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 70)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit { viewModel.commitIntervalText() }
+                            .onChange(of: viewModel.intervalInputText) { _, _ in
+                                viewModel.commitIntervalText()
+                            }
+                        Text(copy.minutesValue(viewModel.scheduleMinutes).replacingOccurrences(of: "\(viewModel.scheduleMinutes) ", with: ""))
+                            .foregroundStyle(.secondary)
+                        Stepper("", value: $viewModel.scheduleMinutes, in: 1...1440, step: 5)
+                            .labelsHidden()
+                    }
+                    if !viewModel.isIntervalValid {
+                        Text(copy.intervalValidationError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
 
                 Picker(copy.deletePolicyLabel, selection: $viewModel.deletePolicy) {
                     Text(copy.deletePolicyMirrorTitle).tag(SyncPair.DeletePolicy.mirrorToYandex)
