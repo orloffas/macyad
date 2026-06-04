@@ -4,20 +4,32 @@ import MacyadCore
 
 @MainActor
 final class LiveMonitorWindowBridge: NSObject, LiveMonitorPresenting {
-    private struct WindowEntry {
-        let controller: NSWindowController
-        let viewModel: LiveMonitorViewModel
-    }
-
-    private var windows: [UUID: WindowEntry] = [:]
+    private var viewModels: [UUID: LiveMonitorViewModel] = [:]
+    private var windows: [UUID: NSWindowController] = [:]
     nonisolated(unsafe) private var observers: [NSObjectProtocol] = []
 
-    func present(pair: SyncPair, viewModel: LiveMonitorViewModel, copy: AppCopy, restartIfExisting: Bool) {
-        if let existing = windows[pair.id] {
-            existing.controller.window?.makeKeyAndOrderFront(nil)
+    func ensureViewModel(for pairID: UUID) -> LiveMonitorViewModel {
+        if let existing = viewModels[pairID] { return existing }
+        let fresh = LiveMonitorViewModel()
+        viewModels[pairID] = fresh
+        return fresh
+    }
+
+    func viewModel(for pairID: UUID) -> LiveMonitorViewModel? {
+        viewModels[pairID]
+    }
+
+    func hasLog(for pairID: UUID) -> Bool {
+        viewModels[pairID] != nil
+    }
+
+    func present(pair: SyncPair, copy: AppCopy) {
+        if let controller = windows[pair.id] {
+            controller.window?.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
+        let viewModel = ensureViewModel(for: pair.id)
         let hostingController = NSHostingController(rootView: LiveMonitorView(viewModel: viewModel, copy: copy))
         let window = NSWindow(contentViewController: hostingController)
         window.title = copy.liveMonitorWindowTitle(pair.name)
@@ -25,7 +37,7 @@ final class LiveMonitorWindowBridge: NSObject, LiveMonitorPresenting {
         window.setContentSize(NSSize(width: 720, height: 480))
         window.center()
         let controller = NSWindowController(window: window)
-        windows[pair.id] = WindowEntry(controller: controller, viewModel: viewModel)
+        windows[pair.id] = controller
 
         let observer = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
@@ -36,7 +48,7 @@ final class LiveMonitorWindowBridge: NSObject, LiveMonitorPresenting {
             let closingWindow = notification.object as? NSWindow
             Task { @MainActor [weak self] in
                 guard let self, let closingWindow,
-                      let entry = self.windows.first(where: { $0.value.controller.window === closingWindow })
+                      let entry = self.windows.first(where: { $0.value.window === closingWindow })
                 else { return }
                 self.windows.removeValue(forKey: entry.key)
             }
@@ -46,11 +58,7 @@ final class LiveMonitorWindowBridge: NSObject, LiveMonitorPresenting {
     }
 
     func close(pairID: UUID) {
-        windows[pairID]?.controller.close()
-    }
-
-    func existingViewModel(for pairID: UUID) -> LiveMonitorViewModel? {
-        windows[pairID]?.viewModel
+        windows[pairID]?.close()
     }
 
     deinit {
