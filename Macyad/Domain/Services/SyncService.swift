@@ -721,15 +721,16 @@ public struct SyncService: Sendable {
         let result: (stdout: String, stderr: String, exitCode: Int32)
         if let observer {
             // Live monitor is attached. Augment the arguments so the user
-            // sees the full rclone dialog — lookup, credential parse,
-            // listing, diff decisions, transfers, finalize. `-vv` is
-            // DEBUG-level (the most verbose log without trace overhead),
-            // and `--stats=2s --stats-one-line` adds a periodic progress
-            // line so even a long-running list/diff phase shows something
-            // every couple of seconds. The augmentation only applies on
-            // the observer branch, so scheduled pushes and the analytical
-            // post-completion log parsing keep their quieter args.
-            let augmented = arguments + ["-vv", "--stats=2s", "--stats-one-line"]
+            // always sees activity at INFO level (per-file Copied/Updated
+            // lines, "There was nothing to transfer.", error context),
+            // plus a stats line every 2s so even a slow list/diff phase
+            // shows something. DEBUG (`-vv`) was tried but flooded the
+            // window with HTTP-level noise that drowned the useful
+            // operational lines — INFO is the right middle ground. The
+            // augmentation only applies on the observer branch, so
+            // scheduled pushes and the post-completion log parser keep
+            // their quieter args.
+            let augmented = arguments + ["-v", "--stats=2s", "--stats-one-line"]
             let handle = try await processClient.runStreaming(augmented)
             let consumeTask = Task {
                 for await line in handle.lines {
