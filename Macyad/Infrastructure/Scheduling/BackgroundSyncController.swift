@@ -31,6 +31,7 @@ public actor BackgroundSyncController {
     private let now: @Sendable () -> Date
     private let sleep: SleepOperation
     private let stateDidChange: StateDidChange
+    private let scheduledPushLifecycle: ScheduledPushLifecycle
 
     private var task: Task<Void, Never>?
 
@@ -42,7 +43,8 @@ public actor BackgroundSyncController {
         notificationClient: UserNotificationSending,
         now: @escaping @Sendable () -> Date = Date.init,
         sleep: @escaping SleepOperation = BackgroundSyncController.defaultSleep,
-        stateDidChange: @escaping StateDidChange = { _, _ in }
+        stateDidChange: @escaping StateDidChange = { _, _ in },
+        scheduledPushLifecycle: ScheduledPushLifecycle = .noop
     ) {
         self.scheduler = scheduler
         self.pairStore = pairStore
@@ -52,6 +54,7 @@ public actor BackgroundSyncController {
         self.now = now
         self.sleep = sleep
         self.stateDidChange = stateDidChange
+        self.scheduledPushLifecycle = scheduledPushLifecycle
     }
 
     public func start() {
@@ -91,7 +94,7 @@ public actor BackgroundSyncController {
 
         let preferences = (try? await preferencesStore.load()) ?? .defaults
         let snapshot = SchedulerSnapshot(pairs: pairs, preferences: preferences)
-        let results = await scheduler.runScheduledPushes(snapshot: snapshot, now: now())
+        let results = await scheduler.runScheduledPushes(snapshot: snapshot, now: now(), lifecycle: scheduledPushLifecycle)
         let eventfulResults = results.filter { $0.disposition.recordsActivityEvent }
 
         guard !eventfulResults.isEmpty else {
