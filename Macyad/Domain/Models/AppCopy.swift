@@ -1006,6 +1006,10 @@ public struct AppCopy: Sendable {
         isRussian ? "Открыть Live monitor" : "Open Live monitor"
     }
 
+    public var showLastLogButtonTitle: String {
+        isRussian ? "Показать последний лог" : "Show last log"
+    }
+
     public func liveMonitorWindowTitle(_ pairName: String) -> String {
         "Live monitor — \(pairName)"
     }
