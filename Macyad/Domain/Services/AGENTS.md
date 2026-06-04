@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-06-03 | Updated: 2026-06-03 -->
+<!-- Generated: 2026-06-03 | Updated: 2026-06-04 -->
 
 # Services
 
@@ -17,11 +17,14 @@
 | `LocalFolderInspector.swift` | Протокол `LocalFolderInspecting` и реализация `FileManagerLocalFolderInspector`: рекурсивная проверка, содержит ли локальная папка user-visible файлы с учётом rclone exclude patterns |
 | `OnboardingService.swift` | Протокол `OnboardingServicing` и реализация: определяет текущий шаг онбординга (`installRclone` / `configureRemote` / `createFirstPair`) через `RcloneLocating` и `RcloneConfigInspector` |
 | `PairConflictPlanner.swift` | Baseline-aware анализ расхождений: сравнивает local/remote snapshots с baseline, классифицирует каждый path (`unchanged`, `localOnlyChanged`, `remoteOnlyChanged`, `conflict`, `deleteVsModifyConflict`); `bootstrapDisposition` для первичного создания baseline |
+| `LiveMonitorPresenting.swift` | Протокол `LiveMonitorPresenting` + `LiveMonitorSlot` (`.running` / `.archived`): абстракция показа окна Live monitor. Конкретная реализация (`LiveMonitorWindowBridge`) живёт в `PlatformAdapters/`. Используется в `MacyadApp` для проброса presenter в `AppModel` и в lifecycle scheduled push |
 | `PairService.swift` | Создание, обновление и удаление `SyncPair`; валидация полей; запрет удаления последней пары |
-| `SchedulerService.swift` | `actor`-сервис: тиковый цикл (60 с) scheduled push для всех пар, применяет `PushEligibilityPolicy`, делегирует в `SyncService` через `SerialOperationCoordinator`; возвращает `[ScheduledPushResult]` |
+| `RcloneOutputObserver.swift` | Протокол `RcloneOutputObserver` — единая точка стрима stdout/stderr rclone-строк наблюдателю (Live monitor view-model). Реализация-замыкание `LiveMonitorClosureObserver` — в `PlatformAdapters/` |
+| `ScheduledPushLifecycle.swift` | `Sendable`-структура с двумя hook'ами: `willStart(SyncPair) -> RcloneOutputObserver?` и `didFinish(SyncPair) -> Void`. Передаётся в `SchedulerService` и `BackgroundSyncController`; используется в `MacyadApp` для подключения Live monitor к scheduled push (создать VM, стримить вывод rclone, архивировать лог по завершении). Default — `.noop` |
+| `SchedulerService.swift` | `actor`-сервис: тиковый цикл (60 с) scheduled push для всех пар, применяет `PushEligibilityPolicy`, делегирует в `SyncService` через `SerialOperationCoordinator`; принимает `ScheduledPushLifecycle` (default `.noop`) и вокруг каждого `syncService.push` вызывает `willStart` (передавая полученный observer в `push`) и `didFinish`; возвращает `[ScheduledPushResult]` |
 | `SerialOperationCoordinator.swift` | `actor`-очередь: гарантирует последовательное выполнение операций Push/Pull/Check; хранит `OperationState` (queued/running) и нотифицирует об изменениях через `StateDidChange` callback |
 | `StatusService.swift` | Вычисляет `MenuBarSummary` (title + alarmCount + warningCount) из списка пар и шага онбординга для отображения в menu bar |
-| `SyncService.swift` | Центральный оркестратор sync-операций: `push`, `pull`, `check`, `applyResolutions`; baseline-aware логика блокировки; взаимодействует с `RcloneProcessRunning`, `PairSnapshotProviding`, `PairConflictStateStoring`, `LocalFolderInspecting`, `LocalConflictFileManaging` |
+| `SyncService.swift` | Центральный оркестратор sync-операций: `push`, `pull`, `check`, `applyResolutions`; baseline-aware логика блокировки; взаимодействует с `RcloneProcessRunning`, `PairSnapshotProviding`, `PairConflictStateStoring`, `LocalFolderInspecting`, `LocalConflictFileManaging`. В Live monitor проставляет timestamped маркеры через `RcloneOutputObserver`: запуск rclone, exit-код, а также post-rclone фаза `refreshBaseline` (чтобы пользователь видел, почему footer остаётся `Running…` после строки `rclone exited with code 0`) |
 
 ## For AI Agents
 

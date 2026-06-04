@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-06-03 | Updated: 2026-06-03 -->
+<!-- Generated: 2026-06-03 | Updated: 2026-06-04 -->
 
 # Scheduling
 
@@ -11,7 +11,7 @@
 
 | File | Description |
 |------|-------------|
-| `BackgroundSyncController.swift` | `actor`; управляет lifecycle background-Task (`start`/`stop`/`runCycle`); содержит конформансы-расширения `PairRepository: PairStoreControlling`, `ActivityRepository: ActivityStoreControlling`, `UserNotificationClient: UserNotificationSending` |
+| `BackgroundSyncController.swift` | `actor`; управляет lifecycle background-Task (`start`/`stop`/`runCycle`); принимает `ScheduledPushLifecycle` (default `.noop`) и пробрасывает его в `SchedulerService.runScheduledPushes` — это даёт UI-слою (`MacyadApp`) подключать Live monitor к scheduled push без зависимости Scheduling → UI. Содержит конформансы-расширения `PairRepository: PairStoreControlling`, `ActivityRepository: ActivityStoreControlling`, `AppPreferencesStore: PreferencesStoreControlling`, `UserNotificationClient: UserNotificationSending` |
 
 ## For AI Agents
 
@@ -41,7 +41,7 @@
 
 ### Internal
 
-`SchedulerService`, `SyncPair`, `ActivityEvent`, `PairStoreControlling` (протокол), `ActivityStoreControlling` (протокол), `UserNotificationSending` (протокол), `PairRepository`, `ActivityRepository`, `UserNotificationClient`, `AppCopy`
+`SchedulerService`, `ScheduledPushLifecycle`, `SyncPair`, `ActivityEvent`, `AppPreferences`, `PairStoreControlling` (протокол), `ActivityStoreControlling` (протокол), `PreferencesStoreControlling` (протокол), `UserNotificationSending` (протокол), `PairRepository`, `ActivityRepository`, `AppPreferencesStore`, `UserNotificationClient`, `AppCopy`
 
 ### External
 
