@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-06-03 | Updated: 2026-06-03 -->
+<!-- Generated: 2026-06-03 | Updated: 2026-06-04 -->
 
 # PlatformAdapters
 
@@ -16,6 +16,8 @@
 | `PasteboardBridge.swift` | Реализует протокол `PasteboardWriting` из `MacyadCore`; записывает строку в `NSPasteboard.general` |
 | `WindowAccessor.swift` | `NSViewRepresentable`, который в `onResolve`-коллбэке возвращает `NSWindow`, в котором размещена SwiftUI-вьюха; используется в `MacyadApp` для передачи `NSWindow` в `AppDelegateBridge` |
 | `ApplicationRelauncher.swift` | Статический хелпер: запускает новый экземпляр приложения через `NSWorkspace.shared.openApplication` и завершает текущий |
+| `LiveMonitorWindowBridge.swift` | Реализация протокола `LiveMonitorPresenting` из `MacyadCore`: per-pair `LiveMonitorViewModel` для двух слотов (`.running` / `.archived`), независимые `NSWindow`-ы под каждый слот, distinct title prefixes («Live · …» / «Last run · …» — RU: «Сейчас · …» / «Последний прогон · …»). `archiveRunningLog(for:)` переносит running VM в archived и освобождает running-слот; повторное открытие того же слота переактивирует существующее окно вместо создания нового |
+| `LiveMonitorClosureObserver.swift` | Замыкание-обёртка над `RcloneOutputObserver` (`@Sendable @MainActor (String) -> Void`); используется в `MacyadApp` (scheduled push через `ScheduledPushLifecycle`) и в `MainWindowView` (manual push) для проброса rclone-вывода в `LiveMonitorViewModel.appendLine` |
 
 ## For AI Agents
 
@@ -38,7 +40,7 @@
 ## Dependencies
 
 ### Internal
-- `MacyadCore` — `FolderPicking`, `PasteboardWriting`, `AppCopy`, `ActivityRouteToken`, `AppLaunchMode`
+- `MacyadCore` — `FolderPicking`, `PasteboardWriting`, `AppCopy`, `ActivityRouteToken`, `AppLaunchMode`, `LiveMonitorPresenting`, `LiveMonitorSlot`, `LiveMonitorViewModel`, `RcloneOutputObserver`, `SyncPair`
 - `App/AppMetadata.swift` — `AppMetadata.displayName` (используется в `StatusBarBridge` как fallback accessibilityDescription)
 
 ### External
