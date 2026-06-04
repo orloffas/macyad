@@ -221,24 +221,28 @@ struct PairDetailView: View {
             }
             .disabled(viewModel.operationPhase != .idle)
 
-            if viewModel.operationPhase != .idle {
-                HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                if viewModel.operationPhase != .idle {
                     Text(operationPhaseTitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+                if let pair {
+                    let hasLog = appModel.pairsWithLiveMonitorLog.contains(pair.id)
+                    Button(copy.showLastLogButtonTitle) { onOpenLiveMonitor?() }
+                        .buttonStyle(.link)
+                        .font(.caption)
+                        .disabled(!hasLog || onOpenLiveMonitor == nil)
+                        .help(hasLog ? "" : copy.showLastLogTooltipSessionOnly)
                     if viewModel.operationPhase == .running,
                        viewModel.lastOperationKind != .scheduled,
+                       appModel.currentRunningPairID == pair.id,
                        let onOpenLiveMonitor {
                         Button(copy.openLiveMonitorButtonTitle, action: onOpenLiveMonitor)
                             .buttonStyle(.link)
                             .font(.caption)
                     }
                 }
-            } else if let pair, appModel.pairsWithLiveMonitorLog.contains(pair.id),
-                      let onOpenLiveMonitor {
-                Button(copy.showLastLogButtonTitle, action: onOpenLiveMonitor)
-                    .buttonStyle(.link)
-                    .font(.caption)
             }
         }
         .controlSize(.small)

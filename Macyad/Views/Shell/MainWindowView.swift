@@ -358,9 +358,14 @@ struct MainWindowView: View {
     }
 
     private func run(_ operation: PairOperationKind, for pair: SyncPair) async {
-        let bridge = appModel.liveMonitorPresenter as? LiveMonitorWindowBridge
         let liveMonitorViewModel = await MainActor.run {
-            bridge?.existingViewModel(for: pair.id) ?? LiveMonitorViewModel()
+            // Bridge stores one VM per pair across the session, so reopening
+            // the window or running a new op on the same pair reuses (and
+            // clears) the same instance. If no bridge is wired (only in
+            // tests), fall back to a detached VM.
+            let vm = appModel.liveMonitorPresenter?.ensureViewModel(for: pair.id) ?? LiveMonitorViewModel()
+            vm.clearLog()
+            return vm
         }
         let observer = LiveMonitorClosureObserver { [weak liveMonitorViewModel] line in
             liveMonitorViewModel?.appendLine(line)
@@ -375,17 +380,9 @@ struct MainWindowView: View {
                 "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : ——— \(opTitle) queued for \(pair.name) ———"
             )
             appModel.pairsWithLiveMonitorLog.insert(pair.id)
+            appModel.currentRunningPairID = pair.id
             environment.pairDetailViewModel.setOperationPhase(.queued, kind: .manual)
             environment.pairDetailViewModel.setError(nil)
-            appModel.openLiveMonitor = { [weak appModel] openPair in
-                guard let appModel else { return }
-                bridge?.present(
-                    pair: openPair,
-                    viewModel: liveMonitorViewModel,
-                    copy: appModel.copy,
-                    restartIfExisting: true
-                )
-            }
         }
 
         do {
@@ -459,6 +456,9 @@ struct MainWindowView: View {
 
         await MainActor.run {
             environment.pairDetailViewModel.setOperationPhase(.idle)
+            if appModel.currentRunningPairID == pair.id {
+                appModel.currentRunningPairID = nil
+            }
         }
     }
 
