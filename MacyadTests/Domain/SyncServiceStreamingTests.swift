@@ -22,7 +22,15 @@ final class SyncServiceStreamingTests: XCTestCase {
 
         XCTAssertEqual(outcome.severity, Severity.healthy)
         let collected = await observer.collected
-        XCTAssertEqual(collected, lines)
+        // observer sees: start marker, command marker, rclone lines (in order), end marker
+        XCTAssertTrue(collected.first?.contains("macyad : ——— starting rclone (sync)") == true,
+                      "missing start marker, got: \(collected.first ?? "<none>")")
+        XCTAssertTrue(collected[1].contains("macyad : command: rclone sync"),
+                      "missing command marker, got: \(collected[1])")
+        let rcloneLines = Array(collected.dropFirst(2).dropLast())
+        XCTAssertEqual(rcloneLines, lines)
+        XCTAssertTrue(collected.last?.contains("macyad : ——— rclone exited with code 0 ———") == true,
+                      "missing end marker, got: \(collected.last ?? "<none>")")
     }
 
     func testPushWithNilObserverUsesNonStreamingPath() async throws {
@@ -68,8 +76,10 @@ final class SyncServiceStreamingTests: XCTestCase {
         await service.push(pair, observer: observer)
 
         let collected = await observer.collected
-        XCTAssertEqual(collected.count, count)
-        XCTAssertEqual(collected, lines)
+        // 1000 rclone lines + 3 macyad markers (start, command, end)
+        XCTAssertEqual(collected.count, count + 3)
+        let rcloneLines = Array(collected.dropFirst(2).dropLast())
+        XCTAssertEqual(rcloneLines, lines)
     }
 
     // MARK: - Helpers
