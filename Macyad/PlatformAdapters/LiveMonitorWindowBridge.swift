@@ -49,15 +49,15 @@ final class LiveMonitorWindowBridge: NSObject, LiveMonitorPresenting {
         }
         guard let viewModel else { return }
 
-        let titleSuffix: String
+        let title: String
         switch slot {
-        case .running:  titleSuffix = " — \(copy.liveMonitorRunningSlotSuffix)"
-        case .archived: titleSuffix = " — \(copy.liveMonitorArchivedSlotSuffix)"
+        case .running:  title = copy.liveMonitorRunningWindowTitle(pair.name)
+        case .archived: title = copy.liveMonitorArchivedWindowTitle(pair.name)
         }
 
         let hostingController = NSHostingController(rootView: LiveMonitorView(viewModel: viewModel, copy: copy))
         let window = NSWindow(contentViewController: hostingController)
-        window.title = copy.liveMonitorWindowTitle(pair.name) + titleSuffix
+        window.title = title
         window.styleMask = [.titled, .closable, .resizable, .miniaturizable]
         window.setContentSize(NSSize(width: 720, height: 480))
         window.center()
