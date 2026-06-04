@@ -14,7 +14,7 @@ struct PairDetailView: View {
     var onDeletePair: (() -> Void)? = nil
     var canDeletePair = true
     var onApplyIssueReview: ((ActivityEvent, ActivityIssueSet) async -> ActivityReviewApplyResult)? = nil
-    var onOpenLiveMonitor: (() -> Void)? = nil
+    var onOpenLiveMonitor: ((LiveMonitorSlot) -> Void)? = nil
     @State private var selectedActivityEvent: ActivityEvent?
     @State private var autoOpenIssueReview = false
 
@@ -228,17 +228,17 @@ struct PairDetailView: View {
                         .foregroundStyle(.secondary)
                 }
                 if let pair {
-                    let hasLog = appModel.pairsWithLiveMonitorLog.contains(pair.id)
-                    Button(copy.showLastLogButtonTitle) { onOpenLiveMonitor?() }
+                    let hasArchived = appModel.pairsWithArchivedLog.contains(pair.id)
+                    Button(copy.showLastLogButtonTitle) { onOpenLiveMonitor?(.archived) }
                         .buttonStyle(.link)
                         .font(.caption)
-                        .disabled(!hasLog || onOpenLiveMonitor == nil)
-                        .help(hasLog ? "" : copy.showLastLogTooltipSessionOnly)
+                        .disabled(!hasArchived || onOpenLiveMonitor == nil)
+                        .hoverTip(hasArchived ? "" : copy.showLastLogTooltipSessionOnly)
                     if viewModel.operationPhase == .running,
                        viewModel.lastOperationKind != .scheduled,
                        appModel.currentRunningPairID == pair.id,
                        let onOpenLiveMonitor {
-                        Button(copy.openLiveMonitorButtonTitle, action: onOpenLiveMonitor)
+                        Button(copy.openLiveMonitorButtonTitle) { onOpenLiveMonitor(.running) }
                             .buttonStyle(.link)
                             .font(.caption)
                     }

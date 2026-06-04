@@ -1,21 +1,34 @@
 import Foundation
 
+/// Which captured log to look at for a pair.
+public enum LiveMonitorSlot: Sendable, Hashable {
+    /// The operation currently in flight (if any).
+    case running
+    /// The most recently completed operation's log (if any).
+    case archived
+}
+
 @MainActor
 public protocol LiveMonitorPresenting: AnyObject {
-    /// Returns the existing in-memory view-model for the pair, or creates and
-    /// stores a fresh one. The instance persists for the lifetime of the
-    /// presenter so a closed window can be reopened without losing the log.
-    func ensureViewModel(for pairID: UUID) -> LiveMonitorViewModel
-    /// Returns the stored view-model for the pair, or nil if no operation
-    /// has registered one yet in this session.
-    func viewModel(for pairID: UUID) -> LiveMonitorViewModel?
-    /// True if there is any captured log available for this pair (i.e. at
-    /// least one operation has registered a view-model in this session).
-    func hasLog(for pairID: UUID) -> Bool
-    /// Show the Live monitor window for the given pair, using the stored
-    /// view-model (created on demand). Brings an existing window to front.
-    func present(pair: SyncPair, copy: AppCopy)
-    /// Close the Live monitor window for the pair if open. The stored
-    /// view-model is preserved so the window can be reopened later.
-    func close(pairID: UUID)
+    /// Returns the running-slot view-model for the pair, creating one if
+    /// none exists yet. Use at the start of an operation to attach the
+    /// observer to a stable instance for the run's lifetime.
+    func ensureRunningViewModel(for pairID: UUID) -> LiveMonitorViewModel
+    /// Promote the running view-model to the archived slot (replacing any
+    /// previous archive) and clear the running slot. Called when an op
+    /// completes so the "Show last log" affordance can surface its output
+    /// while the next op gets a fresh running slot.
+    func archiveRunningLog(for pairID: UUID)
+    /// Whether an archived log exists for this pair (any prior op).
+    func hasArchivedLog(for pairID: UUID) -> Bool
+    /// True if a running-slot view-model is currently registered.
+    func hasRunningLog(for pairID: UUID) -> Bool
+    /// Present the Live monitor window for the given slot. The window for
+    /// running and the window for archived are independent — both can be
+    /// open simultaneously. Brings an existing window for the same slot
+    /// to the front. No-op if the slot is empty.
+    func present(pair: SyncPair, slot: LiveMonitorSlot, copy: AppCopy)
+    /// Close the window for the given slot (if open). Stored view-models
+    /// are preserved so the window can be reopened.
+    func close(pairID: UUID, slot: LiveMonitorSlot)
 }

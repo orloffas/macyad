@@ -1012,8 +1012,16 @@ public struct AppCopy: Sendable {
 
     public var showLastLogTooltipSessionOnly: String {
         isRussian
-            ? "Лог хранится только в текущей сессии и появится после первой ручной операции."
-            : "The log is kept only for this session and becomes available after the first manual operation."
+            ? "Лог хранится только в текущей сессии и появится после первой завершённой синхронизации этой пары (ручной или плановой)."
+            : "The log is kept only for this session and becomes available after the first completed sync for this pair (manual or scheduled)."
+    }
+
+    public var liveMonitorRunningSlotSuffix: String {
+        isRussian ? "сейчас" : "live"
+    }
+
+    public var liveMonitorArchivedSlotSuffix: String {
+        isRussian ? "последний" : "last run"
     }
 
     public func liveMonitorWindowTitle(_ pairName: String) -> String {

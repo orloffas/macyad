@@ -4,40 +4,65 @@ import MacyadCore
 
 @MainActor
 final class LiveMonitorWindowBridge: NSObject, LiveMonitorPresenting {
-    private var viewModels: [UUID: LiveMonitorViewModel] = [:]
-    private var windows: [UUID: NSWindowController] = [:]
+    private struct WindowKey: Hashable {
+        let pairID: UUID
+        let slot: LiveMonitorSlot
+    }
+
+    private var runningViewModels: [UUID: LiveMonitorViewModel] = [:]
+    private var archivedViewModels: [UUID: LiveMonitorViewModel] = [:]
+    private var windows: [WindowKey: NSWindowController] = [:]
     nonisolated(unsafe) private var observers: [NSObjectProtocol] = []
 
-    func ensureViewModel(for pairID: UUID) -> LiveMonitorViewModel {
-        if let existing = viewModels[pairID] { return existing }
+    func ensureRunningViewModel(for pairID: UUID) -> LiveMonitorViewModel {
+        if let existing = runningViewModels[pairID] { return existing }
         let fresh = LiveMonitorViewModel()
-        viewModels[pairID] = fresh
+        runningViewModels[pairID] = fresh
         return fresh
     }
 
-    func viewModel(for pairID: UUID) -> LiveMonitorViewModel? {
-        viewModels[pairID]
+    func archiveRunningLog(for pairID: UUID) {
+        guard let vm = runningViewModels[pairID] else { return }
+        archivedViewModels[pairID] = vm
+        runningViewModels[pairID] = nil
     }
 
-    func hasLog(for pairID: UUID) -> Bool {
-        viewModels[pairID] != nil
+    func hasArchivedLog(for pairID: UUID) -> Bool {
+        archivedViewModels[pairID] != nil
     }
 
-    func present(pair: SyncPair, copy: AppCopy) {
-        if let controller = windows[pair.id] {
+    func hasRunningLog(for pairID: UUID) -> Bool {
+        runningViewModels[pairID] != nil
+    }
+
+    func present(pair: SyncPair, slot: LiveMonitorSlot, copy: AppCopy) {
+        let key = WindowKey(pairID: pair.id, slot: slot)
+        if let controller = windows[key] {
             controller.window?.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
-        let viewModel = ensureViewModel(for: pair.id)
+        let viewModel: LiveMonitorViewModel?
+        switch slot {
+        case .running:  viewModel = runningViewModels[pair.id]
+        case .archived: viewModel = archivedViewModels[pair.id]
+        }
+        guard let viewModel else { return }
+
+        let titleSuffix: String
+        switch slot {
+        case .running:  titleSuffix = " — \(copy.liveMonitorRunningSlotSuffix)"
+        case .archived: titleSuffix = " — \(copy.liveMonitorArchivedSlotSuffix)"
+        }
+
         let hostingController = NSHostingController(rootView: LiveMonitorView(viewModel: viewModel, copy: copy))
         let window = NSWindow(contentViewController: hostingController)
-        window.title = copy.liveMonitorWindowTitle(pair.name)
+        window.title = copy.liveMonitorWindowTitle(pair.name) + titleSuffix
         window.styleMask = [.titled, .closable, .resizable, .miniaturizable]
         window.setContentSize(NSSize(width: 720, height: 480))
         window.center()
         let controller = NSWindowController(window: window)
-        windows[pair.id] = controller
+        windows[key] = controller
 
         let observer = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
@@ -57,8 +82,9 @@ final class LiveMonitorWindowBridge: NSObject, LiveMonitorPresenting {
         controller.showWindow(nil)
     }
 
-    func close(pairID: UUID) {
-        windows[pairID]?.close()
+    func close(pairID: UUID, slot: LiveMonitorSlot) {
+        let key = WindowKey(pairID: pairID, slot: slot)
+        windows[key]?.close()
     }
 
     deinit {

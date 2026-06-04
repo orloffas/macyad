@@ -14,76 +14,90 @@ final class LiveMonitorBridgeTests: XCTestCase {
         pairB = makePair(name: "PairB")
     }
 
-    func testEnsureViewModel_returnsSameInstanceOnRepeatedCalls() {
-        let first = mock.ensureViewModel(for: pairA.id)
-        let second = mock.ensureViewModel(for: pairA.id)
+    func testEnsureRunningViewModel_returnsSameInstanceOnRepeatedCalls() {
+        let first = mock.ensureRunningViewModel(for: pairA.id)
+        let second = mock.ensureRunningViewModel(for: pairA.id)
 
         XCTAssertTrue(first === second)
     }
 
-    func testEnsureViewModel_makesViewModelAvailableViaLookup() {
-        XCTAssertNil(mock.viewModel(for: pairA.id))
-        XCTAssertFalse(mock.hasLog(for: pairA.id))
-
-        let vm = mock.ensureViewModel(for: pairA.id)
-
-        XCTAssertTrue(mock.viewModel(for: pairA.id) === vm)
-        XCTAssertTrue(mock.hasLog(for: pairA.id))
+    func testHasRunningAndArchivedLog_initiallyFalse() {
+        XCTAssertFalse(mock.hasRunningLog(for: pairA.id))
+        XCTAssertFalse(mock.hasArchivedLog(for: pairA.id))
     }
 
-    func testPresentOnce_addsOneEntryAndStoresViewModel() {
-        mock.present(pair: pairA, copy: copy)
+    func testEnsureRunning_setsHasRunningButNotArchived() {
+        _ = mock.ensureRunningViewModel(for: pairA.id)
 
-        XCTAssertEqual(mock.openedWindows.count, 1)
-        XCTAssertTrue(mock.openedWindows.contains(pairA.id))
-        XCTAssertNotNil(mock.viewModel(for: pairA.id))
+        XCTAssertTrue(mock.hasRunningLog(for: pairA.id))
+        XCTAssertFalse(mock.hasArchivedLog(for: pairA.id))
     }
 
-    func testPresentTwiceSamePair_stillOneEntry_viewModelReused() {
-        mock.present(pair: pairA, copy: copy)
-        let firstVM = mock.viewModel(for: pairA.id)
-        mock.present(pair: pairA, copy: copy)
+    func testArchiveRunningLog_movesViewModelToArchivedSlot() {
+        let runningVM = mock.ensureRunningViewModel(for: pairA.id)
+        mock.archiveRunningLog(for: pairA.id)
 
-        XCTAssertEqual(mock.openedWindows.count, 1)
-        XCTAssertTrue(mock.viewModel(for: pairA.id) === firstVM)
+        XCTAssertFalse(mock.hasRunningLog(for: pairA.id))
+        XCTAssertTrue(mock.hasArchivedLog(for: pairA.id))
+        XCTAssertTrue(mock.viewModel(for: pairA.id, slot: .archived) === runningVM)
     }
 
-    func testClose_removesWindowButKeepsViewModel() {
-        mock.present(pair: pairA, copy: copy)
-        let vm = mock.viewModel(for: pairA.id)
-        mock.close(pairID: pairA.id)
+    func testArchiveTwice_secondArchiveReplacesFirst() {
+        let firstVM = mock.ensureRunningViewModel(for: pairA.id)
+        mock.archiveRunningLog(for: pairA.id)
+        let secondVM = mock.ensureRunningViewModel(for: pairA.id)
+        XCTAssertFalse(firstVM === secondVM)
+        mock.archiveRunningLog(for: pairA.id)
 
-        XCTAssertTrue(mock.openedWindows.isEmpty)
-        XCTAssertNotNil(mock.viewModel(for: pairA.id), "view-model should persist across close")
-        XCTAssertTrue(mock.viewModel(for: pairA.id) === vm)
+        XCTAssertTrue(mock.viewModel(for: pairA.id, slot: .archived) === secondVM)
     }
 
-    func testReopenAfterClose_reusesStoredViewModel() {
-        mock.present(pair: pairA, copy: copy)
-        let firstVM = mock.viewModel(for: pairA.id)
-        mock.close(pairID: pairA.id)
-        mock.present(pair: pairA, copy: copy)
+    func testArchiveWithoutRunning_isNoOp() {
+        mock.archiveRunningLog(for: pairA.id)
 
-        XCTAssertEqual(mock.openedWindows.count, 1)
-        XCTAssertTrue(mock.viewModel(for: pairA.id) === firstVM)
+        XCTAssertFalse(mock.hasArchivedLog(for: pairA.id))
     }
 
-    func testPresentTwoPairs_closeOne_otherWindowRemains_bothViewModelsKept() {
-        mock.present(pair: pairA, copy: copy)
-        mock.present(pair: pairB, copy: copy)
-        mock.close(pairID: pairA.id)
+    func testPresentRunning_noOpWhenSlotEmpty() {
+        mock.present(pair: pairA, slot: .running, copy: copy)
 
-        XCTAssertEqual(mock.openedWindows.count, 1)
-        XCTAssertTrue(mock.openedWindows.contains(pairB.id))
-        XCTAssertNotNil(mock.viewModel(for: pairA.id))
-        XCTAssertNotNil(mock.viewModel(for: pairB.id))
+        XCTAssertNil(mock.openedWindows[pairA.id])
     }
 
-    func testViewModelsForDifferentPairsAreDistinct() {
-        let vmA = mock.ensureViewModel(for: pairA.id)
-        let vmB = mock.ensureViewModel(for: pairB.id)
+    func testPresentRunning_opensWindowWhenSlotPopulated() {
+        _ = mock.ensureRunningViewModel(for: pairA.id)
+        mock.present(pair: pairA, slot: .running, copy: copy)
 
-        XCTAssertFalse(vmA === vmB)
+        XCTAssertEqual(mock.openedWindows[pairA.id], [.running])
+    }
+
+    func testPresentArchived_opensSeparateWindow() {
+        _ = mock.ensureRunningViewModel(for: pairA.id)
+        mock.archiveRunningLog(for: pairA.id)
+        _ = mock.ensureRunningViewModel(for: pairA.id)
+        mock.present(pair: pairA, slot: .running, copy: copy)
+        mock.present(pair: pairA, slot: .archived, copy: copy)
+
+        XCTAssertEqual(mock.openedWindows[pairA.id], [.running, .archived])
+    }
+
+    func testCloseRunning_doesNotAffectArchived() {
+        _ = mock.ensureRunningViewModel(for: pairA.id)
+        mock.archiveRunningLog(for: pairA.id)
+        _ = mock.ensureRunningViewModel(for: pairA.id)
+        mock.present(pair: pairA, slot: .running, copy: copy)
+        mock.present(pair: pairA, slot: .archived, copy: copy)
+
+        mock.close(pairID: pairA.id, slot: .running)
+
+        XCTAssertEqual(mock.openedWindows[pairA.id], [.archived])
+    }
+
+    func testViewModelsPerPairAreDistinct() {
+        let a = mock.ensureRunningViewModel(for: pairA.id)
+        let b = mock.ensureRunningViewModel(for: pairB.id)
+
+        XCTAssertFalse(a === b)
     }
 
     // MARK: - Helpers
