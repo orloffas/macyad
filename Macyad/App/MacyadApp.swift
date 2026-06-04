@@ -94,12 +94,7 @@ struct MacyadApp: App {
         appModel.liveMonitorPresenter = liveMonitorBridge
         appModel.openLiveMonitor = { [weak appModel] pair in
             guard let appModel else { return }
-            liveMonitorBridge.present(
-                pair: pair,
-                viewModel: liveMonitorBridge.existingViewModel(for: pair.id) ?? LiveMonitorViewModel(),
-                copy: appModel.copy,
-                restartIfExisting: true
-            )
+            liveMonitorBridge.present(pair: pair, copy: appModel.copy)
         }
     }
 

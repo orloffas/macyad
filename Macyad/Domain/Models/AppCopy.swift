@@ -1010,6 +1010,12 @@ public struct AppCopy: Sendable {
         isRussian ? "Показать последний лог" : "Show last log"
     }
 
+    public var showLastLogTooltipSessionOnly: String {
+        isRussian
+            ? "Лог хранится только в текущей сессии и появится после первой ручной операции."
+            : "The log is kept only for this session and becomes available after the first manual operation."
+    }
+
     public func liveMonitorWindowTitle(_ pairName: String) -> String {
         "Live monitor — \(pairName)"
     }

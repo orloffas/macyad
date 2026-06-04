@@ -24,6 +24,7 @@ final class AppModel: ObservableObject {
     @Published var statusSummary = MenuBarSummary(title: AppCopy.current.statusSetupRequired, alarmCount: 0, warningCount: 0)
     @Published var preferences: AppPreferences = .defaults
     @Published var pairsWithLiveMonitorLog: Set<UUID> = []
+    @Published var currentRunningPairID: UUID?
     var openMainWindow: () -> Void = {}
     var quitApplication: () -> Void = {}
     var refreshBackgroundState: () -> Void = {}
