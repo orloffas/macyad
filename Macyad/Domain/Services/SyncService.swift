@@ -167,7 +167,7 @@ public struct SyncService: Sendable {
             case let .missingWithDrift(analysis):
                 if analysis.allowsSafeInitialPush {
                     let syncLog = try await runCommand(syncArguments(for: pair), observer: observer)
-                    let baselineUpdated = try await refreshBaseline(for: pair)
+                    let baselineUpdated = try await refreshBaseline(for: pair, observer: observer)
                     return OperationOutcome(
                         severity: .healthy,
                         summary: copy.manualSyncCompleted,
@@ -187,7 +187,7 @@ public struct SyncService: Sendable {
                 }
 
                 let syncLog = try await runCommand(syncArguments(for: pair), observer: observer)
-                let baselineUpdated = try await refreshBaseline(for: pair)
+                let baselineUpdated = try await refreshBaseline(for: pair, observer: observer)
                 return OperationOutcome(
                     severity: .healthy,
                     summary: copy.manualSyncCompleted,
@@ -316,7 +316,7 @@ public struct SyncService: Sendable {
                    excludedPatterns: pair.syncExcludes
                ) == false {
                 let pullLog = try await runCommand(pullArguments(for: pair), observer: observer)
-                let baselineUpdated = try await refreshBaselineFromLocalSnapshot(for: pair)
+                let baselineUpdated = try await refreshBaselineFromLocalSnapshot(for: pair, observer: observer)
                 return OperationOutcome(
                     severity: .healthy,
                     summary: copy.manualPullCompleted,
@@ -332,7 +332,7 @@ public struct SyncService: Sendable {
             case let .missingWithDrift(analysis):
                 if analysis.allowsSafeInitialPull {
                     let pullLog = try await runCommand(pullArguments(for: pair), observer: observer)
-                    let baselineUpdated = try await refreshBaseline(for: pair)
+                    let baselineUpdated = try await refreshBaseline(for: pair, observer: observer)
                     return OperationOutcome(
                         severity: .healthy,
                         summary: copy.manualPullCompleted,
@@ -351,7 +351,7 @@ public struct SyncService: Sendable {
                 }
 
                 let pullLog = try await runCommand(pullArguments(for: pair), observer: observer)
-                let baselineUpdated = try await refreshBaseline(for: pair)
+                let baselineUpdated = try await refreshBaseline(for: pair, observer: observer)
                 return OperationOutcome(
                     severity: .healthy,
                     summary: copy.manualPullCompleted,
@@ -378,7 +378,7 @@ public struct SyncService: Sendable {
             }
 
             if remainingIssues.isEmpty {
-                let baselineUpdated = try await refreshBaseline(for: pair)
+                let baselineUpdated = try await refreshBaseline(for: pair, observer: observer)
                 return OperationOutcome(
                     severity: .healthy,
                     summary: copy.issueResolutionCompleted(count: issuesToApply.count),
@@ -421,7 +421,8 @@ public struct SyncService: Sendable {
         }
     }
 
-    private func refreshBaseline(for pair: SyncPair) async throws -> Bool {
+    private func refreshBaseline(for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> Bool {
+        await emitPostRcloneMarker(observer: observer)
         let localSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .sync)
         let remoteSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.remotePath, mode: .sync)
         let state = PairConflictBaselineState(
@@ -434,7 +435,8 @@ public struct SyncService: Sendable {
         return true
     }
 
-    private func refreshBaselineFromLocalSnapshot(for pair: SyncPair) async throws -> Bool {
+    private func refreshBaselineFromLocalSnapshot(for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> Bool {
+        await emitPostRcloneMarker(observer: observer)
         let localSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .sync)
         let state = PairConflictBaselineState(
             pairID: pair.id,
@@ -444,6 +446,12 @@ public struct SyncService: Sendable {
         )
         try await baselineRepository.save(state)
         return true
+    }
+
+    private func emitPostRcloneMarker(observer: RcloneOutputObserver?) async {
+        guard let observer else { return }
+        let timestamp = Self.liveMonitorTimestamp(for: now())
+        await observer.onLine("\(timestamp) macyad : refreshing baseline snapshot after rclone (this can take a few seconds)…")
     }
 
     private func blockedPushOutcome(analysis: PairConflictPlanner.Analysis, copy: AppCopy, baselineMissing: Bool) -> OperationOutcome {
