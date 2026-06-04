@@ -1016,16 +1016,12 @@ public struct AppCopy: Sendable {
             : "The log is kept only for this session and becomes available after the first completed sync for this pair (manual or scheduled)."
     }
 
-    public var liveMonitorRunningSlotSuffix: String {
-        isRussian ? "сейчас" : "live"
+    public func liveMonitorRunningWindowTitle(_ pairName: String) -> String {
+        isRussian ? "Сейчас · \(pairName)" : "Live · \(pairName)"
     }
 
-    public var liveMonitorArchivedSlotSuffix: String {
-        isRussian ? "последний" : "last run"
-    }
-
-    public func liveMonitorWindowTitle(_ pairName: String) -> String {
-        "Live monitor — \(pairName)"
+    public func liveMonitorArchivedWindowTitle(_ pairName: String) -> String {
+        isRussian ? "Последний прогон · \(pairName)" : "Last run · \(pairName)"
     }
 
     public var intervalValidationError: String {

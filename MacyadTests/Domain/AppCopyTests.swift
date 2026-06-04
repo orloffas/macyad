@@ -67,9 +67,8 @@ final class AppCopyTests: XCTestCase {
         XCTAssertEqual(copy.showLastLogButtonTitle, "Show last log")
         XCTAssertEqual(copy.showLastLogTooltipSessionOnly,
                        "The log is kept only for this session and becomes available after the first completed sync for this pair (manual or scheduled).")
-        XCTAssertEqual(copy.liveMonitorRunningSlotSuffix, "live")
-        XCTAssertEqual(copy.liveMonitorArchivedSlotSuffix, "last run")
-        XCTAssertEqual(copy.liveMonitorWindowTitle("MyPair"), "Live monitor — MyPair")
+        XCTAssertEqual(copy.liveMonitorRunningWindowTitle("MyPair"), "Live · MyPair")
+        XCTAssertEqual(copy.liveMonitorArchivedWindowTitle("MyPair"), "Last run · MyPair")
         XCTAssertEqual(copy.intervalValidationError, "Interval must be 1–1440 minutes")
         XCTAssertEqual(copy.liveMonitorRunningFooter, "Running…")
         XCTAssertEqual(copy.liveMonitorExitedSuccessFooter, "Exited successfully")
@@ -90,9 +89,8 @@ final class AppCopyTests: XCTestCase {
         XCTAssertEqual(copy.showLastLogButtonTitle, "Показать последний лог")
         XCTAssertEqual(copy.showLastLogTooltipSessionOnly,
                        "Лог хранится только в текущей сессии и появится после первой завершённой синхронизации этой пары (ручной или плановой).")
-        XCTAssertEqual(copy.liveMonitorRunningSlotSuffix, "сейчас")
-        XCTAssertEqual(copy.liveMonitorArchivedSlotSuffix, "последний")
-        XCTAssertEqual(copy.liveMonitorWindowTitle("МояПара"), "Live monitor — МояПара")
+        XCTAssertEqual(copy.liveMonitorRunningWindowTitle("МояПара"), "Сейчас · МояПара")
+        XCTAssertEqual(copy.liveMonitorArchivedWindowTitle("МояПара"), "Последний прогон · МояПара")
         XCTAssertEqual(copy.intervalValidationError, "Интервал должен быть от 1 до 1440 минут")
         XCTAssertEqual(copy.liveMonitorRunningFooter, "Выполняется…")
         XCTAssertEqual(copy.liveMonitorExitedSuccessFooter, "Завершено успешно")
