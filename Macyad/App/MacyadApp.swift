@@ -92,9 +92,9 @@ struct MacyadApp: App {
             }
         }
         appModel.liveMonitorPresenter = liveMonitorBridge
-        appModel.openLiveMonitor = { [weak appModel] pair in
+        appModel.openLiveMonitor = { [weak appModel] pair, slot in
             guard let appModel else { return }
-            liveMonitorBridge.present(pair: pair, copy: appModel.copy)
+            liveMonitorBridge.present(pair: pair, slot: slot, copy: appModel.copy)
         }
     }
 

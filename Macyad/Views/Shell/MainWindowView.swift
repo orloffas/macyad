@@ -179,9 +179,9 @@ struct MainWindowView: View {
                     onDeletePair: { pairPendingDeletion = appModel.selectedPair },
                     canDeletePair: appModel.pairs.count > 1,
                     onApplyIssueReview: applyIssueReview,
-                    onOpenLiveMonitor: {
+                    onOpenLiveMonitor: { slot in
                         if let pair = appModel.selectedPair {
-                            appModel.openLiveMonitor?(pair)
+                            appModel.openLiveMonitor?(pair, slot)
                         }
                     }
                 )
@@ -359,11 +359,12 @@ struct MainWindowView: View {
 
     private func run(_ operation: PairOperationKind, for pair: SyncPair) async {
         let liveMonitorViewModel = await MainActor.run {
-            // Bridge stores one VM per pair across the session, so reopening
-            // the window or running a new op on the same pair reuses (and
-            // clears) the same instance. If no bridge is wired (only in
-            // tests), fall back to a detached VM.
-            let vm = appModel.liveMonitorPresenter?.ensureViewModel(for: pair.id) ?? LiveMonitorViewModel()
+            // Bridge stores one running-slot view-model per pair. When a new
+            // op starts we always begin with a fresh running buffer; the
+            // previous run (if any) has already been moved to the archived
+            // slot by the end-of-op handler below. If no bridge is wired
+            // (tests), fall back to a detached VM.
+            let vm = appModel.liveMonitorPresenter?.ensureRunningViewModel(for: pair.id) ?? LiveMonitorViewModel()
             vm.clearLog()
             return vm
         }
@@ -379,7 +380,6 @@ struct MainWindowView: View {
             liveMonitorViewModel.appendLine(
                 "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : ——— \(opTitle) queued for \(pair.name) ———"
             )
-            appModel.pairsWithLiveMonitorLog.insert(pair.id)
             appModel.currentRunningPairID = pair.id
             environment.pairDetailViewModel.setOperationPhase(.queued, kind: .manual)
             environment.pairDetailViewModel.setError(nil)
@@ -459,6 +459,11 @@ struct MainWindowView: View {
             if appModel.currentRunningPairID == pair.id {
                 appModel.currentRunningPairID = nil
             }
+            // Promote the just-completed run to the archived slot so the
+            // "Show last log" affordance lights up. A future run on this
+            // pair will overwrite this archive with its own output.
+            appModel.liveMonitorPresenter?.archiveRunningLog(for: pair.id)
+            appModel.pairsWithArchivedLog.insert(pair.id)
         }
     }
 
