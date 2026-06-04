@@ -234,6 +234,11 @@ struct PairDetailView: View {
                             .font(.caption)
                     }
                 }
+            } else if let pair, appModel.pairsWithLiveMonitorLog.contains(pair.id),
+                      let onOpenLiveMonitor {
+                Button(copy.showLastLogButtonTitle, action: onOpenLiveMonitor)
+                    .buttonStyle(.link)
+                    .font(.caption)
             }
         }
         .controlSize(.small)

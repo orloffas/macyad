@@ -374,6 +374,7 @@ struct MainWindowView: View {
             liveMonitorViewModel.appendLine(
                 "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : ——— \(opTitle) queued for \(pair.name) ———"
             )
+            appModel.pairsWithLiveMonitorLog.insert(pair.id)
             environment.pairDetailViewModel.setOperationPhase(.queued, kind: .manual)
             environment.pairDetailViewModel.setError(nil)
             appModel.openLiveMonitor = { [weak appModel] openPair in
