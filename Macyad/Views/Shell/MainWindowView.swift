@@ -46,13 +46,6 @@ struct MainWindowView: View {
         case missingRclone
     }
 
-    private struct LiveMonitorClosureObserver: RcloneOutputObserver {
-        let onLineCallback: @Sendable @MainActor (String) -> Void
-        func onLine(_ line: String) async {
-            await onLineCallback(line)
-        }
-    }
-
     @Environment(\.openSettings) private var openSettings
     @EnvironmentObject private var appModel: AppModel
     @EnvironmentObject private var environment: AppEnvironment
@@ -368,9 +361,11 @@ struct MainWindowView: View {
             vm.clearLog()
             return vm
         }
-        let observer = LiveMonitorClosureObserver { [weak liveMonitorViewModel] line in
-            liveMonitorViewModel?.appendLine(line)
-        }
+        let observer = LiveMonitorClosureObserver(
+            onLineCallback: { [weak liveMonitorViewModel] line in
+                liveMonitorViewModel?.appendLine(line)
+            }
+        )
 
         let opTitle = operation.userFacingTitle(copy: AppCopy.current)
         await MainActor.run {

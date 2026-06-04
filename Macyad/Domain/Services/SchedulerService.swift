@@ -97,14 +97,22 @@ public actor SchedulerService {
         task = nil
     }
 
-    public func runScheduledPushes(snapshot: SchedulerSnapshot, now: Date = Date()) async -> [ScheduledPushResult] {
+    public func runScheduledPushes(
+        snapshot: SchedulerSnapshot,
+        now: Date = Date(),
+        lifecycle: ScheduledPushLifecycle = .noop
+    ) async -> [ScheduledPushResult] {
         guard !snapshot.preferences.isGlobalSchedulerPaused else {
             return snapshot.pairs.map { ScheduledPushResult(pair: $0, disposition: .skippedByPolicy) }
         }
-        return await runScheduledPushes(for: snapshot.pairs, now: now)
+        return await runScheduledPushes(for: snapshot.pairs, now: now, lifecycle: lifecycle)
     }
 
-    func runScheduledPushes(for pairs: [SyncPair], now: Date = Date()) async -> [ScheduledPushResult] {
+    func runScheduledPushes(
+        for pairs: [SyncPair],
+        now: Date = Date(),
+        lifecycle: ScheduledPushLifecycle = .noop
+    ) async -> [ScheduledPushResult] {
         let copy = AppCopy.current
         let dueEligiblePairs = pairs.filter { policy.canRunScheduledPush(for: $0) && isDue($0, now: now) }
 
@@ -154,11 +162,12 @@ public actor SchedulerService {
                 continue
             }
 
+            let observer = await lifecycle.willStart(pair)
             let outcome: SyncService.OperationOutcome
             if let operationCoordinator {
                 do {
                     outcome = try await operationCoordinator.enqueue(pairID: pair.id, label: "scheduled-push") {
-                        await syncService.push(pair, executionMode: .scheduled)
+                        await syncService.push(pair, executionMode: .scheduled, observer: observer)
                     }
                 } catch {
                     outcome = SyncService.OperationOutcome(
@@ -168,8 +177,9 @@ public actor SchedulerService {
                     )
                 }
             } else {
-                outcome = await syncService.push(pair, executionMode: .scheduled)
+                outcome = await syncService.push(pair, executionMode: .scheduled, observer: observer)
             }
+            await lifecycle.didFinish(pair)
             switch outcome.severity {
             case .healthy:
                 updatedPair.lastKnownSeverity = .healthy

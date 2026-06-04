@@ -134,7 +134,31 @@ struct MacyadApp: App {
             return
         }
 
-        let controller = environment.makeBackgroundSyncController { pairs, events in
+        let bridge = liveMonitorBridge
+        let scheduledPushLifecycle = ScheduledPushLifecycle(
+            willStart: { @Sendable pair in
+                await MainActor.run {
+                    let vm = bridge.ensureRunningViewModel(for: pair.id)
+                    vm.clearLog()
+                    vm.appendLine(
+                        "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : ——— Scheduled Push to Yandex queued for \(pair.name) ———"
+                    )
+                    return LiveMonitorClosureObserver(
+                        onLineCallback: { [weak vm] line in
+                            vm?.appendLine(line)
+                        }
+                    ) as RcloneOutputObserver
+                }
+            },
+            didFinish: { @Sendable [weak appModel] pair in
+                await MainActor.run {
+                    bridge.archiveRunningLog(for: pair.id)
+                    appModel?.pairsWithArchivedLog.insert(pair.id)
+                }
+            }
+        )
+
+        let controller = environment.makeBackgroundSyncController(stateDidChange: { pairs, events in
             await MainActor.run {
                 appModel.applyPersistedState(
                     pairs: pairs,
@@ -146,7 +170,7 @@ struct MacyadApp: App {
 
             let selectedPair = await MainActor.run { appModel.selectedPair }
             await environment.pairDetailViewModel.load(for: selectedPair)
-        }
+        }, scheduledPushLifecycle: scheduledPushLifecycle)
 
         backgroundSyncController = controller
         appModel.refreshBackgroundState = {
