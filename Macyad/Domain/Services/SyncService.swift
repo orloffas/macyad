@@ -731,6 +731,17 @@ public struct SyncService: Sendable {
             // scheduled pushes and the post-completion log parser keep
             // their quieter args.
             let augmented = arguments + ["-v", "--stats=2s", "--stats-one-line"]
+
+            // Emit a synthetic header line BEFORE spawning rclone so the
+            // window has something visible during the 5-10 seconds rclone
+            // takes to start logging on cold launch. Format mirrors
+            // rclone's own "YYYY/MM/DD HH:MM:SS LEVEL : msg" prefix so
+            // the marker blends with the rest of the stream while still
+            // being clearly tagged as macyad-emitted.
+            let startTimestamp = Self.liveMonitorTimestamp(for: Date())
+            await observer.onLine("\(startTimestamp) macyad : ——— starting rclone (\(arguments.first ?? "?")) ———")
+            await observer.onLine("\(startTimestamp) macyad : command: rclone \(augmented.joined(separator: " "))")
+
             let handle = try await processClient.runStreaming(augmented)
             let consumeTask = Task {
                 for await line in handle.lines {
@@ -739,6 +750,9 @@ public struct SyncService: Sendable {
             }
             result = try await handle.completion.value
             await consumeTask.value
+
+            let endTimestamp = Self.liveMonitorTimestamp(for: Date())
+            await observer.onLine("\(endTimestamp) macyad : ——— rclone exited with code \(result.exitCode) ———")
         } else {
             result = try await processClient.run(arguments)
         }
@@ -754,6 +768,17 @@ public struct SyncService: Sendable {
         }
 
         throw CommandFailedError(command: arguments, exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr)
+    }
+
+    private static let liveMonitorTimestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
+        return formatter
+    }()
+
+    private static func liveMonitorTimestamp(for date: Date) -> String {
+        liveMonitorTimestampFormatter.string(from: date)
     }
 
     private func join(_ lhs: String?, _ rhs: String?) -> String? {
