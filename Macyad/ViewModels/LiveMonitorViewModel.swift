@@ -52,6 +52,14 @@ public final class LiveMonitorViewModel: ObservableObject {
         attach(handle: handle)
     }
 
+    /// Reset all captured output and clear any pending subscriptions, leaving
+    /// the view-model ready to receive a fresh operation's stream.
+    public func clearLog() {
+        cancelExistingSubscriptions()
+        lines.removeAll()
+        exitStatus = nil
+    }
+
     private func cancelExistingSubscriptions() {
         subscriptionTask?.cancel(); subscriptionTask = nil
         completionTask?.cancel(); completionTask = nil

@@ -79,6 +79,20 @@ final class LiveMonitorViewModelTests: XCTestCase {
         XCTAssertEqual(vm.lines.last, "line5000")
     }
 
+    func testClearLogResetsLinesAndExitStatus() {
+        let vm = LiveMonitorViewModel()
+        vm.appendLine("first")
+        vm.appendLine("second")
+        vm.setExitStatus(.failed(code: 3))
+        XCTAssertEqual(vm.lines.count, 2)
+        XCTAssertNotNil(vm.exitStatus)
+
+        vm.clearLog()
+
+        XCTAssertTrue(vm.lines.isEmpty)
+        XCTAssertNil(vm.exitStatus)
+    }
+
     func testSetExitStatus() {
         let vm = LiveMonitorViewModel()
         XCTAssertNil(vm.exitStatus)
