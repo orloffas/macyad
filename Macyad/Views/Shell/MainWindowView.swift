@@ -29,6 +29,17 @@ struct MainWindowView: View {
                 "pull"
             }
         }
+
+        func userFacingTitle(copy: AppCopy) -> String {
+            switch self {
+            case .syncNow:
+                copy.syncButtonTitle
+            case .checkYandex:
+                copy.checkButtonTitle
+            case .pullFromYandex:
+                copy.pullButtonTitle
+            }
+        }
     }
 
     private enum PairOperationError: Error {
@@ -355,7 +366,14 @@ struct MainWindowView: View {
             liveMonitorViewModel?.appendLine(line)
         }
 
+        let opTitle = operation.userFacingTitle(copy: AppCopy.current)
         await MainActor.run {
+            // Emit an immediate marker so the Live monitor never looks
+            // frozen during the slow pre-rclone snapshot phase (remote
+            // lsjson can easily take 5-10 seconds on cold launch).
+            liveMonitorViewModel.appendLine(
+                "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : ——— \(opTitle) queued for \(pair.name) ———"
+            )
             environment.pairDetailViewModel.setOperationPhase(.queued, kind: .manual)
             environment.pairDetailViewModel.setError(nil)
             appModel.openLiveMonitor = { [weak appModel] openPair in
@@ -373,6 +391,9 @@ struct MainWindowView: View {
             let syncService = try await makeSyncService()
             let outcome = try await environment.operationCoordinator.enqueue(pairID: pair.id, label: operation.queueLabel) {
                 await MainActor.run {
+                    liveMonitorViewModel.appendLine(
+                        "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : running, capturing snapshots before rclone (this can take a few seconds)…"
+                    )
                     environment.pairDetailViewModel.setOperationPhase(.running, kind: .manual)
                 }
                 return await perform(operation, with: syncService, for: pair, observer: observer)

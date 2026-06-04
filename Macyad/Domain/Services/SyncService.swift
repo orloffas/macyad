@@ -777,7 +777,7 @@ public struct SyncService: Sendable {
         return formatter
     }()
 
-    private static func liveMonitorTimestamp(for date: Date) -> String {
+    public static func liveMonitorTimestamp(for date: Date) -> String {
         liveMonitorTimestampFormatter.string(from: date)
     }
 
