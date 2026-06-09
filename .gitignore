@@ -8,3 +8,11 @@ Macyad.xcodeproj/
 .build/
 .derived-data-*/
 *.profraw
+
+.omc/
+.omx/
+.pytest_cache/
+.ruff_cache/
+.tmp/
+.venv/
+__pycache__/
