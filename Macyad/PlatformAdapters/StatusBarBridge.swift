@@ -5,9 +5,10 @@ import SwiftUI
 final class StatusBarBridge: NSObject {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
-    private let hostingController = NSHostingController(rootView: AnyView(EmptyView()))
+    private let hostingController: NSHostingController<AnyView>
 
     init(rootView: AnyView) {
+        hostingController = NSHostingController(rootView: rootView)
         super.init()
 
         // autosaveName даёт item стабильную идентичность между запусками — без него
@@ -25,7 +26,6 @@ final class StatusBarBridge: NSObject {
 
         popover.behavior = .transient
         popover.contentViewController = hostingController
-        update(rootView: rootView)
     }
 
     func update(rootView: AnyView) {
@@ -39,6 +39,10 @@ final class StatusBarBridge: NSObject {
         if popover.isShown {
             popover.performClose(sender)
         } else {
+            // NSPopover не наследует размер от NSHostingController — без этого
+            // contentSize остаётся {0, 0} и popover открывается невидимым.
+            // Пересчитываем каждый раз: высота зависит от списка recent events.
+            popover.contentSize = hostingController.view.fittingSize
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
