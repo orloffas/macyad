@@ -10,14 +10,16 @@ final class StatusBarBridge: NSObject {
     init(rootView: AnyView) {
         super.init()
 
+        // autosaveName даёт item стабильную идентичность между запусками — без него
+        // menu bar managers (Bartender, Ice) видят каждый запуск как новую иконку.
         item.autosaveName = "\(AppMetadata.bundleIdentifier).statusItem"
         item.isVisible = true
-        item.behavior = []
         item.button?.image = NSImage(named: "MenuBarTemplate") ?? NSImage(
             systemSymbolName: "externaldrive.badge.icloud",
             accessibilityDescription: AppMetadata.displayName
         )
         item.button?.image?.isTemplate = true
+        item.button?.setAccessibilityLabel(AppMetadata.displayName)
         item.button?.target = self
         item.button?.action = #selector(togglePopover(_:))
 

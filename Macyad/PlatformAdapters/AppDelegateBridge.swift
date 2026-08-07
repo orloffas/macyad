@@ -8,7 +8,6 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
     private weak var mainWindow: NSWindow?
     private var statusBarBridge: StatusBarBridge?
     private var didApplyInitialLaunchBehavior = false
-    private var shouldTerminateBecauseDuplicate = false
     var notificationRouteHandler: @MainActor (ActivityRouteToken?) -> Void = { _ in }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -17,17 +16,14 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
             return
         }
 
-        shouldTerminateBecauseDuplicate = true
         runningApp.unhide()
         runningApp.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
-        NSApp.terminate(nil)
+        // ponytail: exit(0), not NSApp.terminate — the duplicate must not bootstrap
+        // AppEnvironment and race the running instance over Application Support state.
+        exit(0)
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard !shouldTerminateBecauseDuplicate else {
-            return
-        }
-
         let launchMode = AppLaunchMode(arguments: ProcessInfo.processInfo.arguments)
         applyApplicationIcon()
         NSApp.setActivationPolicy(launchMode.shouldForceForegroundWindow ? .regular : .accessory)
