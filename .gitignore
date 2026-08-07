@@ -8,3 +8,15 @@ Macyad.xcodeproj/
 .build/
 .derived-data-*/
 *.profraw
+
+# OMC — track plans & ccg artifacts, ignore session/runtime churn
+.omc/*
+!.omc/plans/
+!.omc/artifacts/
+.omc/plans/reviews/*.stderr.log
+.omx/
+.pytest_cache/
+.ruff_cache/
+.tmp/
+.venv/
+__pycache__/

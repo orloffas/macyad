@@ -5,6 +5,7 @@ APP_NAME="MacYaD"
 SCHEME="Macyad"
 PROJECT="Macyad.xcodeproj"
 BUNDLE_ID="me.orloff.macyad"
+CODE_SIGN_IDENTITY="${MACYAD_CODESIGN_IDENTITY:-MacYaD Local Development}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${MACYAD_BUILD_DIR:-$HOME/Library/Caches/MacYaD/Build}"
 TEST_BUILD_DIR="${MACYAD_TEST_BUILD_DIR:-$HOME/Library/Caches/MacYaD/TestBuild}"
@@ -175,6 +176,29 @@ package_dmg() {
   echo "Created DMG at $DMG_PATH"
 }
 
+# Стабильная подпись одним и тем же self-signed сертификатом держит designated
+# requirement неизменным между сборками, поэтому TCC не сбрасывает выданные
+# разрешения на папки. Ad-hoc подпись Xcode меняет CDHash каждую сборку.
+sign_app_bundle() {
+  local bundle="$1"
+  local nested
+
+  # без -v: self-signed сертификат без trustRoot не «valid», но подписывать им можно
+  if ! /usr/bin/security find-identity -p codesigning | grep -Fq "$CODE_SIGN_IDENTITY"; then
+    echo "warning: codesign identity '$CODE_SIGN_IDENTITY' not found; using Xcode ad-hoc signature" >&2
+    echo "warning: macOS will re-ask for folder permissions after every rebuild" >&2
+    return
+  fi
+
+  # inside-out: сначала вложенные фреймворки, потом сам бандл (--deep устарел)
+  while IFS= read -r nested; do
+    /usr/bin/codesign --force --timestamp=none --sign "$CODE_SIGN_IDENTITY" "$nested"
+  done < <(find "$bundle/Contents/Frameworks" -maxdepth 1 -name '*.framework' 2>/dev/null)
+
+  /usr/bin/codesign --force --timestamp=none --sign "$CODE_SIGN_IDENTITY" "$bundle"
+  /usr/bin/codesign --verify --strict "$bundle"
+}
+
 stage_app_bundle() {
   mkdir -p "$STAGED_APP_DIR"
 
@@ -273,6 +297,7 @@ xcodebuild \
   -destination 'platform=macOS' \
   build
 
+sign_app_bundle "$APP_BUNDLE"
 stage_app_bundle
 
 if [[ "$SHOULD_PACKAGE" == "yes" ]]; then

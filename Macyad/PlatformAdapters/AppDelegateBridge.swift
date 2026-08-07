@@ -6,14 +6,31 @@ import UserNotifications
 @MainActor
 final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate {
     private weak var mainWindow: NSWindow?
+    private var statusBarBridge: StatusBarBridge?
     private var didApplyInitialLaunchBehavior = false
     var notificationRouteHandler: @MainActor (ActivityRouteToken?) -> Void = { _ in }
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        let launchMode = AppLaunchMode(arguments: ProcessInfo.processInfo.arguments)
+        guard !launchMode.usesEphemeralPaths, let runningApp = otherRunningInstance() else {
+            return
+        }
+
+        runningApp.unhide()
+        runningApp.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+        // ponytail: exit(0), not NSApp.terminate — the duplicate must not bootstrap
+        // AppEnvironment and race the running instance over Application Support state.
+        exit(0)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let launchMode = AppLaunchMode(arguments: ProcessInfo.processInfo.arguments)
         applyApplicationIcon()
         NSApp.setActivationPolicy(launchMode.shouldForceForegroundWindow ? .regular : .accessory)
         UNUserNotificationCenter.current().delegate = self
+        // Статус-бар создаётся из MacyadApp.onAppear с реальным MenuBarPopoverView:
+        // NSPopover фиксирует contentSize по первому контенту, и заготовка из
+        // EmptyView оставляет popover нулевого размера навсегда.
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
@@ -67,6 +84,14 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    func configureStatusBar(rootView: AnyView) {
+        if let statusBarBridge {
+            statusBarBridge.update(rootView: rootView)
+        } else {
+            statusBarBridge = StatusBarBridge(rootView: rootView)
+        }
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showMainWindow()
         return false
@@ -100,6 +125,12 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         frame.size.width = max(frame.width, minimumSize.width)
         frame.size.height = max(frame.height, minimumSize.height)
         window.setFrame(frame, display: true)
+    }
+
+    private func otherRunningInstance() -> NSRunningApplication? {
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        return NSRunningApplication.runningApplications(withBundleIdentifier: AppMetadata.bundleIdentifier)
+            .first { $0.processIdentifier != currentPID && !$0.isTerminated }
     }
 
     private func applyApplicationIcon() {
