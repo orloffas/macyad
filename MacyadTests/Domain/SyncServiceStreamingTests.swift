@@ -22,15 +22,15 @@ final class SyncServiceStreamingTests: XCTestCase {
 
         XCTAssertEqual(outcome.severity, Severity.healthy)
         let collected = await observer.collected
-        // observer sees: start marker, command marker, rclone lines (in order), end marker
         XCTAssertTrue(collected.first?.contains("macyad : ——— starting rclone (sync)") == true,
                       "missing start marker, got: \(collected.first ?? "<none>")")
         XCTAssertTrue(collected[1].contains("macyad : command: rclone sync"),
                       "missing command marker, got: \(collected[1])")
-        let rcloneLines = Array(collected.dropFirst(2).dropLast())
-        XCTAssertEqual(rcloneLines, lines)
-        XCTAssertTrue(collected.last?.contains("macyad : ——— rclone exited with code 0 ———") == true,
-                      "missing end marker, got: \(collected.last ?? "<none>")")
+        XCTAssertEqual(collected.filter { !$0.isMacyadMarker }, lines)
+        XCTAssertTrue(collected.contains { $0.contains("macyad : ——— rclone exited with code 0 ———") },
+                      "missing end marker in: \(collected.filter(\.isMacyadMarker))")
+        XCTAssertTrue(collected.last?.contains("macyad : refreshing baseline snapshot after rclone") == true,
+                      "baseline refresh marker must come last, got: \(collected.last ?? "<none>")")
     }
 
     func testPushWithNilObserverUsesNonStreamingPath() async throws {
@@ -76,10 +76,7 @@ final class SyncServiceStreamingTests: XCTestCase {
         await service.push(pair, observer: observer)
 
         let collected = await observer.collected
-        // 1000 rclone lines + 3 macyad markers (start, command, end)
-        XCTAssertEqual(collected.count, count + 3)
-        let rcloneLines = Array(collected.dropFirst(2).dropLast())
-        XCTAssertEqual(rcloneLines, lines)
+        XCTAssertEqual(collected.filter { !$0.isMacyadMarker }, lines)
     }
 
     // MARK: - Helpers
@@ -108,6 +105,13 @@ final class SyncServiceStreamingTests: XCTestCase {
         }
         return snapshots
     }
+}
+
+private extension String {
+    /// Строки, которые дописывает сам macyad вокруг вывода rclone: стартовый и
+    /// командный маркеры, код выхода, refresh baseline. Тесты отбирают вывод
+    /// rclone по этому признаку, а не по позиции, чтобы новый маркер их не ломал.
+    var isMacyadMarker: Bool { contains("macyad : ") }
 }
 
 private actor CollectingObserver: RcloneOutputObserver {
