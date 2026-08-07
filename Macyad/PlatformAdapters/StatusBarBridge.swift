@@ -11,9 +11,10 @@ final class StatusBarBridge: NSObject {
         hostingController = NSHostingController(rootView: rootView)
         super.init()
 
-        // autosaveName даёт item стабильную идентичность между запусками — без него
-        // menu bar managers (Bartender, Ice) видят каждый запуск как новую иконку.
-        item.autosaveName = "\(AppMetadata.bundleIdentifier).statusItem"
+        // ponytail: без autosaveName. Bartender разбирает идентификатор элемента
+        // как "<bundle-id>-<имя>", и autosaveName вида "me.orloff.macyad.statusItem"
+        // ломает разбор — элемент записывается на сам Bartender и перестаёт
+        // переноситься между секциями. Позиционный "Item-0" его устраивает.
         item.isVisible = true
         item.button?.image = NSImage(named: "MenuBarTemplate") ?? NSImage(
             systemSymbolName: "externaldrive.badge.icloud",
