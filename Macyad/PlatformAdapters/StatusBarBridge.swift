@@ -10,6 +10,9 @@ final class StatusBarBridge: NSObject {
     init(rootView: AnyView) {
         super.init()
 
+        item.autosaveName = "\(AppMetadata.bundleIdentifier).statusItem"
+        item.isVisible = true
+        item.behavior = []
         item.button?.image = NSImage(named: "MenuBarTemplate") ?? NSImage(
             systemSymbolName: "externaldrive.badge.icloud",
             accessibilityDescription: AppMetadata.displayName
