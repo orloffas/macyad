@@ -7,7 +7,6 @@ struct MacyadApp: App {
     @NSApplicationDelegateAdaptor(AppDelegateBridge.self) private var appDelegate
     @StateObject private var environment = MacyadApp.bootstrapEnvironment()
     @StateObject private var appModel = AppModel()
-    @State private var statusBarBridge: StatusBarBridge?
     @State private var backgroundSyncController: BackgroundSyncController?
     @State private var issueReviewWindowBridge = IssueReviewWindowBridge()
     @State private var liveMonitorBridge = LiveMonitorWindowBridge()
@@ -104,11 +103,7 @@ struct MacyadApp: App {
                 .environmentObject(appModel)
         )
 
-        if let statusBarBridge {
-            statusBarBridge.update(rootView: rootView)
-        } else {
-            self.statusBarBridge = StatusBarBridge(rootView: rootView)
-        }
+        appDelegate.configureStatusBar(rootView: rootView)
     }
 
     private func syncPreferencesState() {
