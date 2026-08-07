@@ -28,7 +28,9 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         applyApplicationIcon()
         NSApp.setActivationPolicy(launchMode.shouldForceForegroundWindow ? .regular : .accessory)
         UNUserNotificationCenter.current().delegate = self
-        configureStatusBar(rootView: AnyView(EmptyView()))
+        // Статус-бар создаётся из MacyadApp.onAppear с реальным MenuBarPopoverView:
+        // NSPopover фиксирует contentSize по первому контенту, и заготовка из
+        // EmptyView оставляет popover нулевого размера навсегда.
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
