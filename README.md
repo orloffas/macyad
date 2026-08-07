@@ -80,6 +80,54 @@
 
 `build_and_run.sh` складывает build artifacts в `~/Library/Caches/MacYaD/Build`, чтобы запуск не запрашивал доступ к `Documents`, если сам репозиторий лежит внутри `~/Documents`.
 
+## Стабильная локальная подпись (одноразовая настройка)
+
+Без стабильной подписи Xcode подписывает сборку ad-hoc, `CDHash` меняется при каждой пересборке, и `TCC` считает приложение новым — отсюда повторные запросы доступа к папкам после каждого обновления.
+
+Одноразово создайте self-signed codesigning-сертификат и разрешите `codesign` доступ к его ключу:
+
+```bash
+CERT_NAME="MacYaD Local Development"
+WORK="$(mktemp -d)"
+
+cat > "$WORK/cert.cnf" <<EOF
+[req]
+distinguished_name=req_distinguished_name
+x509_extensions=v3_codesign
+prompt=no
+[req_distinguished_name]
+CN=$CERT_NAME
+[v3_codesign]
+basicConstraints=critical,CA:false
+keyUsage=critical,digitalSignature
+extendedKeyUsage=critical,codeSigning
+subjectKeyIdentifier=hash
+EOF
+
+openssl req -new -newkey rsa:2048 -nodes -x509 -days 7300 \
+  -keyout "$WORK/cert.key" -out "$WORK/cert.crt" -config "$WORK/cert.cnf"
+openssl pkcs12 -export -legacy -macalg sha1 \
+  -inkey "$WORK/cert.key" -in "$WORK/cert.crt" -name "$CERT_NAME" \
+  -out "$WORK/cert.p12" -passout pass:macyad
+security import "$WORK/cert.p12" -k ~/Library/Keychains/login.keychain-db \
+  -P macyad -A -T /usr/bin/codesign
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+  -k "$(read -rs -p 'login keychain password: ' p && echo "$p")" \
+  ~/Library/Keychains/login.keychain-db
+rm -rf "$WORK"
+```
+
+После этого `build_and_run.sh` автоматически переподписывает bundle этим сертификатом (identity переопределяется через `MACYAD_CODESIGN_IDENTITY`). Если сертификата нет, script печатает warning и оставляет ad-hoc подпись.
+
+Проверка, что подпись стабильна:
+
+```bash
+codesign -dvvv ~/Applications/MacYaD.app 2>&1 | grep -E 'Authority|Signature'
+codesign -dr - ~/Applications/MacYaD.app
+```
+
+`Authority=MacYaD Local Development` вместо `Signature=adhoc` означает, что designated requirement больше не меняется между сборками и выданные разрешения сохранятся.
+
 ## Сброс состояния приложения
 
 Если приложение запускается со старыми параметрами, остановите `MacYaD` и удалите пользовательское состояние:

@@ -176,20 +176,27 @@ package_dmg() {
   echo "Created DMG at $DMG_PATH"
 }
 
+# Стабильная подпись одним и тем же self-signed сертификатом держит designated
+# requirement неизменным между сборками, поэтому TCC не сбрасывает выданные
+# разрешения на папки. Ad-hoc подпись Xcode меняет CDHash каждую сборку.
 sign_app_bundle() {
   local bundle="$1"
+  local nested
 
-  if ! /usr/bin/security find-identity -v -p codesigning | grep -Fq "$CODE_SIGN_IDENTITY"; then
+  # без -v: self-signed сертификат без trustRoot не «valid», но подписывать им можно
+  if ! /usr/bin/security find-identity -p codesigning | grep -Fq "$CODE_SIGN_IDENTITY"; then
     echo "warning: codesign identity '$CODE_SIGN_IDENTITY' not found; using Xcode ad-hoc signature" >&2
+    echo "warning: macOS will re-ask for folder permissions after every rebuild" >&2
     return
   fi
 
-  /usr/bin/codesign \
-    --force \
-    --deep \
-    --timestamp=none \
-    --sign "$CODE_SIGN_IDENTITY" \
-    "$bundle"
+  # inside-out: сначала вложенные фреймворки, потом сам бандл (--deep устарел)
+  while IFS= read -r nested; do
+    /usr/bin/codesign --force --timestamp=none --sign "$CODE_SIGN_IDENTITY" "$nested"
+  done < <(find "$bundle/Contents/Frameworks" -maxdepth 1 -name '*.framework' 2>/dev/null)
+
+  /usr/bin/codesign --force --timestamp=none --sign "$CODE_SIGN_IDENTITY" "$bundle"
+  /usr/bin/codesign --verify --strict "$bundle"
 }
 
 stage_app_bundle() {
