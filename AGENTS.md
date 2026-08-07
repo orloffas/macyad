@@ -87,12 +87,9 @@
 Если задача приводит к нескольким независимым изменениям, их нужно раскладывать по отдельным осмысленным commit.
 
 <!-- ai-memory-project-policy:start -->
-## AI-Memory And Credentials
+## AI-Memory Disabled
 
-- Follow the global AI-Memory policy from `/Users/user/.codex/AGENTS.md`.
-- For non-trivial work, use local memory first: `ctx_memory` MCP (`ctx_status`, `ctx_search`, `ctx_retrieve`, `ctx_context`) or `ctx` CLI against `/Users/user/AI-Memory/`.
-- Default local embeddings service: `http://127.0.0.1:8000/v1`, model `mlx-qwen3-embedding-4b`.
-- Do not index, embed, print, or send L4/secrets. Use redaction and approval for L2-L3.
-- For credentials, always use the global `1password-service-account-access` skill and the `service-account-keychain` backend. Do not invent desktop-app, plaintext cache, `.env`, or ad-hoc `op signin` flows.
-- Expected 1Password backend check: `User Type: SERVICE_ACCOUNT` from `op whoami` with the Keychain-provided `OP_SERVICE_ACCOUNT_TOKEN`.
+- AI-Memory / ctx-memory skill, plugin, MCP, and automatic indexing are disabled system-wide by user request (2026-06-08).
+- Do not auto-load, invoke, index with, or require AI-Memory/ctx-memory in Codex, Claude Code, hooks, or project workflows unless the user explicitly re-enables it.
+- Do not use Superpowers (`obra/superpowers`, `superpowers@openai-curated`, `superpowers:writing-skills`) unless the user explicitly re-enables it.
 <!-- ai-memory-project-policy:end -->

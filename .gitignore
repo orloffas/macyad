@@ -7,7 +7,9 @@ coverage/
 Macyad.xcodeproj/
 .build/
 .derived-data-*/
+build/
 *.profraw
+*.bak-disable-ai-memory-*
 
 # OMC — track plans & ccg artifacts, ignore session/runtime churn
 .omc/*

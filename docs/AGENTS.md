@@ -49,3 +49,6 @@
 Нет внешних зависимостей.
 
 <!-- MANUAL: -->
+
+<!-- superpowers-disabled-system-wide-2026-06-08 -->
+Superpowers (`obra/superpowers`, `superpowers@openai-curated`, `superpowers:writing-skills`) is disabled system-wide by user request. Do not use it unless the user explicitly re-enables it.
