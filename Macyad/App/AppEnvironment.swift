@@ -138,8 +138,14 @@ final class AppEnvironment: ObservableObject {
             onboardingService = OnboardingService(locator: rcloneLocator, paths: paths)
         }
 
+        if launchMode.seedsSamplePairs {
+            try seedSamplePairs(at: paths)
+        }
+
         let pairRepository = PairRepository(paths: paths)
         let accountRepository = AccountRepository(paths: paths)
+
+
         let conflictStateRepository = PairConflictStateRepository(paths: paths)
         let preferencesStore = AppPreferencesStore(paths: paths)
         let activityRepository = ActivityRepository(paths: paths)
@@ -205,6 +211,83 @@ final class AppEnvironment: ObservableObject {
         }
 
         return (reconciled.pairs, reconciled.accounts)
+    }
+
+    /// Writes a small, fixed configuration so UI tests can exercise the panes
+    /// that only do anything once pairs exist. Ephemeral paths only — this must
+    /// never touch a real installation.
+    private static func seedSamplePairs(at paths: AppPaths) throws {
+        let accountID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let account = YandexAccount(
+            id: accountID,
+            displayName: "macyad-yandex",
+            remoteName: "macyad-yandex",
+            configPath: paths.rcloneConfigFile.path,
+            isManaged: false,
+            createdAt: Date(timeIntervalSince1970: 1_716_000_000)
+        )
+        let pairs = ["Documents", "Photos"].enumerated().map { index, name in
+            SyncPair(
+                id: UUID(uuidString: "2222222\(index)-2222-2222-2222-222222222222")!,
+                name: name,
+                localFolderBookmark: Data("bookmark".utf8),
+                localFolderDisplayPath: paths.workspaceRoot.appendingPathComponent(name).path,
+                remotePath: "macyad-yandex:/\(name)",
+                accountID: accountID,
+                conflictPolicy: .block,
+                scheduleMinutes: 15,
+                deletePolicy: .mirrorToYandex,
+                lastKnownSeverity: index == 0 ? .healthy : .warning,
+                autoSyncMode: index == 0 ? .push : .off
+            )
+        }
+
+        // A blocked run carries one issue per mismatched path, and a real pair
+        // reaches several hundred. Seed that too: it is the size the panes are
+        // actually asked to render, and an empty journal never exercises it.
+        let issues = (0 ..< 500).map { index in
+            ActivityFileIssue(
+                relativePath: "Folder \(index / 50)/file-\(index).pdf",
+                problemKind: .remoteOnlyChanged,
+                differences: [.baselineMissing, .missingLocal],
+                localSnapshot: nil,
+                remoteSnapshot: PairSnapshotEntry(
+                    path: "Folder \(index / 50)/file-\(index).pdf",
+                    size: 991,
+                    modTime: Date(timeIntervalSince1970: 1_716_000_000),
+                    md5: nil
+                ),
+                baselineSnapshot: nil,
+                selectedDecision: .later
+            )
+        }
+        let events = (0 ..< 20).map { index in
+            ActivityEvent(
+                id: UUID(),
+                date: Date(timeIntervalSince1970: 1_716_000_000 + Double(index * 60)),
+                message: "Scheduled Push to Yandex blocked",
+                severity: .warning,
+                pairID: pairs[0].id,
+                details: "The agreed baseline is missing. Push/Pull is blocked until the current state is reconciled.",
+                issueSet: ActivityIssueSet(issues: issues)
+            )
+        }
+
+        // A configured remote, so the onboarding pane reaches its completed
+        // state — the branch that only exists when pairs are present.
+        try """
+        [macyad-yandex]
+        type = yandex
+        token = {"access_token":"seeded","token_type":"OAuth"}
+
+        """.write(to: paths.rcloneConfigFile, atomically: true, encoding: .utf8)
+
+        // Written synchronously, before anything reads them: the repositories
+        // are actors, and a Task here would race the first load.
+        let encoder = JSONEncoder()
+        try encoder.encode([account]).write(to: paths.accountsFile, options: .atomic)
+        try encoder.encode(pairs).write(to: paths.pairsFile, options: .atomic)
+        try encoder.encode(events).write(to: paths.activityFile, options: .atomic)
     }
 
     private static func makePaths(

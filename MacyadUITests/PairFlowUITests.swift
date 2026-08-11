@@ -56,6 +56,59 @@ final class PairFlowUITests: XCTestCase {
 
     // AC #5/#6/#7: CreatePair interval text input — valid value enables Save; invalid disables it.
     @MainActor
+    func testOnboardingKeepsTheWindowPopulatedWithPairsPresent() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UITEST_SEEDED_PAIRS"]
+        app.launch()
+
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5))
+
+        // The completed onboarding state is only reachable once pairs exist,
+        // so no test ever rendered it until this one.
+        let onboardingItem = app.staticTexts["Onboarding"].firstMatch
+        let onboardingItemRU = app.staticTexts["Подключение"].firstMatch
+        XCTAssertTrue(onboardingItem.waitForExistence(timeout: 5) || onboardingItemRU.waitForExistence(timeout: 5))
+        (onboardingItem.exists ? onboardingItem : onboardingItemRU).click()
+
+        // The sidebar must survive: the reported symptom is the whole window
+        // going blank, pair list included.
+        XCTAssertTrue(
+            app.staticTexts["Documents"].firstMatch.waitForExistence(timeout: 5),
+            "the sidebar lost its pairs after opening Onboarding"
+        )
+        XCTAssertTrue(
+            app.buttons["onboarding.retry"].firstMatch.waitForExistence(timeout: 5),
+            "the onboarding pane rendered nothing"
+        )
+    }
+
+    func testOverviewKeepsItsContentWithPairsPresent() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UITEST_SEEDED_PAIRS"]
+        app.launch()
+
+        XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5))
+
+        // Start on a pair, the way the user does, then switch to Overview:
+        // the pane is built fresh at that point, with rows to render.
+        let pairRow = app.staticTexts["Documents"].firstMatch
+        XCTAssertTrue(pairRow.waitForExistence(timeout: 5))
+        pairRow.click()
+
+        let overviewItem = app.staticTexts["Overview"].firstMatch
+        XCTAssertTrue(overviewItem.waitForExistence(timeout: 5))
+        overviewItem.click()
+
+        // Everything the pane is supposed to show must still be there.
+        let workspaceLabel = app.staticTexts["Workspace"].firstMatch
+        let workspaceLabelRU = app.staticTexts["Рабочая папка"].firstMatch
+        XCTAssertTrue(
+            workspaceLabel.waitForExistence(timeout: 5) || workspaceLabelRU.waitForExistence(timeout: 5),
+            "Overview lost its content after switching to it"
+        )
+        XCTAssertTrue(app.staticTexts["Photos"].firstMatch.exists, "the table lost its rows")
+    }
+
     func testCreatePairIntervalValidInputEnablesSave() {
         let app = XCUIApplication()
         app.launchArguments = ["-UITEST_READY_STATE"]

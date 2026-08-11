@@ -5,6 +5,10 @@ public enum AppLaunchMode: Sendable, Equatable {
     case foreground
     case uiTestOnboardingMissingRclone
     case uiTestReadyState
+    /// Ready state plus a couple of pairs on disk. The panes that show a list
+    /// or a table behave differently once they have rows, and every other UI
+    /// test runs against an empty state where those paths are never taken.
+    case uiTestSeededPairs
 
     public init(
         arguments: [String],
@@ -21,6 +25,8 @@ public enum AppLaunchMode: Sendable, Equatable {
 
         if flags.contains("UITEST_ONBOARDING_MISSING_RCLONE") {
             self = .uiTestOnboardingMissingRclone
+        } else if flags.contains("UITEST_SEEDED_PAIRS") {
+            self = .uiTestSeededPairs
         } else if flags.contains("UITEST_READY_STATE") {
             self = .uiTestReadyState
         } else if Self.requestsForegroundLaunch(arguments: arguments, environment: environment) {
@@ -32,7 +38,7 @@ public enum AppLaunchMode: Sendable, Equatable {
 
     public var shouldForceForegroundWindow: Bool {
         switch self {
-        case .normal, .foreground, .uiTestOnboardingMissingRclone, .uiTestReadyState:
+        case .normal, .foreground, .uiTestOnboardingMissingRclone, .uiTestReadyState, .uiTestSeededPairs:
             true
         }
     }
@@ -41,7 +47,7 @@ public enum AppLaunchMode: Sendable, Equatable {
         switch self {
         case .normal, .foreground, .uiTestOnboardingMissingRclone:
             nil
-        case .uiTestReadyState:
+        case .uiTestReadyState, .uiTestSeededPairs:
             "/opt/homebrew/bin/rclone"
         }
     }
@@ -50,9 +56,13 @@ public enum AppLaunchMode: Sendable, Equatable {
         switch self {
         case .normal, .foreground:
             false
-        case .uiTestOnboardingMissingRclone, .uiTestReadyState:
+        case .uiTestOnboardingMissingRclone, .uiTestReadyState, .uiTestSeededPairs:
             true
         }
+    }
+
+    public var seedsSamplePairs: Bool {
+        self == .uiTestSeededPairs
     }
 
     private static func requestsForegroundLaunch(

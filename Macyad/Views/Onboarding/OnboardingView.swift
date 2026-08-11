@@ -9,12 +9,14 @@ struct OnboardingView: View {
     var body: some View {
         let copy = appModel.copy
 
-        VStack(alignment: .leading, spacing: 16) {
-            Text(viewModel.state.step == .complete ? copy.onboardingEnvironmentTitle : copy.onboardingTitle)
+        let step = viewModel.displayStep(pairCount: appModel.pairs.count)
+
+        return VStack(alignment: .leading, spacing: 16) {
+            Text(step == .complete ? copy.onboardingEnvironmentTitle : copy.onboardingTitle)
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            switch viewModel.state.step {
+            switch step {
             case .installRclone:
                 CommandCopyRowView(
                     title: copy.installRcloneTitle,
@@ -101,7 +103,14 @@ struct OnboardingView: View {
             Spacer()
         }
         .padding(20)
-        .task(id: appModel.pairs.count) {
+        .task {
+            // Only the first time the pane is shown. The check runs rclone, and
+            // re-running it on every visit both surprises the user and makes the
+            // "Re-check environment" button look decorative.
+            guard viewModel.lastCheckedAt == nil else {
+                return
+            }
+
             await refresh()
         }
     }

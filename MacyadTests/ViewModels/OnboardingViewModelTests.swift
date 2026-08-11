@@ -3,6 +3,21 @@ import XCTest
 
 @MainActor
 final class OnboardingViewModelTests: XCTestCase {
+    @MainActor
+    func testDisplayStepFollowsThePairCountWithoutRecheckingTheEnvironment() async {
+        let service = CountingOnboardingService(step: .createFirstPair)
+        let viewModel = OnboardingViewModel(service: service, pasteboard: StubPasteboard())
+
+        await viewModel.retry(pairCount: 0)
+
+        XCTAssertEqual(viewModel.displayStep(pairCount: 0), .createFirstPair)
+        // A new pair moves the pane to its completed state on its own: pairs say
+        // nothing about rclone, and the check spawns a process.
+        XCTAssertEqual(viewModel.displayStep(pairCount: 2), .complete)
+        let refreshCount = await service.refreshCount()
+        XCTAssertEqual(refreshCount, 1)
+    }
+
     private struct StubOnboardingService: OnboardingServicing {
         let step: OnboardingState.Step
 
@@ -143,5 +158,32 @@ final class OnboardingViewModelTests: XCTestCase {
         await model.retry(pairCount: 1, now: checkedAt)
 
         XCTAssertEqual(model.lastCheckedDescription(copy: copy), "Last check: \(copy.formatTimestamp(checkedAt))")
+    }
+}
+
+private actor CountingOnboardingService: OnboardingServicing {
+    private let step: OnboardingState.Step
+    private var count = 0
+
+    init(step: OnboardingState.Step) {
+        self.step = step
+    }
+
+    func refreshCount() -> Int {
+        count
+    }
+
+    func refresh(pairCount: Int) async throws -> OnboardingState {
+        count += 1
+        return OnboardingState(
+            step: step,
+            rcloneLocation: "/opt/homebrew/bin/rclone",
+            rcloneVersion: "rclone v1.66.0",
+            configuredRemoteName: "macyad-yandex",
+            pairsCount: pairCount,
+            brewInstallCommand: "brew install rclone",
+            remoteCreateCommand: "",
+            configPath: "/tmp/rclone.conf"
+        )
     }
 }

@@ -47,6 +47,22 @@ public final class OnboardingViewModel: ObservableObject {
         lastCheckedAt = now
     }
 
+    /// The step to render, adjusted for the pairs the app currently has.
+    ///
+    /// Creating or deleting a pair changes which step applies, but it says
+    /// nothing about rclone or the remote — so the pane follows along without
+    /// re-running the environment check, which spawns a process.
+    public func displayStep(pairCount: Int) -> OnboardingState.Step {
+        switch state.step {
+        case .createFirstPair where pairCount > 0:
+            return .complete
+        case .complete where pairCount == 0:
+            return .createFirstPair
+        default:
+            return state.step
+        }
+    }
+
     public func copy(_ command: String) {
         pasteboard.copy(command)
         lastCopiedCommand = command
