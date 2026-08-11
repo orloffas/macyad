@@ -32,7 +32,12 @@ guard let source = CGImageSourceCreateWithURL(masterURL as CFURL, nil),
     fail("cannot read master icon at \(masterURL.path)")
 }
 
-/// Bounding box of pixels with a non-zero alpha channel.
+/// Ignores the drop shadow, which is far more translucent than the icon body.
+/// Without this the shadow would widen the measured box and every rerun would
+/// shrink the icon a little further.
+let opaqueAlpha: UInt8 = 128
+
+/// Bounding box of pixels that are at least `opaqueAlpha` opaque.
 func opaqueBounds(of image: CGImage) -> CGRect {
     let width = image.width
     let height = image.height
@@ -52,7 +57,7 @@ func opaqueBounds(of image: CGImage) -> CGRect {
 
     var minX = width, minY = height, maxX = -1, maxY = -1
     for y in 0..<height {
-        for x in 0..<width where pixels[(y * width + x) * 4 + 3] != 0 {
+        for x in 0..<width where pixels[(y * width + x) * 4 + 3] >= opaqueAlpha {
             minX = min(minX, x)
             maxX = max(maxX, x)
             minY = min(minY, y)
@@ -87,6 +92,13 @@ guard let canvasContext = CGContext(
     fail("cannot create canvas context")
 }
 canvasContext.interpolationQuality = .high
+// Drop shadow below the body, the way system icons sit on the Dock shelf.
+// It stays inside the 100px margin, so it never reaches the canvas edge.
+canvasContext.setShadow(
+    offset: CGSize(width: 0, height: -10),
+    blur: 22,
+    color: CGColor(red: 0, green: 0, blue: 0, alpha: 0.28)
+)
 canvasContext.draw(content, in: drawRect)
 guard let padded = canvasContext.makeImage() else { fail("cannot render padded icon") }
 
