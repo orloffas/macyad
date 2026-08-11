@@ -23,12 +23,12 @@ struct OverviewView: View {
                     Text(environment.paths.workspaceRoot.path)
                         .textSelection(.enabled)
                     Button {
-                        environment.folderRevealer.revealFolder(atPath: environment.paths.workspaceRoot.path)
+                        environment.folderOpener.openFolder(atPath: environment.paths.workspaceRoot.path)
                     } label: {
                         Image(systemName: "folder")
                     }
                     .buttonStyle(.borderless)
-                    .help(copy.revealInFinderTitle)
+                    .help(copy.openInFinderTitle)
                 }
             }
             LabeledContent(copy.overviewPairsLabel, value: "\(appModel.pairs.count)")
@@ -81,6 +81,11 @@ struct OverviewView: View {
             }
         }
         .padding(20)
+        // The row cache lives in a view-model that outlives this view, while
+        // `onChange` only fires while the view is on screen. Anything changed
+        // from the pair detail page — the auto-sync mode, say — would show up
+        // here as the state it had when Overview was last visible.
+        .onAppear { refreshRows() }
         .onChange(of: selectedPairID) { _, newValue in
             if let newValue { onSelectPair(newValue) }
         }

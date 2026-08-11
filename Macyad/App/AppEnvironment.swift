@@ -26,8 +26,10 @@ final class AppEnvironment: ObservableObject {
     private struct StubOnboardingService: OnboardingServicing {
         let state: OnboardingState
 
-        func refresh() async throws -> OnboardingState {
-            state
+        func refresh(pairCount: Int) async throws -> OnboardingState {
+            var state = state
+            state.pairsCount = pairCount
+            return state
         }
     }
 
@@ -48,7 +50,7 @@ final class AppEnvironment: ObservableObject {
     let statusService: StatusService
     let onboardingService: OnboardingServicing
     let onboardingViewModel: OnboardingViewModel
-    let folderRevealer: FolderRevealing
+    let folderOpener: FolderOpening
     let pairRepository: PairRepository
     let accountRepository: AccountRepository
     let conflictStateRepository: PairConflictStateRepository
@@ -91,7 +93,7 @@ final class AppEnvironment: ObservableObject {
             service: onboardingService,
             pasteboard: PasteboardBridge()
         )
-        self.folderRevealer = FinderRevealBridge()
+        self.folderOpener = FinderFolderOpenerBridge()
         self.settingsViewModel = SettingsViewModel(
             preferencesStore: preferencesStore,
             loginItemService: loginItemService,
