@@ -197,13 +197,27 @@ struct PairDetailView: View {
                 }
             }
 
-            Toggle("Auto-push", isOn: Binding(
-                get: { pair.isAutoPushEnabled },
+            Picker(copy.autoSyncModeLabel, selection: Binding(
+                get: { pair.autoSyncMode },
                 set: { newValue in
-                    Task { await viewModel.onToggleAutoPush?(pair, newValue) }
+                    Task { await viewModel.onChangeAutoSyncMode?(pair, newValue) }
                 }
-            ))
+            )) {
+                ForEach(AutoSyncMode.allCases, id: \.self) { mode in
+                    Text(copy.autoSyncModeTitle(mode))
+                        .help(copy.autoSyncModeTooltip(mode))
+                        .tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
             .controlSize(.small)
+            .fixedSize()
+            .help(copy.autoSyncModeTooltip(pair.autoSyncMode))
+
+            Text(copy.autoSyncModeExclusiveHint)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

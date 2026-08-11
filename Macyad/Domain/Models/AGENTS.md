@@ -23,7 +23,8 @@
 | `OnboardingState.swift` | Состояние онбординга: текущий шаг (`installRclone` / `configureRemote` / `createFirstPair` / `complete`), путь к rclone, команды CLI |
 | `PairConflictBaselineState.swift` | Baseline-снимок пары (local + remote `PairSnapshot`) для baseline-aware сравнения; включает вспомогательные `PairSnapshot` и `PairSnapshotEntry`; `Codable` |
 | `Severity.swift` | Comparable enum уровня серьёзности: `healthy` < `info` < `warning` < `alarm`; `Codable` |
-| `SyncPair.swift` | Центральная сущность: пара local-folder ↔ Yandex-remote с политиками, расписанием, exclusion-списками и последними датами операций; `Codable`; содержит `DeletePolicy` и хелперы разбора `remotePath` |
+| `SyncPair.swift` | Центральная сущность: пара local-folder ↔ Yandex-remote с политиками, расписанием, exclusion-списками и последними датами операций; `Codable` с ручным `init(from:)`/`encode(to:)` ради миграции legacy-ключей (`isAutoPushEnabled` → `autoSyncMode`, `lastScheduledPushAttemptAt` → `lastScheduledSyncAttemptAt`); содержит `DeletePolicy` и хелперы разбора `remotePath` |
+| `AutoSyncMode.swift` | `off` / `push` / `pull` — направление плановой синхронизации пары. Один enum вместо двух `Bool`, чтобы состояние «включены оба направления» было непредставимо: двусторонний режим потребовал бы per-path движка |
 | `YandexAccount.swift` | Yandex-аккаунт: displayName, remoteName, configPath, флаг managed-remote; `Codable` |
 
 ## For AI Agents

@@ -979,11 +979,11 @@ public struct AppCopy: Sendable {
     }
 
     public var pauseAllSchedulesToggleTitle: String {
-        isRussian ? "Приостановить все scheduled push" : "Pause all scheduled pushes"
+        isRussian ? "Приостановить всю плановую синхронизацию" : "Pause all scheduled syncs"
     }
 
-    public var scheduledPushSectionTitle: String {
-        "Scheduled push"
+    public var scheduledSyncSectionTitle: String {
+        "Scheduled sync"
     }
 
     public var pausedByGlobalSettingTooltip: String {
@@ -1000,6 +1000,44 @@ public struct AppCopy: Sendable {
 
     public var pausedForThisPairShort: String {
         isRussian ? "Пауза (эта пара)" : "Paused (this pair)"
+    }
+
+    public var autoSyncModeLabel: String {
+        isRussian ? "Автосинхронизация" : "Auto-sync"
+    }
+
+    public func autoSyncModeTitle(_ mode: AutoSyncMode) -> String {
+        switch mode {
+        case .off:
+            isRussian ? "Выключена" : "Off"
+        case .push:
+            isRussian ? "Auto-Push" : "Auto-Push"
+        case .pull:
+            isRussian ? "Auto-Pull" : "Auto-Pull"
+        }
+    }
+
+    public func autoSyncModeTooltip(_ mode: AutoSyncMode) -> String {
+        switch mode {
+        case .off:
+            isRussian
+                ? "Плановая синхронизация выключена — только ручные операции."
+                : "Scheduled sync is off — manual operations only."
+        case .push:
+            isRussian
+                ? "По расписанию выполняется Push to Yandex: локальная папка → Yandex."
+                : "Runs Push to Yandex on schedule: local folder → Yandex."
+        case .pull:
+            isRussian
+                ? "По расписанию выполняется Pull From Yandex: Yandex → локальная папка."
+                : "Runs Pull From Yandex on schedule: Yandex → local folder."
+        }
+    }
+
+    public var autoSyncModeExclusiveHint: String {
+        isRussian
+            ? "Направления взаимоисключающие: одна пара синхронизируется либо вверх, либо вниз. Двусторонний режим потребовал бы разбора конфликтов на каждый файл."
+            : "Directions are mutually exclusive: a pair syncs either up or down. A two-way mode would require per-file conflict resolution."
     }
 
     public var openLiveMonitorButtonTitle: String {
@@ -1040,46 +1078,60 @@ public struct AppCopy: Sendable {
         isRussian ? "Ошибка (код \(code))" : "Failed (code \(code))"
     }
 
-    public var scheduledSyncBootstrapFailure: String {
-        isRussian
-            ? "Не удалось инициализировать scheduled Push to Yandex."
-            : "Failed to initialize scheduled Push to Yandex."
+    /// Name of the rclone-facing operation a scheduled run performs, used to
+    /// build the scheduled-sync copy below for both directions.
+    public func scheduledSyncOperationName(_ direction: AutoSyncMode) -> String {
+        direction == .pull ? "Pull From Yandex" : "Push to Yandex"
     }
 
-    public var scheduledSyncNotificationTitle: String {
-        isRussian ? "MacYaD: плановый Push to Yandex не выполнен" : "MacYaD: scheduled Push to Yandex failed"
+    public func scheduledSyncBootstrapFailure(_ direction: AutoSyncMode) -> String {
+        let operation = scheduledSyncOperationName(direction)
+        return isRussian
+            ? "Не удалось инициализировать scheduled \(operation)."
+            : "Failed to initialize scheduled \(operation)."
     }
 
-    public var scheduledSyncCompleted: String {
-        isRussian ? "Плановый Push to Yandex завершён" : "Scheduled Push to Yandex completed"
+    public func scheduledSyncNotificationTitle(_ direction: AutoSyncMode) -> String {
+        let operation = scheduledSyncOperationName(direction)
+        return isRussian ? "MacYaD: плановый \(operation) не выполнен" : "MacYaD: scheduled \(operation) failed"
     }
 
-    public func scheduledSyncFailed(_ message: String) -> String {
+    public func scheduledSyncCompleted(_ direction: AutoSyncMode) -> String {
+        let operation = scheduledSyncOperationName(direction)
+        return isRussian ? "Плановый \(operation) завершён" : "Scheduled \(operation) completed"
+    }
+
+    public func scheduledSyncFailed(_ message: String, direction: AutoSyncMode) -> String {
+        let operation = scheduledSyncOperationName(direction)
         if isRussian {
-            return "Плановый Push to Yandex не выполнен: \(message)"
+            return "Плановый \(operation) не выполнен: \(message)"
         }
 
-        return "Scheduled Push to Yandex failed: \(message)"
+        return "Scheduled \(operation) failed: \(message)"
     }
 
-    public var scheduledSyncFailedPrefix: String {
-        isRussian ? "Плановый Push to Yandex не выполнен" : "Scheduled Push to Yandex failed"
+    public func scheduledSyncFailedPrefix(_ direction: AutoSyncMode) -> String {
+        let operation = scheduledSyncOperationName(direction)
+        return isRussian ? "Плановый \(operation) не выполнен" : "Scheduled \(operation) failed"
     }
 
-    public var scheduledSyncSkipped: String {
-        isRussian ? "Плановый Push to Yandex пропущен" : "Scheduled Push to Yandex skipped"
+    public func scheduledSyncSkipped(_ direction: AutoSyncMode) -> String {
+        let operation = scheduledSyncOperationName(direction)
+        return isRussian ? "Плановый \(operation) пропущен" : "Scheduled \(operation) skipped"
     }
 
-    public var scheduledPushBlockedTitle: String {
-        isRussian ? "Плановый Push to Yandex заблокирован" : "Scheduled Push to Yandex blocked"
+    public func scheduledSyncBlockedTitle(_ direction: AutoSyncMode) -> String {
+        let operation = scheduledSyncOperationName(direction)
+        return isRussian ? "Плановый \(operation) заблокирован" : "Scheduled \(operation) blocked"
+    }
+
+    public func syncBlockedNotificationTitle(_ direction: AutoSyncMode) -> String {
+        let operation = scheduledSyncOperationName(direction)
+        return isRussian ? "MacYaD: \(operation) заблокирован" : "MacYaD: \(operation) blocked"
     }
 
     public var scheduledPushConflictBlockedTitle: String {
         isRussian ? "Плановый Push to Yandex остановлен из-за drift/conflict" : "Scheduled Push to Yandex blocked by drift/conflict"
-    }
-
-    public var pushBlockedNotificationTitle: String {
-        isRussian ? "MacYaD: Push to Yandex заблокирован" : "MacYaD: Push to Yandex blocked"
     }
 
     public var localFolderEmptyPushBlocked: String {

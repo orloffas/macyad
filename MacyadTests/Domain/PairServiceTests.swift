@@ -86,7 +86,7 @@ final class PairServiceTests: XCTestCase {
             deletePolicy: .mirrorToYandex,
             lastKnownSeverity: .alarm,
             lastSyncAt: Date(timeIntervalSince1970: 456),
-            lastScheduledPushAttemptAt: Date(timeIntervalSince1970: 789)
+            lastScheduledSyncAttemptAt: Date(timeIntervalSince1970: 789)
         )
 
         let updatedPair = try service.updatePair(
@@ -106,7 +106,7 @@ final class PairServiceTests: XCTestCase {
         XCTAssertEqual(updatedPair.id, existingPair.id)
         XCTAssertEqual(updatedPair.lastKnownSeverity, Severity.alarm)
         XCTAssertEqual(updatedPair.lastSyncAt, existingPair.lastSyncAt)
-        XCTAssertEqual(updatedPair.lastScheduledPushAttemptAt, existingPair.lastScheduledPushAttemptAt)
+        XCTAssertEqual(updatedPair.lastScheduledSyncAttemptAt, existingPair.lastScheduledSyncAttemptAt)
         XCTAssertEqual(updatedPair.name, "New")
         XCTAssertEqual(updatedPair.accountID, accountID)
         XCTAssertEqual(updatedPair.conflictPolicy, .keepBoth)

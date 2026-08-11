@@ -152,7 +152,7 @@ final class AppEnvironment: ObservableObject {
 
     func makeBackgroundSyncController(
         stateDidChange: @escaping BackgroundSyncController.StateDidChange,
-        scheduledPushLifecycle: ScheduledPushLifecycle = .noop
+        scheduledSyncLifecycle: ScheduledSyncLifecycle = .noop
     ) -> BackgroundSyncController {
         let scheduler = SchedulerService(syncServiceProvider: { [rcloneLocator, paths = self.paths] in
             guard let executablePath = try await rcloneLocator.locate() else {
@@ -175,7 +175,7 @@ final class AppEnvironment: ObservableObject {
             activityStore: activityRepository,
             notificationClient: notificationClient,
             stateDidChange: stateDidChange,
-            scheduledPushLifecycle: scheduledPushLifecycle
+            scheduledSyncLifecycle: scheduledSyncLifecycle
         )
     }
 

@@ -152,9 +152,9 @@ struct MainWindowView: View {
                 OverviewView(
                     viewModel: environment.overviewViewModel,
                     onSelectPair: { id in appModel.sidebarSelection = .pair(id) },
-                    onToggleAutoPush: { id, value in
+                    onChangeAutoSyncMode: { id, mode in
                         if let index = appModel.pairs.firstIndex(where: { $0.id == id }) {
-                            appModel.pairs[index].isAutoPushEnabled = value
+                            appModel.pairs[index].autoSyncMode = mode
                             Task { try? await environment.pairRepository.save(appModel.pairs) }
                         }
                     }
@@ -179,9 +179,9 @@ struct MainWindowView: View {
                     }
                 )
                 .onAppear {
-                    environment.pairDetailViewModel.onToggleAutoPush = { pair, newValue in
+                    environment.pairDetailViewModel.onChangeAutoSyncMode = { pair, newMode in
                         if let index = appModel.pairs.firstIndex(where: { $0.id == pair.id }) {
-                            appModel.pairs[index].isAutoPushEnabled = newValue
+                            appModel.pairs[index].autoSyncMode = newMode
                             try? await environment.pairRepository.save(appModel.pairs)
                         }
                     }
@@ -411,7 +411,7 @@ struct MainWindowView: View {
 
             if operation == .syncNow, updatedPair.lastKnownSeverity == .warning {
                 try? await environment.notificationClient.send(
-                    title: AppCopy.current.pushBlockedNotificationTitle,
+                    title: AppCopy.current.syncBlockedNotificationTitle(.push),
                     body: "\(pair.name): \(outcome.details ?? outcome.message)",
                     routeToken: routeToken
                 )

@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Бизнес-логика и оркестрация операций. Сервисы получают модели из `Models/`, вызывают Infrastructure через protocol-injected зависимости и возвращают обновлённые модели или outcome-структуры. Здесь реализованы Push/Pull/Check-операции, конфликтное планирование, scheduled push, управление аккаунтами и парами, онбординг и агрегация статуса.
+Бизнес-логика и оркестрация операций. Сервисы получают модели из `Models/`, вызывают Infrastructure через protocol-injected зависимости и возвращают обновлённые модели или outcome-структуры. Здесь реализованы Push/Pull/Check-операции, конфликтное планирование, плановая синхронизация (Auto-Push / Auto-Pull), управление аккаунтами и парами, онбординг и агрегация статуса.
 
 ## Key Files
 
@@ -20,8 +20,8 @@
 | `LiveMonitorPresenting.swift` | Протокол `LiveMonitorPresenting` + `LiveMonitorSlot` (`.running` / `.archived`): абстракция показа окна Live monitor. Конкретная реализация (`LiveMonitorWindowBridge`) живёт в `PlatformAdapters/`. Используется в `MacyadApp` для проброса presenter в `AppModel` и в lifecycle scheduled push |
 | `PairService.swift` | Создание, обновление и удаление `SyncPair`; валидация полей; запрет удаления последней пары |
 | `RcloneOutputObserver.swift` | Протокол `RcloneOutputObserver` — единая точка стрима stdout/stderr rclone-строк наблюдателю (Live monitor view-model). Реализация-замыкание `LiveMonitorClosureObserver` — в `PlatformAdapters/` |
-| `ScheduledPushLifecycle.swift` | `Sendable`-структура с двумя hook'ами: `willStart(SyncPair) -> RcloneOutputObserver?` и `didFinish(SyncPair) -> Void`. Передаётся в `SchedulerService` и `BackgroundSyncController`; используется в `MacyadApp` для подключения Live monitor к scheduled push (создать VM, стримить вывод rclone, архивировать лог по завершении). Default — `.noop` |
-| `SchedulerService.swift` | `actor`-сервис: тиковый цикл (60 с) scheduled push для всех пар, применяет `PushEligibilityPolicy`, делегирует в `SyncService` через `SerialOperationCoordinator`; принимает `ScheduledPushLifecycle` (default `.noop`) и вокруг каждого `syncService.push` вызывает `willStart` (передавая полученный observer в `push`) и `didFinish`; возвращает `[ScheduledPushResult]` |
+| `ScheduledSyncLifecycle.swift` | `Sendable`-структура с двумя hook'ами: `willStart(SyncPair) -> RcloneOutputObserver?` и `didFinish(SyncPair) -> Void`. Передаётся в `SchedulerService` и `BackgroundSyncController`; используется в `MacyadApp` для подключения Live monitor к scheduled push (создать VM, стримить вывод rclone, архивировать лог по завершении). Default — `.noop` |
+| `SchedulerService.swift` | `actor`-сервис: тиковый цикл (60 с) плановой синхронизации для всех пар, применяет `ScheduledSyncEligibilityPolicy` и выбирает направление по `pair.autoSyncMode` (`.push` → `syncService.push`, `.pull` → `syncService.pull`, оба в `executionMode: .scheduled`), делегирует в `SyncService` через `SerialOperationCoordinator`; принимает `ScheduledSyncLifecycle` (default `.noop`) и вокруг каждой операции вызывает `willStart` (передавая полученный observer) и `didFinish`; возвращает `[ScheduledSyncResult]` с фактическим `direction` |
 | `SerialOperationCoordinator.swift` | `actor`-очередь: гарантирует последовательное выполнение операций Push/Pull/Check; хранит `OperationState` (queued/running) и нотифицирует об изменениях через `StateDidChange` callback |
 | `StatusService.swift` | Вычисляет `MenuBarSummary` (title + alarmCount + warningCount) из списка пар и шага онбординга для отображения в menu bar |
 | `SyncService.swift` | Центральный оркестратор sync-операций: `push`, `pull`, `check`, `applyResolutions`; baseline-aware логика блокировки; взаимодействует с `RcloneProcessRunning`, `PairSnapshotProviding`, `PairConflictStateStoring`, `LocalFolderInspecting`, `LocalConflictFileManaging`. В Live monitor проставляет timestamped маркеры через `RcloneOutputObserver`: запуск rclone, exit-код, а также post-rclone фаза `refreshBaseline` (чтобы пользователь видел, почему footer остаётся `Running…` после строки `rclone exited with code 0`) |
@@ -53,7 +53,7 @@
 ### Internal
 
 - `Models/` — все типы данных (SyncPair, YandexAccount, ActivityEvent, ActivityIssueSet, PairConflictBaselineState, Severity, AppCopy, …)
-- `Policies/PushEligibilityPolicy.swift` — используется в `SchedulerService`
+- `Policies/ScheduledSyncEligibilityPolicy.swift` — используется в `SchedulerService`
 - `Infrastructure/` — через протоколы: `RcloneProcessRunning`, `RcloneLocating`, `PairSnapshotProviding`, `PairConflictStateStoring`, `RcloneExcludeFilePreparing`, `LocalConflictFileManaging`, `RcloneOperationInspecting`
 - `App/AppPaths.swift` — передаётся в `OnboardingService` через `init`
 

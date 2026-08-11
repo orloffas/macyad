@@ -10,13 +10,13 @@ final class PairDetailViewModelTests: XCTestCase {
     }
 
     func testPauseSourceNoneWhenBothEnabled() {
-        let pair = makePair(isAutoPushEnabled: true)
+        let pair = makePair(autoSyncMode: .push)
         let prefs = AppPreferences.defaults
         XCTAssertEqual(viewModel.pauseSource(for: pair, preferences: prefs), .none)
     }
 
     func testPauseSourceGlobalWhenGlobalPaused() {
-        let pair = makePair(isAutoPushEnabled: true)
+        let pair = makePair(autoSyncMode: .push)
         let prefs = AppPreferences(
             selectedLanguage: "en",
             launchAtLoginEnabled: true,
@@ -27,7 +27,7 @@ final class PairDetailViewModelTests: XCTestCase {
     }
 
     func testPauseSourceGlobalTakesPriorityOverPerPair() {
-        let pair = makePair(isAutoPushEnabled: false)
+        let pair = makePair(autoSyncMode: .off)
         let prefs = AppPreferences(
             selectedLanguage: "en",
             launchAtLoginEnabled: true,
@@ -38,12 +38,12 @@ final class PairDetailViewModelTests: XCTestCase {
     }
 
     func testPauseSourcePerPairWhenOnlyPairDisabled() {
-        let pair = makePair(isAutoPushEnabled: false)
+        let pair = makePair(autoSyncMode: .off)
         let prefs = AppPreferences.defaults
         XCTAssertEqual(viewModel.pauseSource(for: pair, preferences: prefs), .perPair)
     }
 
-    private func makePair(isAutoPushEnabled: Bool) -> SyncPair {
+    private func makePair(autoSyncMode: AutoSyncMode) -> SyncPair {
         SyncPair(
             id: UUID(),
             name: "Test",
@@ -53,7 +53,7 @@ final class PairDetailViewModelTests: XCTestCase {
             scheduleMinutes: 30,
             deletePolicy: .mirrorToYandex,
             lastKnownSeverity: .healthy,
-            isAutoPushEnabled: isAutoPushEnabled
+            autoSyncMode: autoSyncMode
         )
     }
 }

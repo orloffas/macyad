@@ -13,7 +13,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let activityStore = InMemoryActivityStore()
         let notificationClient = RecordingNotificationClient()
         let scheduler = SchedulerService(
-            policy: PushEligibilityPolicy(),
+            policy: ScheduledSyncEligibilityPolicy(),
             syncService: SyncService(
                 processClient: RecordingProcessClient(),
                 localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
@@ -57,7 +57,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let activityStore = InMemoryActivityStore()
         let notificationClient = RecordingNotificationClient()
         let scheduler = SchedulerService(
-            policy: PushEligibilityPolicy(),
+            policy: ScheduledSyncEligibilityPolicy(),
             syncService: SyncService(
                 processClient: RecordingProcessClient(),
                 localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false),
@@ -105,7 +105,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let activityStore = InMemoryActivityStore()
         let notificationClient = RecordingNotificationClient()
         let scheduler = SchedulerService(
-            policy: PushEligibilityPolicy(),
+            policy: ScheduledSyncEligibilityPolicy(),
             syncService: SyncService(
                 processClient: FailingProcessClient(),
                 localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
@@ -152,7 +152,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let activityStore = InMemoryActivityStore()
         let notificationClient = RecordingNotificationClient()
         let scheduler = SchedulerService(
-            policy: PushEligibilityPolicy(),
+            policy: ScheduledSyncEligibilityPolicy(),
             syncService: SyncService(
                 processClient: RecordingProcessClient(),
                 localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: false),
@@ -202,7 +202,7 @@ final class BackgroundSyncControllerTests: XCTestCase {
         let pairStore = InMemoryPairStore(pairs: [pair])
         let activityStore = InMemoryActivityStore()
         let scheduler = SchedulerService(
-            policy: PushEligibilityPolicy(),
+            policy: ScheduledSyncEligibilityPolicy(),
             syncService: SyncService(
                 processClient: RecordingProcessClient(),
                 localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),

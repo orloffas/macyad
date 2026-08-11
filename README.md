@@ -19,7 +19,11 @@
 ## Текущее продуктовое поведение
 
 - Каждая `pair` привязана к конкретному `Yandex account` и конкретному `rclone remote`.
-- В приложении одновременно выполняется только одна операция из набора `Push to Yandex`, `Pull from Yandex`, `Check Yandex` и `scheduled Push to Yandex`. Остальные операции ставятся в очередь.
+- В приложении одновременно выполняется только одна операция из набора `Push to Yandex`, `Pull from Yandex`, `Check Yandex` и плановой синхронизации. Остальные операции ставятся в очередь.
+- Плановая синхронизация задаётся per-pair режимом `Auto-sync`: `Выключена` / `Auto-Push` / `Auto-Pull`. Режимы взаимоисключающие — пара синхронизируется либо вверх, либо вниз.
+  - `Auto-Push` — по расписанию выполняется `Push to Yandex` (локальная папка → Yandex).
+  - `Auto-Pull` — по расписанию выполняется `Pull From Yandex` (Yandex → локальная папка).
+  - Двустороннего режима нет намеренно: `Push` (`rclone sync`) и `Pull` (`rclone copy`) применяются ко всему дереву целиком, поэтому одновременная работа обоих направлений требовала бы per-path движка с разбором конфликтов на каждый файл. Пары `SyncPair.autoSyncMode` достаточно, чтобы это состояние было непредставимо.
 - `Push to Yandex` больше не считается “безусловным sync”. Перед push приложение сравнивает текущее состояние с последним согласованным baseline и блокирует опасный overwrite.
 - `Conflict policy` на уровне пары:
   - `Block Push/Pull on conflict` — default для новых и legacy pair;
@@ -28,10 +32,10 @@
   - создают reviewable `activity event`;
   - в `Activity Detail` появляется кнопка `Review files`;
   - пользователь выбирает `Keep local`, `Keep remote`, `Keep both` или `Later` по строкам, по выбранной группе или сразу по всем видимым строкам.
-- `scheduled Push to Yandex` всегда non-destructive:
+- Плановая синхронизация всегда non-destructive в обе стороны:
   - не делает auto-reconcile;
-  - не перетирает remote drift;
-  - выполняется только если preflight считает push безопасным.
+  - `Auto-Push` не перетирает remote drift, `Auto-Pull` не перетирает local drift;
+  - выполняется только если preflight считает операцию безопасной, иначе пара уходит в `warning` с reviewable списком файлов.
 - `Check Yandex` опирается на baseline-aware сравнение и различает `clean`, `baseline missing`, `remote-only drift`, `local-only drift` и `true conflicts`.
 - `Activity` хранится 48 часов. Для `warning` и `alarm` в `Details` сохраняются полные `rclone` logs, а для reviewable конфликтов — структурированный список проблемных файлов с путями, observed differences и выбранными решениями.
 

@@ -321,6 +321,7 @@ public struct SyncService: Sendable {
                     severity: .healthy,
                     summary: copy.manualPullCompleted,
                     details: pullLog.detailedDescriptionIfUseful,
+                    shouldUpdateLastSync: true,
                     updatedBaseline: baselineUpdated
                 )
             }
@@ -337,6 +338,7 @@ public struct SyncService: Sendable {
                         severity: .healthy,
                         summary: copy.manualPullCompleted,
                         details: pullLog.detailedDescriptionIfUseful,
+                        shouldUpdateLastSync: true,
                         updatedBaseline: baselineUpdated
                     )
                 }
@@ -356,6 +358,7 @@ public struct SyncService: Sendable {
                     severity: .healthy,
                     summary: copy.manualPullCompleted,
                     details: pullLog.detailedDescriptionIfUseful,
+                    shouldUpdateLastSync: true,
                     updatedBaseline: baselineUpdated
                 )
             }

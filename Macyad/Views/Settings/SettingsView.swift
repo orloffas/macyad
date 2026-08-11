@@ -25,7 +25,7 @@ struct SettingsView: View {
                 Section {
                     Toggle(copy.pauseAllSchedulesToggleTitle, isOn: globalSchedulerPausedBinding)
                 } header: {
-                    Text(copy.scheduledPushSectionTitle)
+                    Text(copy.scheduledSyncSectionTitle)
                 }
 
                 Section {

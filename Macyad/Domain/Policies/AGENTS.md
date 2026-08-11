@@ -11,7 +11,7 @@
 
 | File | Description |
 |------|-------------|
-| `PushEligibilityPolicy.swift` | Определяет допустимость scheduled push для пары: возвращает `false`, если `lastKnownSeverity == .alarm` |
+| `ScheduledSyncEligibilityPolicy.swift` | Определяет допустимость плановой синхронизации для пары: `canRunScheduledSync` возвращает `false`, если `autoSyncMode == .off` или `lastKnownSeverity == .alarm`. Направление (push/pull) выбирает `SchedulerService` по `pair.autoSyncMode` |
 
 ## For AI Agents
 
@@ -20,7 +20,7 @@
 - Только stateless `struct` с чистыми методами — никаких свойств с изменяемым состоянием.
 - Методы принимают модели из `Models/` и возвращают `Bool` или простые enum-решения.
 - Никакого async/await — правила синхронные.
-- При добавлении нового policy — создавать отдельный файл, не расширять `PushEligibilityPolicy`.
+- При добавлении нового policy — создавать отдельный файл, не расширять `ScheduledSyncEligibilityPolicy`.
 
 ### Testing Requirements
 

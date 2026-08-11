@@ -21,7 +21,7 @@
 | `OnboardingServiceTests.swift` | Зеркало `OnboardingService`: stub `RcloneLocating`, шаги `installRclone` → `configureRemote` → `createFirstPair`, чтение реального rclone.conf из temp-каталога |
 | `PairConflictPlannerTests.swift` | `PairConflictPlanner`: классификация `remoteOnlyChanged`, `conflict`, `deleteVsModifyConflict`, bootstrap-режим, safe initial push/pull, observedDifferences |
 | `PairServiceTests.swift` | Зеркало `PairService`: валидация пустых полей, сохранение identity при update, запрет удаления последней пары, локализация ошибок через `AppLanguageState` |
-| `SchedulerServiceTests.swift` | `SchedulerService` + `PushEligibilityPolicy`: соблюдение интервала расписания, пропуск alarm-пар, маркировка failures, начальный push в пустой remote, дедупликация blocked-попыток |
+| `SchedulerServiceTests.swift` | `SchedulerService` + `ScheduledSyncEligibilityPolicy`: соблюдение интервала расписания, пропуск alarm-пар, маркировка failures, начальный push в пустой remote, дедупликация blocked-попыток |
 | `StatusServiceTests.swift` | Зеркало `StatusService`: агрегация severity по парам в summary-title и счётчики alarmCount/warningCount |
 | `SyncPairTests.swift` | JSON round-trip `SyncPair`: legacy-декодирование с дефолтными excludes, явные exclude-листы, хелперы `remoteName`/`remoteSubpath`/`composeRemotePath` |
 | `SyncServiceTests.swift` | `SyncService`: push/pull/check с stub processClient и snapshotProvider, блокировки при remote drift, initial push/pull, applyResolutions, детекция уже запущенного rclone copy, CommandFailedError локализация |

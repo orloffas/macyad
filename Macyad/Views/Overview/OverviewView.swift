@@ -6,7 +6,7 @@ struct OverviewView: View {
     @EnvironmentObject private var environment: AppEnvironment
     @ObservedObject var viewModel: OverviewViewModel
     let onSelectPair: (UUID) -> Void
-    let onToggleAutoPush: (UUID, Bool) -> Void
+    let onChangeAutoSyncMode: (UUID, AutoSyncMode) -> Void
     @State private var selectedPairID: UUID?
 
     var body: some View {
@@ -40,12 +40,18 @@ struct OverviewView: View {
                         }
                     }
                 }
-                TableColumn("Auto-push") { row in
-                    Toggle("", isOn: Binding(
-                        get: { row.isAutoPushEnabled },
-                        set: { onToggleAutoPush(row.id, $0) }
-                    ))
+                TableColumn(copy.autoSyncModeLabel) { row in
+                    Picker("", selection: Binding(
+                        get: { row.autoSyncMode },
+                        set: { onChangeAutoSyncMode(row.id, $0) }
+                    )) {
+                        ForEach(AutoSyncMode.allCases, id: \.self) { mode in
+                            Text(copy.autoSyncModeTitle(mode)).tag(mode)
+                        }
+                    }
                     .labelsHidden()
+                    .controlSize(.small)
+                    .help(copy.autoSyncModeTooltip(row.autoSyncMode))
                 }
                 TableColumn("Last sync") { row in
                     Text(row.lastSyncTitle)

@@ -130,7 +130,7 @@ struct MacyadApp: App {
         }
 
         let bridge = liveMonitorBridge
-        let scheduledPushLifecycle = ScheduledPushLifecycle(
+        let scheduledSyncLifecycle = ScheduledSyncLifecycle(
             willStart: { @Sendable pair in
                 await MainActor.run {
                     let vm = bridge.ensureRunningViewModel(for: pair.id)
@@ -165,7 +165,7 @@ struct MacyadApp: App {
 
             let selectedPair = await MainActor.run { appModel.selectedPair }
             await environment.pairDetailViewModel.load(for: selectedPair)
-        }, scheduledPushLifecycle: scheduledPushLifecycle)
+        }, scheduledSyncLifecycle: scheduledSyncLifecycle)
 
         backgroundSyncController = controller
         appModel.refreshBackgroundState = {

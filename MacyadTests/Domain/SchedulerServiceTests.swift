@@ -19,12 +19,12 @@ final class SchedulerServiceTests: XCTestCase {
             snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [duePair, notDuePair])),
             baselineRepository: InMemoryBaselineStore()
         )
-        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let scheduler = SchedulerService(policy: ScheduledSyncEligibilityPolicy(), syncService: service)
 
-        let results = await scheduler.runScheduledPushes(for: [duePair, notDuePair], now: now)
+        let results = await scheduler.runScheduledSyncs(for: [duePair, notDuePair], now: now)
         let recordedArguments = await processClient.recordedArguments()
 
-        XCTAssertEqual(results.map(\.disposition), [.pushed, .skippedNotDue])
+        XCTAssertEqual(results.map(\.disposition), [.synced, .skippedNotDue])
         XCTAssertEqual(results.map(\.pair.id), [duePair.id, notDuePair.id])
         XCTAssertEqual(results.first?.pair.lastSyncAt, now)
         XCTAssertEqual(results.last?.pair.lastSyncAt, notDuePair.lastSyncAt)
@@ -54,12 +54,12 @@ final class SchedulerServiceTests: XCTestCase {
             snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [healthyPair, alarmPair])),
             baselineRepository: InMemoryBaselineStore()
         )
-        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let scheduler = SchedulerService(policy: ScheduledSyncEligibilityPolicy(), syncService: service)
 
-        let results = await scheduler.runScheduledPushes(for: [healthyPair, alarmPair], now: now)
+        let results = await scheduler.runScheduledSyncs(for: [healthyPair, alarmPair], now: now)
         let recordedArguments = await processClient.recordedArguments()
 
-        XCTAssertEqual(results.map(\.disposition), [.pushed, .skippedByPolicy])
+        XCTAssertEqual(results.map(\.disposition), [.synced, .skippedByPolicy])
         XCTAssertEqual(results.first?.pair.lastSyncAt, now)
         XCTAssertNil(results.last?.pair.lastSyncAt)
         XCTAssertEqual(recordedArguments.count, 1)
@@ -86,9 +86,9 @@ final class SchedulerServiceTests: XCTestCase {
             snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
             baselineRepository: InMemoryBaselineStore()
         )
-        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let scheduler = SchedulerService(policy: ScheduledSyncEligibilityPolicy(), syncService: service)
 
-        let results = await scheduler.runScheduledPushes(for: [pair], now: now)
+        let results = await scheduler.runScheduledSyncs(for: [pair], now: now)
 
         XCTAssertEqual(results.count, 1)
         XCTAssertEqual(results[0].pair.lastKnownSeverity, Severity.alarm)
@@ -122,9 +122,9 @@ final class SchedulerServiceTests: XCTestCase {
             ),
             baselineRepository: InMemoryBaselineStore()
         )
-        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let scheduler = SchedulerService(policy: ScheduledSyncEligibilityPolicy(), syncService: service)
 
-        let results = await scheduler.runScheduledPushes(for: [pair], now: now)
+        let results = await scheduler.runScheduledSyncs(for: [pair], now: now)
         let recordedArguments = await processClient.recordedArguments()
 
         XCTAssertEqual(recordedArguments.count, 1)
@@ -132,7 +132,7 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertEqual(results[0].pair.lastKnownSeverity, .healthy)
         XCTAssertEqual(results[0].pair.lastSyncAt, now)
 
-        guard case .pushed = results[0].disposition else {
+        guard case .synced = results[0].disposition else {
             return XCTFail("Expected pushed disposition")
         }
     }
@@ -156,36 +156,36 @@ final class SchedulerServiceTests: XCTestCase {
             ),
             baselineRepository: InMemoryBaselineStore()
         )
-        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let scheduler = SchedulerService(policy: ScheduledSyncEligibilityPolicy(), syncService: service)
 
-        let firstResults = await scheduler.runScheduledPushes(for: [pair], now: now)
-        let secondResults = await scheduler.runScheduledPushes(for: [firstResults[0].pair], now: now.addingTimeInterval(60))
+        let firstResults = await scheduler.runScheduledSyncs(for: [pair], now: now)
+        let secondResults = await scheduler.runScheduledSyncs(for: [firstResults[0].pair], now: now.addingTimeInterval(60))
 
         guard case .blocked = firstResults[0].disposition else {
             return XCTFail("Expected initial blocked disposition")
         }
 
-        XCTAssertEqual(firstResults[0].pair.lastScheduledPushAttemptAt, now)
+        XCTAssertEqual(firstResults[0].pair.lastScheduledSyncAttemptAt, now)
         XCTAssertEqual(secondResults.map(\.disposition), [.skippedNotDue])
-        XCTAssertEqual(secondResults[0].pair.lastScheduledPushAttemptAt, now)
+        XCTAssertEqual(secondResults[0].pair.lastScheduledSyncAttemptAt, now)
     }
 
     func testPolicyBlocksAlarmPairsFromScheduledPush() {
-        let policy = PushEligibilityPolicy()
+        let policy = ScheduledSyncEligibilityPolicy()
 
-        XCTAssertFalse(policy.canRunScheduledPush(for: makePair(name: "Alarm", severity: .alarm, lastSyncAt: nil)))
-        XCTAssertTrue(policy.canRunScheduledPush(for: makePair(name: "Warning", severity: .warning, lastSyncAt: nil)))
+        XCTAssertFalse(policy.canRunScheduledSync(for: makePair(name: "Alarm", severity: .alarm, lastSyncAt: nil)))
+        XCTAssertTrue(policy.canRunScheduledSync(for: makePair(name: "Warning", severity: .warning, lastSyncAt: nil)))
     }
 
     func testSnapshotAPIGlobalPausedSkipsAllPairs() async {
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         let pair1 = makePair(name: "A", severity: .healthy, lastSyncAt: nil)
         let pair2 = makePair(name: "B", severity: .healthy, lastSyncAt: nil)
-        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncServiceProvider: { fatalError("should not be called") })
+        let scheduler = SchedulerService(policy: ScheduledSyncEligibilityPolicy(), syncServiceProvider: { fatalError("should not be called") })
         let pausedPrefs = AppPreferences(selectedLanguage: "en", launchAtLoginEnabled: true, defaultScheduleMinutes: 15, isGlobalSchedulerPaused: true)
         let snapshot = SchedulerSnapshot(pairs: [pair1, pair2], preferences: pausedPrefs)
 
-        let results = await scheduler.runScheduledPushes(snapshot: snapshot, now: now)
+        let results = await scheduler.runScheduledSyncs(snapshot: snapshot, now: now)
 
         XCTAssertEqual(results.count, 2)
         XCTAssertEqual(results[0].disposition, .skippedByPolicy)
@@ -199,7 +199,7 @@ final class SchedulerServiceTests: XCTestCase {
 
         let now = Date(timeIntervalSince1970: 1_716_580_800)
         var pairOff = makePair(name: "Off", severity: .healthy, lastSyncAt: nil)
-        pairOff.isAutoPushEnabled = false
+        pairOff.autoSyncMode = .off
         let pairOn = makePair(name: "On", severity: .healthy, lastSyncAt: nil)
         let processClient = RecordingProcessClient()
         let service = SyncService(
@@ -208,14 +208,14 @@ final class SchedulerServiceTests: XCTestCase {
             snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pairOff, pairOn])),
             baselineRepository: InMemoryBaselineStore()
         )
-        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let scheduler = SchedulerService(policy: ScheduledSyncEligibilityPolicy(), syncService: service)
         let prefs = AppPreferences.defaults
         let snapshot = SchedulerSnapshot(pairs: [pairOff, pairOn], preferences: prefs)
 
-        let results = await scheduler.runScheduledPushes(snapshot: snapshot, now: now)
+        let results = await scheduler.runScheduledSyncs(snapshot: snapshot, now: now)
 
         XCTAssertEqual(results[0].disposition, .skippedByPolicy)
-        XCTAssertEqual(results[1].disposition, .pushed)
+        XCTAssertEqual(results[1].disposition, .synced)
     }
 
     func testSnapshotAPIBothOnAndDuePushRuns() async throws {
@@ -232,13 +232,48 @@ final class SchedulerServiceTests: XCTestCase {
             snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
             baselineRepository: InMemoryBaselineStore()
         )
-        let scheduler = SchedulerService(policy: PushEligibilityPolicy(), syncService: service)
+        let scheduler = SchedulerService(policy: ScheduledSyncEligibilityPolicy(), syncService: service)
         let snapshot = SchedulerSnapshot(pairs: [pair], preferences: .defaults)
 
-        let results = await scheduler.runScheduledPushes(snapshot: snapshot, now: now)
+        let results = await scheduler.runScheduledSyncs(snapshot: snapshot, now: now)
 
         XCTAssertEqual(results.count, 1)
-        XCTAssertEqual(results[0].disposition, .pushed)
+        XCTAssertEqual(results[0].disposition, .synced)
+    }
+
+    func testAutoPullPairRunsCopyFromRemoteInsteadOfSync() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        var pullPair = makePair(name: "PullOnly", severity: .healthy, lastSyncAt: now.addingTimeInterval(-2_000))
+        pullPair.autoSyncMode = .pull
+        let pushPair = makePair(name: "PushOnly", severity: .healthy, lastSyncAt: now.addingTimeInterval(-2_000))
+        let processClient = RecordingProcessClient()
+        let excludeFileStore = StubExcludeFileStore()
+        let service = SyncService(
+            processClient: processClient,
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            excludeFileStore: excludeFileStore,
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pullPair, pushPair])),
+            baselineRepository: InMemoryBaselineStore()
+        )
+        let scheduler = SchedulerService(policy: ScheduledSyncEligibilityPolicy(), syncService: service)
+
+        let results = await scheduler.runScheduledSyncs(for: [pullPair, pushPair], now: now)
+        let recordedArguments = await processClient.recordedArguments()
+
+        XCTAssertEqual(results.map(\.disposition), [.synced, .synced])
+        XCTAssertEqual(results.map(\.direction), [.pull, .push])
+        // The pull pair must download (remote -> local); it must never run the
+        // destructive `sync` that would mirror local state onto Yandex.
+        XCTAssertEqual(recordedArguments, [
+            ["copy", pullPair.remotePath, pullPair.localFolderDisplayPath, "--exclude-from", "/tmp/sync-excludes.txt"],
+            ["sync", pushPair.localFolderDisplayPath, pushPair.remotePath, "--exclude-from", "/tmp/sync-excludes.txt"],
+        ])
+        XCTAssertEqual(results.first?.pair.lastSyncAt, now)
+        XCTAssertEqual(results.first?.pair.lastScheduledSyncAttemptAt, now)
     }
 
     private func makePair(name: String, severity: Severity, lastSyncAt: Date?) -> SyncPair {

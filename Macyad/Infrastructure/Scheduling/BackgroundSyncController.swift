@@ -31,7 +31,7 @@ public actor BackgroundSyncController {
     private let now: @Sendable () -> Date
     private let sleep: SleepOperation
     private let stateDidChange: StateDidChange
-    private let scheduledPushLifecycle: ScheduledPushLifecycle
+    private let scheduledSyncLifecycle: ScheduledSyncLifecycle
 
     private var task: Task<Void, Never>?
 
@@ -44,7 +44,7 @@ public actor BackgroundSyncController {
         now: @escaping @Sendable () -> Date = Date.init,
         sleep: @escaping SleepOperation = BackgroundSyncController.defaultSleep,
         stateDidChange: @escaping StateDidChange = { _, _ in },
-        scheduledPushLifecycle: ScheduledPushLifecycle = .noop
+        scheduledSyncLifecycle: ScheduledSyncLifecycle = .noop
     ) {
         self.scheduler = scheduler
         self.pairStore = pairStore
@@ -54,7 +54,7 @@ public actor BackgroundSyncController {
         self.now = now
         self.sleep = sleep
         self.stateDidChange = stateDidChange
-        self.scheduledPushLifecycle = scheduledPushLifecycle
+        self.scheduledSyncLifecycle = scheduledSyncLifecycle
     }
 
     public func start() {
@@ -94,7 +94,7 @@ public actor BackgroundSyncController {
 
         let preferences = (try? await preferencesStore.load()) ?? .defaults
         let snapshot = SchedulerSnapshot(pairs: pairs, preferences: preferences)
-        let results = await scheduler.runScheduledPushes(snapshot: snapshot, now: now(), lifecycle: scheduledPushLifecycle)
+        let results = await scheduler.runScheduledSyncs(snapshot: snapshot, now: now(), lifecycle: scheduledSyncLifecycle)
         let eventfulResults = results.filter { $0.disposition.recordsActivityEvent }
 
         guard !eventfulResults.isEmpty else {
@@ -112,16 +112,17 @@ public actor BackgroundSyncController {
         for result in eventfulResults {
             let event = makeEvent(for: result, at: now())
             try? await activityStore.append(event)
+            let direction = result.direction ?? result.pair.autoSyncMode
 
             if case let .blocked(summary, _, _) = result.disposition {
                 try? await notificationClient.send(
-                    title: copy.pushBlockedNotificationTitle,
+                    title: copy.syncBlockedNotificationTitle(direction),
                     body: "\(result.pair.name): \(summary)",
                     routeToken: event.routeToken
                 )
             } else if case let .failed(summary, _, _) = result.disposition {
                 try? await notificationClient.send(
-                    title: copy.scheduledSyncNotificationTitle,
+                    title: copy.scheduledSyncNotificationTitle(direction),
                     body: "\(result.pair.name): \(summary)",
                     routeToken: event.routeToken
                 )
@@ -144,8 +145,9 @@ public actor BackgroundSyncController {
         try await Task.sleep(for: duration)
     }
 
-    private func makeEvent(for result: ScheduledPushResult, at date: Date) -> ActivityEvent {
+    private func makeEvent(for result: ScheduledSyncResult, at date: Date) -> ActivityEvent {
         let copy = AppCopy.current
+        let direction = result.direction ?? result.pair.autoSyncMode
         let message: String
         let severity: Severity
         let eventID = UUID()
@@ -153,13 +155,13 @@ public actor BackgroundSyncController {
         let issueSet: ActivityIssueSet?
 
         switch result.disposition {
-        case .pushed:
-            message = copy.scheduledSyncCompleted
+        case .synced:
+            message = copy.scheduledSyncCompleted(direction)
             severity = .healthy
             routeToken = nil
             issueSet = nil
         case .blocked:
-            message = copy.scheduledPushBlockedTitle
+            message = copy.scheduledSyncBlockedTitle(direction)
             severity = .warning
             routeToken = ActivityRouteToken(pairID: result.pair.id, eventID: eventID, openIssueTable: result.disposition.issueSet != nil)
             issueSet = result.disposition.issueSet
@@ -174,12 +176,12 @@ public actor BackgroundSyncController {
                 routeToken: routeToken
             )
         case let .failed(summary, _, _):
-            message = copy.scheduledSyncFailed(summary)
+            message = copy.scheduledSyncFailed(summary, direction: direction)
             severity = .alarm
             routeToken = ActivityRouteToken(pairID: result.pair.id, eventID: eventID, openIssueTable: result.disposition.issueSet != nil)
             issueSet = result.disposition.issueSet
         case .skippedByPolicy, .skippedNotDue:
-            message = copy.scheduledSyncSkipped
+            message = copy.scheduledSyncSkipped(direction)
             severity = result.pair.lastKnownSeverity
             routeToken = nil
             issueSet = nil
@@ -198,12 +200,12 @@ public actor BackgroundSyncController {
     }
 }
 
-private extension ScheduledPushDisposition {
+private extension ScheduledSyncDisposition {
     var details: String? {
         switch self {
         case let .failed(_, details, _), let .blocked(_, details, _):
             details
-        case .pushed, .skippedByPolicy, .skippedNotDue:
+        case .synced, .skippedByPolicy, .skippedNotDue:
             nil
         }
     }
@@ -212,7 +214,7 @@ private extension ScheduledPushDisposition {
         switch self {
         case let .failed(_, _, issueSet), let .blocked(_, _, issueSet):
             issueSet
-        case .pushed, .skippedByPolicy, .skippedNotDue:
+        case .synced, .skippedByPolicy, .skippedNotDue:
             nil
         }
     }

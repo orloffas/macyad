@@ -10,7 +10,7 @@ final class OverviewViewModelTests: XCTestCase {
         name: String = "Pair",
         severity: Severity = .healthy,
         lastSyncAt: Date? = nil,
-        isAutoPushEnabled: Bool = true
+        autoSyncMode: AutoSyncMode = .push
     ) -> SyncPair {
         SyncPair(
             id: id,
@@ -22,7 +22,7 @@ final class OverviewViewModelTests: XCTestCase {
             deletePolicy: .mirrorToYandex,
             lastKnownSeverity: severity,
             lastSyncAt: lastSyncAt,
-            isAutoPushEnabled: isAutoPushEnabled
+            autoSyncMode: autoSyncMode
         )
     }
 
@@ -49,18 +49,18 @@ final class OverviewViewModelTests: XCTestCase {
     }
 
     func testRowReflectsIsAutoPushDisabled() {
-        let pair = makePair(isAutoPushEnabled: false)
+        let pair = makePair(autoSyncMode: .off)
         let vm = OverviewViewModel()
 
         vm.update(pairs: [pair], events: [], preferences: defaultPrefs, copy: copy)
 
-        XCTAssertFalse(vm.rows[0].isAutoPushEnabled)
+        XCTAssertEqual(vm.rows[0].autoSyncMode, .off)
         XCTAssertTrue(vm.rows[0].isPaused)
     }
 
     func testGlobalPauseMarksAllRowsPaused() {
-        let pairA = makePair(isAutoPushEnabled: true)
-        let pairB = makePair(isAutoPushEnabled: true)
+        let pairA = makePair(autoSyncMode: .push)
+        let pairB = makePair(autoSyncMode: .push)
         let pausedPrefs = AppPreferences(selectedLanguage: "en", launchAtLoginEnabled: false, defaultScheduleMinutes: 15, isGlobalSchedulerPaused: true)
         let vm = OverviewViewModel()
 
@@ -124,7 +124,7 @@ final class OverviewViewModelTests: XCTestCase {
     }
 
     func testPauseSourceNoneWhenBothEnabled() {
-        let pair = makePair(isAutoPushEnabled: true)
+        let pair = makePair(autoSyncMode: .push)
         let vm = OverviewViewModel()
 
         vm.update(pairs: [pair], events: [], preferences: defaultPrefs, copy: copy)
@@ -134,7 +134,7 @@ final class OverviewViewModelTests: XCTestCase {
     }
 
     func testPauseSourcePerPairWhenAutoPushDisabled() {
-        let pair = makePair(isAutoPushEnabled: false)
+        let pair = makePair(autoSyncMode: .off)
         let vm = OverviewViewModel()
 
         vm.update(pairs: [pair], events: [], preferences: defaultPrefs, copy: copy)
@@ -144,7 +144,7 @@ final class OverviewViewModelTests: XCTestCase {
     }
 
     func testPauseSourceGlobalWhenGloballyPaused() {
-        let pair = makePair(isAutoPushEnabled: true)
+        let pair = makePair(autoSyncMode: .push)
         let pausedPrefs = AppPreferences(selectedLanguage: "en", launchAtLoginEnabled: false, defaultScheduleMinutes: 15, isGlobalSchedulerPaused: true)
         let vm = OverviewViewModel()
 
@@ -155,7 +155,7 @@ final class OverviewViewModelTests: XCTestCase {
     }
 
     func testGlobalPauseTakesPrecedenceOverPerPair() {
-        let pair = makePair(isAutoPushEnabled: false)
+        let pair = makePair(autoSyncMode: .off)
         let pausedPrefs = AppPreferences(selectedLanguage: "en", launchAtLoginEnabled: false, defaultScheduleMinutes: 15, isGlobalSchedulerPaused: true)
         let vm = OverviewViewModel()
 

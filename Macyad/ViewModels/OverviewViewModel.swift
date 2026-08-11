@@ -11,7 +11,7 @@ public struct OverviewPairRow: Identifiable, Equatable, Sendable {
     public let name: String
     public let severity: Severity
     public let lastSyncTitle: String
-    public let isAutoPushEnabled: Bool
+    public let autoSyncMode: AutoSyncMode
     public let isGloballyPaused: Bool
     public let pauseSource: OverviewPauseSource
 
@@ -44,7 +44,7 @@ public final class OverviewViewModel: ObservableObject {
             let pauseSource: OverviewPauseSource
             if preferences.isGlobalSchedulerPaused {
                 pauseSource = .global
-            } else if !pair.isAutoPushEnabled {
+            } else if pair.autoSyncMode == .off {
                 pauseSource = .perPair
             } else {
                 pauseSource = .none
@@ -55,7 +55,7 @@ public final class OverviewViewModel: ObservableObject {
                 name: pair.name,
                 severity: severity,
                 lastSyncTitle: lastSyncTitle,
-                isAutoPushEnabled: pair.isAutoPushEnabled,
+                autoSyncMode: pair.autoSyncMode,
                 isGloballyPaused: preferences.isGlobalSchedulerPaused,
                 pauseSource: pauseSource
             )

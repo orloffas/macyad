@@ -20,7 +20,7 @@ public final class PairDetailViewModel: ObservableObject {
     @Published public private(set) var lastOperationKind: SyncService.ExecutionMode?
     @Published public private(set) var lastErrorMessage: String?
 
-    public var onToggleAutoPush: ((SyncPair, Bool) async -> Void)?
+    public var onChangeAutoSyncMode: ((SyncPair, AutoSyncMode) async -> Void)?
 
     public init() {}
 
@@ -54,7 +54,7 @@ public final class PairDetailViewModel: ObservableObject {
 
     public func pauseSource(for pair: SyncPair, preferences: AppPreferences) -> PauseSource {
         if preferences.isGlobalSchedulerPaused { return .global }
-        if !pair.isAutoPushEnabled { return .perPair }
+        if pair.autoSyncMode == .off { return .perPair }
         return .none
     }
 }

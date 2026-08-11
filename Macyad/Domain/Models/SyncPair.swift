@@ -72,10 +72,10 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
     public var deletePolicy: DeletePolicy
     public var lastKnownSeverity: Severity
     public var lastSyncAt: Date?
-    public var lastScheduledPushAttemptAt: Date?
+    public var lastScheduledSyncAttemptAt: Date?
     public var syncExcludes: [String]
     public var checkAdditionalExcludes: [String]
-    public var isAutoPushEnabled: Bool
+    public var autoSyncMode: AutoSyncMode
 
     public init(
         id: UUID,
@@ -89,10 +89,10 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         deletePolicy: DeletePolicy,
         lastKnownSeverity: Severity,
         lastSyncAt: Date? = nil,
-        lastScheduledPushAttemptAt: Date? = nil,
+        lastScheduledSyncAttemptAt: Date? = nil,
         syncExcludes: [String] = SyncPair.defaultSyncExcludes,
         checkAdditionalExcludes: [String] = [],
-        isAutoPushEnabled: Bool = true
+        autoSyncMode: AutoSyncMode = .push
     ) {
         self.id = id
         self.name = name
@@ -105,10 +105,10 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         self.deletePolicy = deletePolicy
         self.lastKnownSeverity = lastKnownSeverity
         self.lastSyncAt = lastSyncAt
-        self.lastScheduledPushAttemptAt = lastScheduledPushAttemptAt
+        self.lastScheduledSyncAttemptAt = lastScheduledSyncAttemptAt
         self.syncExcludes = syncExcludes
         self.checkAdditionalExcludes = checkAdditionalExcludes
-        self.isAutoPushEnabled = isAutoPushEnabled
+        self.autoSyncMode = autoSyncMode
     }
 
     enum CodingKeys: String, CodingKey {
@@ -123,9 +123,13 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         case deletePolicy
         case lastKnownSeverity
         case lastSyncAt
-        case lastScheduledPushAttemptAt
+        case lastScheduledSyncAttemptAt
         case syncExcludes
         case checkAdditionalExcludes
+        case autoSyncMode
+
+        // Legacy keys kept for decoding state written before Auto-Pull existed.
+        case lastScheduledPushAttemptAt
         case isAutoPushEnabled
     }
 
@@ -142,10 +146,35 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         deletePolicy = try container.decode(DeletePolicy.self, forKey: .deletePolicy)
         lastKnownSeverity = try container.decode(Severity.self, forKey: .lastKnownSeverity)
         lastSyncAt = try container.decodeIfPresent(Date.self, forKey: .lastSyncAt)
-        lastScheduledPushAttemptAt = try container.decodeIfPresent(Date.self, forKey: .lastScheduledPushAttemptAt)
+        lastScheduledSyncAttemptAt = try container.decodeIfPresent(Date.self, forKey: .lastScheduledSyncAttemptAt)
+            ?? container.decodeIfPresent(Date.self, forKey: .lastScheduledPushAttemptAt)
         syncExcludes = try container.decodeIfPresent([String].self, forKey: .syncExcludes) ?? SyncPair.defaultSyncExcludes
         checkAdditionalExcludes = try container.decodeIfPresent([String].self, forKey: .checkAdditionalExcludes) ?? []
-        isAutoPushEnabled = try container.decodeIfPresent(Bool.self, forKey: .isAutoPushEnabled) ?? true
+        if let mode = try container.decodeIfPresent(AutoSyncMode.self, forKey: .autoSyncMode) {
+            autoSyncMode = mode
+        } else {
+            // Pairs persisted before Auto-Pull only knew about push.
+            autoSyncMode = (try container.decodeIfPresent(Bool.self, forKey: .isAutoPushEnabled) ?? true) ? .push : .off
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(localFolderBookmark, forKey: .localFolderBookmark)
+        try container.encode(localFolderDisplayPath, forKey: .localFolderDisplayPath)
+        try container.encode(remotePath, forKey: .remotePath)
+        try container.encode(accountID, forKey: .accountID)
+        try container.encode(conflictPolicy, forKey: .conflictPolicy)
+        try container.encode(scheduleMinutes, forKey: .scheduleMinutes)
+        try container.encode(deletePolicy, forKey: .deletePolicy)
+        try container.encode(lastKnownSeverity, forKey: .lastKnownSeverity)
+        try container.encodeIfPresent(lastSyncAt, forKey: .lastSyncAt)
+        try container.encodeIfPresent(lastScheduledSyncAttemptAt, forKey: .lastScheduledSyncAttemptAt)
+        try container.encode(syncExcludes, forKey: .syncExcludes)
+        try container.encode(checkAdditionalExcludes, forKey: .checkAdditionalExcludes)
+        try container.encode(autoSyncMode, forKey: .autoSyncMode)
     }
 
     public var allCheckExcludes: [String] {
@@ -153,7 +182,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
     }
 
     public var nextScheduledReferenceAt: Date? {
-        [lastSyncAt, lastScheduledPushAttemptAt].compactMap { $0 }.max()
+        [lastSyncAt, lastScheduledSyncAttemptAt].compactMap { $0 }.max()
     }
 
     public var hasAssignedAccount: Bool {
