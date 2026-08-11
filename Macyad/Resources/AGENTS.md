@@ -18,6 +18,7 @@
 
 ### Working In This Directory
 - `AppIcon` подключается через build setting `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` в `project.yml`; изменение имени набора в xcassets требует синхронного обновления этого setting.
+- PNG в `AppIcon.appiconset` уже содержат прозрачные поля: тело иконки занимает 824×824 внутри холста 1024×1024 (по 100 px с каждой стороны), как требует macOS HIG. Иконка во весь холст выглядит в Dock крупнее соседних и перекрывает индикатор запущенного приложения. Перегенерация — `swift script/make_app_icon.swift`; скрипт меряет непрозрачный bounding box, поэтому повторный запуск ничего не портит.
 - `MenuBarTemplate` должен оставаться Template image (`isTemplate = true` выставляется программно в `StatusBarBridge`); PNG экспортируется только в 1x/2x, без цвета — чёрный на прозрачном фоне.
 - Локализация в приложении переключается динамически через `AppLanguage` и `AppCopy` без перезапуска (за исключением системных строк, для которых требуется `ApplicationRelauncher.relaunch()`). `ru.lproj` — default: при отсутствии ключа в `en.lproj` система использует русский вариант.
 - Новые локализованные строки добавляются в оба файла `Localizable.strings` одновременно. Ключи строк должны совпадать с полями `AppCopy` (`Domain/Models/AppCopy.swift`).

@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Shell-скрипты для сборки, запуска и тестирования MacYaD. Главный entry-point — `build_and_run.sh`, покрывающий полный цикл от clean до launch и DMG-пакетировки. `test.sh` запускает unit- или UI-тесты в изолированном окружении.
+Скрипты для сборки, запуска, тестирования и подготовки ресурсов MacYaD. Главный entry-point — `build_and_run.sh`, покрывающий полный цикл от clean до launch и DMG-пакетировки. `test.sh` запускает unit- или UI-тесты в изолированном окружении.
 
 ## Key Files
 
@@ -13,6 +13,7 @@ Shell-скрипты для сборки, запуска и тестирован
 |------|-------------|
 | `build_and_run.sh` | Главный entry-point: `xcodegen generate` → `xcodebuild` → stage → launch / package DMG. Modes: `run` (default), `debug` (lldb attach), `logs` (log stream), `telemetry`, `verify`, `package`. Флаги: `--clean`, `--clean-all`, `--no-launch`, `--package-dmg`, `--package-after-build`, `--foreground`, `--background`, `--no-prompt`. Интерактивный prompt по умолчанию при запуске из TTY. |
 | `test.sh` | Юнит- и UI-тесты через `xcodebuild test`. Modes: `unit`/`core` → scheme `MacyadCore`; `ui`/`all` → scheme `Macyad`. Изолированный `derivedDataPath` чтобы не конфликтовать с build artifacts. Экспортирует `MACYAD_CODESIGN_IDENTITY`, если сертификат `MacYaD Local Development` есть в keychain: иначе Xcode подписывает ad-hoc, `CDHash` меняется на каждой пересборке и `TCC` заново спрашивает доступ к папкам прямо во время прогона. |
+| `make_app_icon.swift` | Перегенерирует `AppIcon.appiconset` из его же мастера 1024 px: вписывает непрозрачный bounding box в 824×824 по центру холста 1024×1024 и раскладывает все 10 размеров. Идемпотентен — второй запуск ничего не меняет. Запуск: `swift script/make_app_icon.swift [appiconset-dir]`. |
 
 ## For AI Agents
 
