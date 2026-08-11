@@ -202,6 +202,12 @@ sign_app_bundle() {
 stage_app_bundle() {
   mkdir -p "$STAGED_APP_DIR"
 
+  # The run started with a pkill, but the build takes minutes and the app may
+  # well have been started again since. Replacing the bundle under a running
+  # instance leaves it alive with its resources deleted: the window renders
+  # empty, which looks exactly like the configuration was lost.
+  pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+
   if [[ -x "$LSREGISTER_BIN" ]]; then
     "$LSREGISTER_BIN" -u "$STAGED_APP_BUNDLE" >/dev/null 2>&1 || true
     "$LSREGISTER_BIN" -u "$APP_BUNDLE" >/dev/null 2>&1 || true

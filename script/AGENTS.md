@@ -47,7 +47,7 @@
 
 ### Common Patterns
 
-- `build_and_run.sh` завершает запущенный экземпляр `MacYaD` перед сборкой через `pkill -x MacYaD`.
+- `build_and_run.sh` завершает запущенный экземпляр `MacYaD` дважды: в начале прогона и повторно в `stage_app_bundle` перед `rm -rf` бандла. Второй вызов обязателен — между стартом и staging проходят минуты, и приложение вполне может быть запущено заново; подмена бандла под живым процессом оставляет его работать без ресурсов, окно рисуется пустым, и это выглядит как потеря конфигурации.
 - `--clean` удаляет только build и test кэши; `--clean-all` дополнительно удаляет staged bundle, `Application Support`, `Saved Application State` и `defaults`.
 - `package` mode создаёт DMG в `~/Library/Caches/MacYaD/Build/Package/MacYaD.dmg` через `hdiutil`.
 - `verify` mode запускает приложение и проверяет его присутствие в `lsappinfo` (до 10 попыток по 1 секунде).
