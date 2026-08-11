@@ -4,7 +4,7 @@ final class PairFlowUITests: XCTestCase {
     @MainActor
     func testCreatePairButtonExists() {
         let app = XCUIApplication()
-        app.launchArguments = ["UITEST_READY_STATE"]
+        app.launchArguments = ["-UITEST_READY_STATE"]
 
         app.launch()
 
@@ -18,7 +18,7 @@ final class PairFlowUITests: XCTestCase {
     @MainActor
     func testToolbarSettingsButtonOpensSettingsWindow() {
         let app = XCUIApplication()
-        app.launchArguments = ["UITEST_READY_STATE"]
+        app.launchArguments = ["-UITEST_READY_STATE"]
 
         app.launch()
 
@@ -40,7 +40,7 @@ final class PairFlowUITests: XCTestCase {
     @MainActor
     func testOverviewPaneIsVisible() {
         let app = XCUIApplication()
-        app.launchArguments = ["UITEST_READY_STATE"]
+        app.launchArguments = ["-UITEST_READY_STATE"]
         app.launch()
 
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5))
@@ -53,7 +53,7 @@ final class PairFlowUITests: XCTestCase {
     @MainActor
     func testCreatePairIntervalValidInputEnablesSave() {
         let app = XCUIApplication()
-        app.launchArguments = ["UITEST_READY_STATE"]
+        app.launchArguments = ["-UITEST_READY_STATE"]
         app.launch()
 
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5))
@@ -77,8 +77,11 @@ final class PairFlowUITests: XCTestCase {
         })
 
         if let intervalField {
-            intervalField.click()
-            intervalField.typeKey("a", modifierFlags: .command)
+            // Neither click + Cmd+A nor an added delete replaced the contents
+            // of this SwiftUI text field — the typed text landed in front of
+            // the default ("60" + "15" = "6015"). A double click selects the
+            // existing value, which typing then replaces.
+            intervalField.doubleClick()
             intervalField.typeText("60")
             // Save button should remain or become enabled (name/folder still missing, so Save
             // stays disabled due to other fields — this test validates field accepts numeric input)
@@ -92,7 +95,7 @@ final class PairFlowUITests: XCTestCase {
     @MainActor
     func testCreatePairIntervalInvalidInputShowsError() {
         let app = XCUIApplication()
-        app.launchArguments = ["UITEST_READY_STATE"]
+        app.launchArguments = ["-UITEST_READY_STATE"]
         app.launch()
 
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 5))

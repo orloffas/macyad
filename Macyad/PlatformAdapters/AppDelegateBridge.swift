@@ -28,6 +28,7 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         applyApplicationIcon()
         NSApp.setActivationPolicy(launchMode.shouldForceForegroundWindow ? .regular : .accessory)
         UNUserNotificationCenter.current().delegate = self
+        openMainWindowIfLaunchDidNotCreateOne()
         // Статус-бар создаётся из MacyadApp.onAppear с реальным MenuBarPopoverView:
         // NSPopover фиксирует contentSize по первому контенту, и заготовка из
         // EmptyView оставляет popover нулевого размера навсегда.
@@ -47,6 +48,30 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    /// SwiftUI creates the `WindowGroup` window in response to the
+    /// `kAEOpenApplication` event LaunchServices sends on a normal launch.
+    /// A process started directly — XCUITest spawns the binary rather than
+    /// going through LaunchServices — never receives it, so the app comes up
+    /// windowless: menu bar item present, nothing on screen, and every
+    /// accessibility query finds zero windows. Deliver the event to ourselves
+    /// when no window showed up on its own.
+    private func openMainWindowIfLaunchDidNotCreateOne() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self, self.mainWindow == nil else { return }
+
+            let event = NSAppleEventDescriptor.appleEvent(
+                withEventClass: AEEventClass(kCoreEventClass),
+                eventID: AEEventID(kAEOpenApplication),
+                targetDescriptor: NSAppleEventDescriptor(
+                    processIdentifier: ProcessInfo.processInfo.processIdentifier
+                ),
+                returnID: AEReturnID(kAutoGenerateReturnID),
+                transactionID: AETransactionID(kAnyTransactionID)
+            )
+            try? event.sendEvent(options: .noReply, timeout: 2)
+        }
     }
 
     func attachMainWindow(_ window: NSWindow, hideOnInitialLaunch: Bool) {

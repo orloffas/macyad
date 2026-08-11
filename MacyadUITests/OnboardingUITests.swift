@@ -4,7 +4,7 @@ final class OnboardingUITests: XCTestCase {
     @MainActor
     func testMissingRcloneShowsRetryAndCopyControls() {
         let app = XCUIApplication()
-        app.launchArguments = ["UITEST_ONBOARDING_MISSING_RCLONE"]
+        app.launchArguments = ["-UITEST_ONBOARDING_MISSING_RCLONE"]
 
         app.launch()
 

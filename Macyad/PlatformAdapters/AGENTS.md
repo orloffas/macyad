@@ -10,7 +10,7 @@
 
 | File | Description |
 |------|-------------|
-| `AppDelegateBridge.swift` | `NSApplicationDelegateAdaptor` + `NSWindowDelegate` + `UNUserNotificationCenterDelegate`; управляет видимостью главного окна, политикой активации (`NSApp.setActivationPolicy`), иконкой в Dock и роутингом уведомлений. Также содержит `IssueReviewWindowBridge` — управляет отдельным `NSWindow` для экрана разбора конфликтов |
+| `AppDelegateBridge.swift` | `NSApplicationDelegateAdaptor` + `NSWindowDelegate` + `UNUserNotificationCenterDelegate`; управляет видимостью главного окна, политикой активации (`NSApp.setActivationPolicy`), иконкой в Dock и роутингом уведомлений. Также содержит `IssueReviewWindowBridge` — управляет отдельным `NSWindow` для экрана разбора конфликтов | Содержит `openMainWindowIfLaunchDidNotCreateOne()`: SwiftUI создаёт окно `WindowGroup` в ответ на `kAEOpenApplication` от LaunchServices, а процесс, запущенный напрямую (так делает XCUITest), это событие не получает и остаётся без окна — поэтому событие досылается себе, если окно не появилось само.
 | `StatusBarBridge.swift` | Создаёт и управляет `NSStatusItem` в системном меню; хостит SwiftUI-поповер (`MenuBarPopoverView`) через `NSHostingController`; изображение кнопки — `MenuBarTemplate` (Template image) |
 | `FolderPickerBridge.swift` | Реализует протокол `FolderPicking` из `MacyadCore`; показывает `NSOpenPanel` и возвращает security-scoped bookmark + путь для отображения |
 | `PasteboardBridge.swift` | Реализует протокол `PasteboardWriting` из `MacyadCore`; записывает строку в `NSPasteboard.general` |

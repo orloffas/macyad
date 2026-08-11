@@ -10,9 +10,18 @@ public enum AppLaunchMode: Sendable, Equatable {
         arguments: [String],
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) {
-        if arguments.contains("UITEST_ONBOARDING_MISSING_RCLONE") {
+        // Compare against dash-stripped arguments. A launch argument that is a
+        // bare word (`UITEST_READY_STATE`) reads to AppKit as a file path to
+        // open, so the app is launched with "open document" semantics and
+        // SwiftUI never creates the default `WindowGroup` window — the app
+        // comes up windowless and every XCUITest query finds nothing.
+        // Callers must pass `-UITEST_READY_STATE`; the bare spelling stays
+        // accepted so older invocations keep selecting the right mode.
+        let flags = Set(arguments.map { $0.drop { $0 == "-" } }.map(String.init))
+
+        if flags.contains("UITEST_ONBOARDING_MISSING_RCLONE") {
             self = .uiTestOnboardingMissingRclone
-        } else if arguments.contains("UITEST_READY_STATE") {
+        } else if flags.contains("UITEST_READY_STATE") {
             self = .uiTestReadyState
         } else if Self.requestsForegroundLaunch(arguments: arguments, environment: environment) {
             self = .foreground

@@ -39,7 +39,8 @@ UI-тесты запускают реальное приложение — тр�
 
 ### Common Patterns
 
-- `XCUIApplication()` + `app.launchArguments = ["UITEST_..."]` + `app.launch()`.
+- `XCUIApplication()` + `app.launchArguments = ["-UITEST_..."]` + `app.launch()`.
+- Ведущий дефис в launch-аргументе обязателен: голое слово AppKit принимает за путь к открываемому документу, приложение стартует по document-open семантике и SwiftUI не создаёт окно `WindowGroup` — тогда все запросы XCUITest находят ноль элементов. `AppLaunchMode` сравнивает аргументы без ведущих дефисов, поэтому режим распознаётся в обеих формах.
 - `app.windows.firstMatch.waitForExistence(timeout: 5)` — ожидание готовности окна.
 - `app.buttons["accessibility.identifier"]` — поиск по `accessibilityIdentifier`.
 - Двойная проверка локализации: `englishWindow.waitForExistence(...) || russianWindow.waitForExistence(...)`.
