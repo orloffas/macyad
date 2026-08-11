@@ -18,7 +18,11 @@ public struct StatusService: Sendable {
     public func makeSummary(onboardingStep: OnboardingState.Step, pairs: [SyncPair]) -> MenuBarSummary {
         let copy = AppCopy.current
 
-        guard onboardingStep == .complete || !pairs.isEmpty else {
+        // Pairs decide as much as the recorded step does. An import can replace
+        // the configuration with zero pairs while the last environment check
+        // still says `.complete`; the pane then asks for a first pair while the
+        // menu bar claims everything is ready.
+        guard !pairs.isEmpty else {
             return MenuBarSummary(title: copy.statusSetupRequired, alarmCount: 0, warningCount: 0)
         }
 

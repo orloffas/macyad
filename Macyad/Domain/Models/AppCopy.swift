@@ -1491,6 +1491,18 @@ public struct AppCopy: Sendable {
             : "This is everything syncing depends on: rclone, the remote, your pairs and scheduled sync. Come back here when something stops working."
     }
 
+    public var onboardingCheckFailed: String {
+        isRussian ? "Не удалось проверить окружение" : "Could not check the environment"
+    }
+
+    public var onboardingRecheckAfterCommandHint: String {
+        if isRussian {
+            return "Выполните команду в Терминале, вернитесь сюда и нажмите «\(recheckEnvironmentButtonTitle)»."
+        }
+
+        return "Run the command in Terminal, come back here and press \"\(recheckEnvironmentButtonTitle)\"."
+    }
+
     public var recheckEnvironmentButtonTitle: String {
         isRussian ? "Проверить окружение" : "Re-check environment"
     }

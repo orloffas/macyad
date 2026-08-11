@@ -16,6 +16,21 @@ final class StatusServiceTests: XCTestCase {
         XCTAssertEqual(summary.warningCount, 0)
     }
 
+    func testCompletedSetupWithoutPairsStillReportsSetupRequired() {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        // An import can replace the configuration with no pairs while the last
+        // environment check still says the setup is complete. The pane asks for
+        // a first pair in that state, and the menu bar must not disagree.
+        let summary = StatusService().makeSummary(onboardingStep: .complete, pairs: [])
+
+        XCTAssertEqual(summary.title, AppCopy.current.statusSetupRequired)
+        XCTAssertEqual(summary.alarmCount, 0)
+        XCTAssertEqual(summary.warningCount, 0)
+    }
+
     func testAttentionRequiredWhenAnyPairIsInAlarm() {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)

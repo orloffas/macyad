@@ -24,8 +24,8 @@ SwiftUI-вьюхи раздела «Подключение». Экран жив�
 - Смена числа пар не перезапускает проверку: `OnboardingViewModel.displayStep(pairCount:)` пересчитывает шаг локально, потому что пары ничего не говорят о rclone и remote.
 - `CommandCopyRowView` — переиспользуемый компонент; при изменении его интерфейса проверяй также `SettingsView.swift`, где он тоже применяется.
 - Шаги онбординга определяются в `Domain/Models/OnboardingState`; добавление нового шага требует изменений и в модели, и во вьюхе.
-- **Шаг вычисляет только `OnboardingService.refresh(pairCount:)`.** View не имеет права выводить `.complete` самостоятельно — иначе `AppModel.onboardingState` и `StatusService` разъезжаются с тем, что видит пользователь.
-- `refresh()` во View прокидывает `appModel.pairs.count` в сервис и после этого зовёт `applyOnboardingState`. `.task(id: appModel.pairs.count)` перезапускает проверку при создании/удалении пары — без этого чеклист врёт до нажатия кнопки.
+- Окружение (rclone, remote) определяет только `OnboardingService.refresh(pairCount:)`. Локально во View пересчитывается **исключительно** переход `.createFirstPair` ↔ `.complete` по числу пар (`displayStep(pairCount:)`) — это единственное, что можно узнать без обращения к системе. Чтобы `StatusService` не разъезжался с панелью, он тоже считает конфигурацию незавершённой при пустом списке пар, независимо от записанного шага.
+- `refresh()` во View прокидывает `appModel.pairs.count` в сервис и после этого зовёт `applyOnboardingState`.
 - Чеклист собирается в `OnboardingViewModel.statusRows(pairs:preferences:copy:)`, а не во View: там же считается `isSatisfied` для выбора иконки. Состояние планировщика берётся из `AppPreferences.isGlobalSchedulerPaused` + `pair.autoSyncMode`.
 - `OnboardingViewModel` управляет `lastCopiedCommand` для визуального feedback копирования — не дублируй эту логику в View.
 - `OnboardingView` получает `AppEnvironment` через `@EnvironmentObject` для доступа к сервисам онбординга.

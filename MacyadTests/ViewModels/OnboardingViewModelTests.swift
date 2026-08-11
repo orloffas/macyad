@@ -4,6 +4,19 @@ import XCTest
 @MainActor
 final class OnboardingViewModelTests: XCTestCase {
     @MainActor
+    func testFailedCheckIsNotPresentedAsAFreshSuccessfulOne() async {
+        let viewModel = OnboardingViewModel(service: FailingOnboardingService(), pasteboard: StubPasteboard())
+
+        await viewModel.retry(pairCount: 2)
+
+        // No timestamp: "Last check: 17:28" next to unchanged rows would claim
+        // a check just succeeded. A nil timestamp also lets the automatic
+        // first-visit check try again.
+        XCTAssertNil(viewModel.lastCheckedAt)
+        XCTAssertTrue(viewModel.lastCheckFailed)
+    }
+
+    @MainActor
     func testDisplayStepFollowsThePairCountWithoutRecheckingTheEnvironment() async {
         let service = CountingOnboardingService(step: .createFirstPair)
         let viewModel = OnboardingViewModel(service: service, pasteboard: StubPasteboard())
@@ -185,5 +198,13 @@ private actor CountingOnboardingService: OnboardingServicing {
             remoteCreateCommand: "",
             configPath: "/tmp/rclone.conf"
         )
+    }
+}
+
+private struct FailingOnboardingService: OnboardingServicing {
+    private struct Failure: Error {}
+
+    func refresh(pairCount: Int) async throws -> OnboardingState {
+        throw Failure()
     }
 }

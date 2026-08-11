@@ -16,8 +16,16 @@ struct OnboardingView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            switch step {
-            case .installRclone:
+            if viewModel.lastCheckedAt == nil, viewModel.isRefreshing {
+                // Before the first check lands, `state` still says "install
+                // rclone". Showing that to someone who has rclone installed
+                // reads as a failed detection, then flips a moment later.
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                switch step {
+                case .installRclone:
                 CommandCopyRowView(
                     title: copy.installRcloneTitle,
                     command: viewModel.state.brewInstallCommand,
@@ -80,6 +88,17 @@ struct OnboardingView: View {
                     }
                     .font(.callout)
                 }
+                }
+
+                if step == .installRclone || step == .configureRemote {
+                    // The user leaves for Terminal at this point; nothing checks
+                    // the environment on their return any more, so say what to
+                    // press when they come back.
+                    Text(copy.onboardingRecheckAfterCommandHint)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             HStack(spacing: 10) {
@@ -95,9 +114,15 @@ struct OnboardingView: View {
                         .controlSize(.small)
                 }
 
-                Text(viewModel.lastCheckedDescription(copy: copy))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if viewModel.lastCheckFailed {
+                    Label(copy.onboardingCheckFailed, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                } else {
+                    Text(viewModel.lastCheckedDescription(copy: copy))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer()

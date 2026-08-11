@@ -264,7 +264,7 @@ final class AppEnvironment: ObservableObject {
         let events = (0 ..< 20).map { index in
             ActivityEvent(
                 id: UUID(),
-                date: Date(timeIntervalSince1970: 1_716_000_000 + Double(index * 60)),
+                date: Date().addingTimeInterval(Double(index * -60)),
                 message: "Scheduled Push to Yandex blocked",
                 severity: .warning,
                 pairID: pairs[0].id,

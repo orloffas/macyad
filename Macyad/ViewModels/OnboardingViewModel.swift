@@ -33,6 +33,9 @@ public final class OnboardingViewModel: ObservableObject {
     @Published public var isRefreshing = false
     @Published public var lastCopiedCommand: String?
     @Published public var lastCheckedAt: Date?
+    /// The last check ended in an error. Kept apart from `lastCheckedAt` so a
+    /// failed check cannot present itself as a fresh, successful one.
+    @Published public private(set) var lastCheckFailed = false
 
     public init(service: OnboardingServicing, pasteboard: PasteboardWriting) {
         self.service = service
@@ -43,8 +46,17 @@ public final class OnboardingViewModel: ObservableObject {
         isRefreshing = true
         defer { isRefreshing = false }
 
-        state = (try? await service.refresh(pairCount: pairCount)) ?? state
-        lastCheckedAt = now
+        do {
+            state = try await service.refresh(pairCount: pairCount)
+            lastCheckedAt = now
+            lastCheckFailed = false
+        } catch {
+            // Deliberately no timestamp: stamping the failure as "checked at
+            // 17:28" next to the previous green rows tells the user a check
+            // just succeeded. Leaving it unset also lets the automatic
+            // first-visit check run again next time.
+            lastCheckFailed = true
+        }
     }
 
     /// The step to render, adjusted for the pairs the app currently has.
