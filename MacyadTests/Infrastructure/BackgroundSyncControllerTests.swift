@@ -46,6 +46,60 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertTrue(sentNotifications.isEmpty)
     }
 
+    func testScheduledRunIsJournaledBeforeItStartsAndReplacedByItsResult() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Docs", lastSyncAt: now.addingTimeInterval(-4_000))
+        let pairStore = InMemoryPairStore(pairs: [pair])
+        let activityStore = InMemoryActivityStore()
+        let eventsSeenAtStart = EventSnapshotBox()
+        let scheduler = SchedulerService(
+            policy: ScheduledSyncEligibilityPolicy(),
+            syncService: SyncService(
+                processClient: RecordingProcessClient(),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+                snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+                baselineRepository: InMemoryBaselineStore()
+            )
+        )
+        let controller = BackgroundSyncController(
+            scheduler: scheduler,
+            pairStore: pairStore,
+            preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
+            activityStore: activityStore,
+            notificationClient: RecordingNotificationClient(),
+            now: { now },
+            sleep: { _ in },
+            scheduledSyncLifecycle: ScheduledSyncLifecycle(
+                willStart: { _ in
+                    await eventsSeenAtStart.store((try? await activityStore.load()) ?? [])
+                    return nil
+                },
+                didFinish: { _ in }
+            )
+        )
+
+        await controller.runCycle()
+
+        // The journal already knows about the run while rclone is working, so
+        // a quit at this point still leaves a record behind.
+        let inFlight = await eventsSeenAtStart.events()
+        XCTAssertEqual(inFlight.count, 1)
+        XCTAssertEqual(inFlight[0].inFlightOperation, "Push to Yandex")
+        XCTAssertEqual(inFlight[0].severity, .info)
+
+        // …and the result replaces that record rather than adding a second one.
+        let events = try await activityStore.load()
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events[0].id, inFlight[0].id)
+        XCTAssertNil(events[0].inFlightOperation)
+        XCTAssertEqual(events[0].severity, .healthy)
+        XCTAssertTrue(events[0].message.contains("Scheduled Push to Yandex completed"))
+    }
+
     func testRunCyclePersistsSafeInitialPushIntoEmptyRemote() async throws {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
@@ -280,6 +334,18 @@ private actor InMemoryPairStore: PairStoreControlling {
     }
 }
 
+private actor EventSnapshotBox {
+    private var snapshot: [ActivityEvent] = []
+
+    func store(_ events: [ActivityEvent]) {
+        snapshot = events
+    }
+
+    func events() -> [ActivityEvent] {
+        snapshot
+    }
+}
+
 private actor InMemoryActivityStore: ActivityStoreControlling {
     private var events: [ActivityEvent] = []
 
@@ -289,6 +355,14 @@ private actor InMemoryActivityStore: ActivityStoreControlling {
 
     func append(_ event: ActivityEvent) async throws {
         events.append(event)
+    }
+
+    func replace(_ event: ActivityEvent) async throws {
+        if let index = events.firstIndex(where: { $0.id == event.id }) {
+            events[index] = event
+        } else {
+            events.append(event)
+        }
     }
 }
 

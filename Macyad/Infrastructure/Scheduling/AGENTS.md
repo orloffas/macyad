@@ -18,6 +18,7 @@
 ### Working In This Directory
 
 - `start()` идемпотентен — повторный вызов при активной Task ничего не делает.
+- Переданный `ScheduledSyncLifecycle` не уходит в `SchedulerService` напрямую: `instrumentedLifecycle()` оборачивает его и в `willStart` пишет событие журнала с `inFlightOperation` до начала работы, запоминая его `id` в `inFlightEventIDs`. Итоговое событие идёт через `activityStore.replace` с тем же `id`. Без этого прогон, прерванный выходом из приложения, не оставлял следа — а плановый push с политикой mirror к этому моменту мог уже удалить файлы на remote. Записи, оставшиеся «в полёте», закрывает `MainWindowView.recoverInterruptedEvents` при следующем запуске.
 - `sleep` и `now` инжектируются через DI-параметры — использовать в тестах для контроля времени.
 - `stateDidChange` callback вызывается после каждого `refreshState` и `runCycle` — используется для обновления UI из app target.
 - Конформансы `PairRepository: PairStoreControlling` и др. объявлены **здесь**, а не в файлах репозиториев — намеренно, чтобы не создавать зависимость Persistence → Scheduling.

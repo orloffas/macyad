@@ -8,6 +8,7 @@ public protocol PairStoreControlling: Sendable {
 public protocol ActivityStoreControlling: Sendable {
     func load() async throws -> [ActivityEvent]
     func append(_ event: ActivityEvent) async throws
+    func replace(_ event: ActivityEvent) async throws
 }
 
 public protocol PreferencesStoreControlling: Sendable {
@@ -34,6 +35,9 @@ public actor BackgroundSyncController {
     private let scheduledSyncLifecycle: ScheduledSyncLifecycle
 
     private var task: Task<Void, Never>?
+    /// Journal entry written when a scheduled sync starts, keyed by pair, so
+    /// the result can replace it instead of adding a second entry.
+    private var inFlightEventIDs: [UUID: UUID] = [:]
 
     public init(
         scheduler: SchedulerService,
@@ -94,7 +98,7 @@ public actor BackgroundSyncController {
 
         let preferences = (try? await preferencesStore.load()) ?? .defaults
         let snapshot = SchedulerSnapshot(pairs: pairs, preferences: preferences)
-        let results = await scheduler.runScheduledSyncs(snapshot: snapshot, now: now(), lifecycle: scheduledSyncLifecycle)
+        let results = await scheduler.runScheduledSyncs(snapshot: snapshot, now: now(), lifecycle: instrumentedLifecycle())
         let eventfulResults = results.filter { $0.disposition.recordsActivityEvent }
 
         guard !eventfulResults.isEmpty else {
@@ -110,8 +114,11 @@ public actor BackgroundSyncController {
         }
 
         for result in eventfulResults {
-            let event = makeEvent(for: result, at: now())
-            try? await activityStore.append(event)
+            let event = makeEvent(for: result, at: now(), eventID: inFlightEventIDs.removeValue(forKey: result.pair.id) ?? UUID())
+            // `replace` also appends when there is nothing to replace, which is
+            // the case for runs that failed before they ever started (no rclone
+            // binary, say) — those never reach `willStart`.
+            try? await activityStore.replace(event)
             let direction = result.direction ?? result.pair.autoSyncMode
 
             if case let .blocked(summary, _, _) = result.disposition {
@@ -145,12 +152,48 @@ public actor BackgroundSyncController {
         try await Task.sleep(for: duration)
     }
 
-    private func makeEvent(for result: ScheduledSyncResult, at date: Date) -> ActivityEvent {
+    /// Wraps the caller's lifecycle so every scheduled run leaves a journal
+    /// entry the moment it starts. A run interrupted by a quit — a mirroring
+    /// push may already have deleted files on the remote by then — would
+    /// otherwise vanish without a trace, since the result event is written
+    /// only after the whole cycle returns.
+    private func instrumentedLifecycle() -> ScheduledSyncLifecycle {
+        let base = scheduledSyncLifecycle
+
+        return ScheduledSyncLifecycle(
+            willStart: { [self] pair in
+                await recordScheduledSyncStart(for: pair)
+                return await base.willStart(pair)
+            },
+            didFinish: { pair in
+                await base.didFinish(pair)
+            }
+        )
+    }
+
+    private func recordScheduledSyncStart(for pair: SyncPair) async {
+        let copy = AppCopy.current
+        let operationName = copy.scheduledSyncOperationName(pair.autoSyncMode)
+        let eventID = UUID()
+        inFlightEventIDs[pair.id] = eventID
+
+        let event = ActivityEvent(
+            id: eventID,
+            date: now(),
+            message: copy.operationStartedMessage(operationName),
+            severity: .info,
+            pairID: pair.id,
+            inFlightOperation: operationName
+        )
+        try? await activityStore.append(event)
+        await refreshState()
+    }
+
+    private func makeEvent(for result: ScheduledSyncResult, at date: Date, eventID: UUID) -> ActivityEvent {
         let copy = AppCopy.current
         let direction = result.direction ?? result.pair.autoSyncMode
         let message: String
         let severity: Severity
-        let eventID = UUID()
         let routeToken: ActivityRouteToken?
         let issueSet: ActivityIssueSet?
 
