@@ -139,9 +139,11 @@ struct SettingsView: View {
                         Button(copy.exportConfigurationButtonTitle) {
                             Task { await viewModel.exportConfiguration(pairs: appModel.pairs) }
                         }
+                        .accessibilityIdentifier("configuration.export")
                         Button(copy.importConfigurationButtonTitle) {
                             Task { await viewModel.prepareConfigurationImport() }
                         }
+                        .accessibilityIdentifier("configuration.import")
                         Spacer()
                     }
                 } header: {

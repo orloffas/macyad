@@ -29,6 +29,11 @@ final class PairFlowUITests: XCTestCase {
         let englishWindow = app.windows["MacYaD Settings"].firstMatch
         let russianWindow = app.windows["Настройки MacYaD"].firstMatch
         XCTAssertTrue(englishWindow.waitForExistence(timeout: 5) || russianWindow.waitForExistence(timeout: 5))
+
+        // The configuration section sits at the bottom of the form, so reaching
+        // it also proves the settings window rendered in full.
+        XCTAssertTrue(app.buttons["configuration.export"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["configuration.import"].firstMatch.exists)
     }
 
     // MARK: - New AC tests (Stage 9)
