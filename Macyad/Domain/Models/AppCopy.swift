@@ -258,18 +258,19 @@ public struct AppCopy: Sendable {
     public var configurationExportHint: String {
         if isRussian {
             return """
-            В файл попадают пары, аккаунты и настройки приложения. \
-            Паролей и токенов Yandex в нём нет — они хранятся в rclone.conf. \
-            Выданные macOS разрешения на доступ к папкам файл тоже не переносит: \
+            В файл попадают только настройки: пары, аккаунты и параметры приложения — \
+            сами синхронизируемые файлы в него не входят. \
+            Паролей и токенов Yandex в нём тоже нет, они хранятся в rclone.conf. \
+            Выданные macOS разрешения на доступ к папкам файл не переносит: \
             на другом Mac папки нужно будет выбрать заново.
             """
         }
 
         return """
-        The file holds pairs, accounts and app preferences. It contains no \
-        Yandex passwords or tokens — those live in rclone.conf. It also cannot \
-        carry macOS folder permissions: on another Mac the folders have to be \
-        picked again.
+        The file holds settings only — pairs, accounts and app preferences — not \
+        the files you sync. It carries no Yandex passwords or tokens either; \
+        those live in rclone.conf. It also cannot carry macOS folder \
+        permissions: on another Mac the folders have to be picked again.
         """
     }
 
@@ -281,8 +282,17 @@ public struct AppCopy: Sendable {
         isRussian ? "Импорт конфигурации MacYaD" : "Import MacYaD configuration"
     }
 
-    public var configurationExportFileName: String {
-        "macyad-configuration.json"
+    /// Dated, because these files pile up in Downloads and the only thing
+    /// that tells two of them apart is when they were made.
+    public func configurationExportFileName(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return "macyad-configuration-\(formatter.string(from: date)).json"
+    }
+
+    public func configurationImportMoreIssues(count: Int) -> String {
+        isRussian ? "…и ещё \(count)" : "…and \(count) more"
     }
 
     public var configurationImportConfirmTitle: String {
@@ -315,7 +325,7 @@ public struct AppCopy: Sendable {
             Импортировано пар: \(pairs), аккаунтов: \(accounts). \
             Плановая синхронизация выключена у всех пар: сначала выполните \
             «\(checkButtonTitle)» и убедитесь, что папки совпадают, и только \
-            потом включайте Auto-sync.
+            потом включайте автосинхронизацию.
             """
         }
 
@@ -334,12 +344,20 @@ public struct AppCopy: Sendable {
         isRussian ? "Требуют внимания:" : "Needs attention:"
     }
 
-    public func configurationImportMissingFolderIssue(pair: String, path: String) -> String {
+    public func configurationImportUnusableFolderIssue(pair: String, path: String) -> String {
         if isRussian {
-            return "\(pair): папка \(path) не найдена на этом Mac — выберите её в настройках пары."
+            return "\(pair): папка \(path) недоступна на этом Mac — выберите её заново в настройках пары."
         }
 
-        return "\(pair): the folder \(path) is not on this Mac — pick it in the pair settings."
+        return "\(pair): the folder \(path) is not available on this Mac — pick it again in the pair settings."
+    }
+
+    public func configurationImportMissingAccountIssue(pair: String) -> String {
+        if isRussian {
+            return "\(pair): в файле нет аккаунта, на который ссылается пара — назначьте аккаунт в настройках пары."
+        }
+
+        return "\(pair): the file has no account for this pair — assign one in the pair settings."
     }
 
     public func configurationImportMissingRemoteIssue(pair: String, remote: String) -> String {

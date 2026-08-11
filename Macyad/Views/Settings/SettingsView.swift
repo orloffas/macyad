@@ -291,8 +291,15 @@ struct SettingsView: View {
             return viewModel.importSummary ?? ""
         }
 
-        return ([viewModel.importSummary ?? "", "", copy.configurationImportIssuesTitle]
-            + viewModel.importIssues.map { "• \($0)" })
+        // An alert body does not scroll, and a folder path wraps onto two
+        // lines: past a few issues the list stops being readable, so the tail
+        // is counted instead of listed. The pairs themselves carry the same
+        // information in the pair list.
+        let shown = viewModel.importIssues.prefix(3).map { "• \($0)" }
+        let remainder = viewModel.importIssues.count - shown.count
+        let tail = remainder > 0 ? [copy.configurationImportMoreIssues(count: remainder)] : []
+
+        return ([viewModel.importSummary ?? "", "", copy.configurationImportIssuesTitle] + shown + tail)
             .joined(separator: "\n")
     }
 

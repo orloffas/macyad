@@ -14,6 +14,36 @@ public struct ConfigurationTransferService: Sendable {
 
     public init() {}
 
+    /// Reads the file, checking the version before anything else. Decoding the
+    /// whole document first would turn "this file is from a newer MacYaD" into
+    /// a generic decoding error, because a future version is free to change
+    /// the shape of what it nests.
+    public func decodeExport(from data: Data) throws -> ConfigurationExport {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let envelope = try decoder.decode(ConfigurationExportEnvelope.self, from: data)
+        try validate(schemaVersion: envelope.schemaVersion)
+
+        return try decoder.decode(ConfigurationExport.self, from: data)
+    }
+
+    public func encode(_ export: ConfigurationExport) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return try encoder.encode(export)
+    }
+
+    private func validate(schemaVersion: Int) throws {
+        guard schemaVersion <= ConfigurationExport.currentSchemaVersion else {
+            throw ImportError.unsupportedSchema(
+                found: schemaVersion,
+                supported: ConfigurationExport.currentSchemaVersion
+            )
+        }
+    }
+
     /// Strips everything that cannot travel: security-scoped bookmarks are
     /// tied to this Mac and its TCC grants, and the sync timestamps and
     /// severity describe runs that happened here. Credentials never appear —
@@ -61,21 +91,31 @@ public struct ConfigurationTransferService: Sendable {
         folderExists: (String) -> Bool,
         bookmarkForPath: (String) -> Data?
     ) throws -> ConfigurationImportPlan {
-        guard export.schemaVersion <= ConfigurationExport.currentSchemaVersion else {
-            throw ImportError.unsupportedSchema(
-                found: export.schemaVersion,
-                supported: ConfigurationExport.currentSchemaVersion
-            )
-        }
+        try validate(schemaVersion: export.schemaVersion)
 
-        let accounts = export.accounts.map { account -> YandexAccount in
+        // A hand-edited or truncated file can repeat an id. Two pairs sharing
+        // one id break SwiftUI's Identifiable lists and make "which pair did I
+        // just edit" unanswerable, so later duplicates are dropped.
+        var seenAccountIDs: Set<UUID> = []
+        let accounts = export.accounts.compactMap { account -> YandexAccount? in
+            guard seenAccountIDs.insert(account.id).inserted else {
+                return nil
+            }
+
             var imported = account
             imported.configPath = configPath
             return imported
         }
 
         var issues: [ConfigurationImportIssue] = []
-        let pairs = export.pairs.map { pair -> SyncPair in
+        var seenPairIDs: Set<UUID> = []
+        let pairs = export.pairs.compactMap { pair -> SyncPair? in
+            guard seenPairIDs.insert(pair.id).inserted else {
+                return nil
+            }
+
+            return pair
+        }.map { pair -> SyncPair in
             var imported = pair
             imported.autoSyncMode = .off
             imported.lastSyncAt = nil
@@ -91,7 +131,7 @@ public struct ConfigurationTransferService: Sendable {
                 issues.append(
                     ConfigurationImportIssue(
                         pairName: pair.name,
-                        kind: .missingLocalFolder(path: pair.localFolderDisplayPath)
+                        kind: .unusableLocalFolder(path: pair.localFolderDisplayPath)
                     )
                 )
             }
@@ -100,6 +140,10 @@ public struct ConfigurationTransferService: Sendable {
                 issues.append(
                     ConfigurationImportIssue(pairName: pair.name, kind: .missingRemote(name: remoteName))
                 )
+            }
+
+            if !accounts.contains(where: { $0.id == pair.accountID }) {
+                issues.append(ConfigurationImportIssue(pairName: pair.name, kind: .missingAccount))
             }
 
             return imported

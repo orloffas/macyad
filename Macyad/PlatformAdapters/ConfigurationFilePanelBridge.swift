@@ -18,7 +18,7 @@ struct ConfigurationFilePanelBridge: ConfigurationFilePicking {
         let panel = NSSavePanel()
         panel.title = copy.configurationExportPanelTitle
         panel.message = copy.configurationExportHint
-        panel.nameFieldStringValue = copy.configurationExportFileName
+        panel.nameFieldStringValue = copy.configurationExportFileName(for: Date())
         panel.allowedContentTypes = [.json]
         panel.canCreateDirectories = true
 

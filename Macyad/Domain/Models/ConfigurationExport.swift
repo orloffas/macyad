@@ -27,15 +27,27 @@ public struct ConfigurationExport: Codable, Equatable, Sendable {
     }
 }
 
+/// Just the version, decoded on its own. A file from a future MacYaD may
+/// describe pairs in a shape this build cannot decode at all, and a plain
+/// "the data isn't in the correct format" tells the user nothing about why.
+public struct ConfigurationExportEnvelope: Decodable, Sendable {
+    public let schemaVersion: Int
+}
+
 /// Something the import could not carry over to this machine. The pair is
 /// still imported — switched off — so the user can fix it in place instead of
 /// losing the configuration.
 public struct ConfigurationImportIssue: Equatable, Sendable {
     public enum Kind: Equatable, Sendable {
-        /// The folder the pair syncs does not exist here.
-        case missingLocalFolder(path: String)
+        /// The folder the pair syncs is not usable here: either it is not
+        /// there at all, or this app has no permission to read it. Both need
+        /// the same fix — point the pair at a folder through the picker, which
+        /// is what grants access in the first place.
+        case unusableLocalFolder(path: String)
         /// This machine's rclone.conf has no remote under that name.
         case missingRemote(name: String)
+        /// The pair refers to an account the file does not describe.
+        case missingAccount
     }
 
     public let pairName: String

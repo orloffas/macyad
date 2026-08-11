@@ -68,10 +68,7 @@ final class SettingsViewModel: ObservableObject {
         )
 
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            encoder.dateEncodingStrategy = .iso8601
-            try encoder.encode(export).write(to: destination, options: .atomic)
+            try transferService.encode(export).write(to: destination, options: .atomic)
             errorMessage = nil
         } catch {
             errorMessage = AppCopy.current.configurationExportFailed(error.localizedDescription)
@@ -86,9 +83,7 @@ final class SettingsViewModel: ObservableObject {
         }
 
         do {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let export = try decoder.decode(ConfigurationExport.self, from: Data(contentsOf: source))
+            let export = try transferService.decodeExport(from: Data(contentsOf: source))
             let remoteNames = RcloneConfigInspector(configURL: paths.rcloneConfigFile).remoteNames()
 
             pendingImportPlan = try transferService.prepareImport(
@@ -96,9 +91,12 @@ final class SettingsViewModel: ObservableObject {
                 configPath: paths.rcloneConfigFile.path,
                 availableRemoteNames: remoteNames,
                 folderExists: { path in
+                    // Readability, not just existence: a folder this app has
+                    // no TCC grant for is present but unusable, and a bookmark
+                    // made for it would hide the problem until rclone failed.
                     var isDirectory: ObjCBool = false
                     let exists = FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
-                    return exists && isDirectory.boolValue
+                    return exists && isDirectory.boolValue && FileManager.default.isReadableFile(atPath: path)
                 },
                 bookmarkForPath: { filePicker.bookmark(forFolderAt: $0) }
             )
@@ -121,9 +119,15 @@ final class SettingsViewModel: ObservableObject {
         let copy = AppCopy.current
 
         do {
-            try await accountRepository.save(plan.accounts)
-            try await pairRepository.save(plan.pairs)
+            // Order matters, because these are three separate atomic writes and
+            // the background cycle reads pairs and preferences from disk every
+            // minute. Pausing first, then landing the switched-off pairs, means
+            // every intermediate state on disk is one where nothing syncs. The
+            // reverse order can leave the old, active pairs running against
+            // freshly replaced accounts.
             try await preferencesStore.save(plan.preferences)
+            try await pairRepository.save(plan.pairs)
+            try await accountRepository.save(plan.accounts)
 
             accounts = try await accountRepository.load()
             apply(plan.preferences)
@@ -133,10 +137,12 @@ final class SettingsViewModel: ObservableObject {
 
             importIssues = plan.issues.map { issue in
                 switch issue.kind {
-                case let .missingLocalFolder(path):
-                    copy.configurationImportMissingFolderIssue(pair: issue.pairName, path: path)
+                case let .unusableLocalFolder(path):
+                    copy.configurationImportUnusableFolderIssue(pair: issue.pairName, path: path)
                 case let .missingRemote(name):
                     copy.configurationImportMissingRemoteIssue(pair: issue.pairName, remote: name)
+                case .missingAccount:
+                    copy.configurationImportMissingAccountIssue(pair: issue.pairName)
                 }
             }
             importSummary = copy.configurationImportSummary(
@@ -145,6 +151,16 @@ final class SettingsViewModel: ObservableObject {
             )
             errorMessage = nil
         } catch {
+            // Part of the import may have landed. Show what is actually on
+            // disk rather than the state the UI happened to be holding.
+            accounts = (try? await accountRepository.load()) ?? accounts
+            if let storedPreferences = try? await preferencesStore.load() {
+                apply(storedPreferences)
+                preferencesDidChange(storedPreferences)
+            }
+            if let storedPairs = try? await pairRepository.load() {
+                configurationDidImport(storedPairs, accounts)
+            }
             errorMessage = copy.configurationImportFailed(error.localizedDescription)
         }
     }

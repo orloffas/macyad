@@ -3,6 +3,7 @@ import XCTest
 
 final class ConfigurationTransferServiceTests: XCTestCase {
     private let service = ConfigurationTransferService()
+    private let accountID = UUID()
 
     func testExportDropsBookmarksAndRunHistory() {
         let pair = makePair(
@@ -104,7 +105,7 @@ final class ConfigurationTransferServiceTests: XCTestCase {
         XCTAssertTrue(plan.pairs[0].localFolderBookmark.isEmpty)
         XCTAssertEqual(
             plan.issues,
-            [ConfigurationImportIssue(pairName: "Docs", kind: .missingLocalFolder(path: "/Users/me/Documents/Docs"))]
+            [ConfigurationImportIssue(pairName: "Docs", kind: .unusableLocalFolder(path: "/Users/me/Documents/Docs"))]
         )
     }
 
@@ -128,6 +129,75 @@ final class ConfigurationTransferServiceTests: XCTestCase {
             plan.issues,
             [ConfigurationImportIssue(pairName: "Docs", kind: .missingRemote(name: "macyad-yandex"))]
         )
+    }
+
+    func testImportDropsDuplicateIDs() throws {
+        let pairID = UUID()
+        let account = makeAccount()
+        let export = ConfigurationExport(
+            exportedAt: Date(timeIntervalSince1970: 1_716_584_400),
+            preferences: .defaults,
+            accounts: [account, account],
+            pairs: [makePair(id: pairID, name: "Docs"), makePair(id: pairID, name: "Docs copy")]
+        )
+
+        let plan = try service.prepareImport(
+            export,
+            configPath: "/Users/me/.config/rclone/rclone.conf",
+            availableRemoteNames: ["macyad-yandex"],
+            folderExists: { _ in true },
+            bookmarkForPath: { _ in Data([1]) }
+        )
+
+        // Two pairs under one id break SwiftUI's Identifiable lists, so a
+        // hand-edited file cannot smuggle them in.
+        XCTAssertEqual(plan.pairs.count, 1)
+        XCTAssertEqual(plan.pairs[0].name, "Docs")
+        XCTAssertEqual(plan.accounts.count, 1)
+    }
+
+    func testImportReportsPairWithoutItsAccount() throws {
+        let export = ConfigurationExport(
+            exportedAt: Date(timeIntervalSince1970: 1_716_584_400),
+            preferences: .defaults,
+            accounts: [makeAccount()],
+            pairs: [makePair(name: "Orphan", accountID: UUID())]
+        )
+
+        let plan = try service.prepareImport(
+            export,
+            configPath: "/Users/me/.config/rclone/rclone.conf",
+            availableRemoteNames: ["macyad-yandex"],
+            folderExists: { _ in true },
+            bookmarkForPath: { _ in Data([1]) }
+        )
+
+        XCTAssertEqual(plan.pairs.count, 1)
+        XCTAssertEqual(plan.issues, [ConfigurationImportIssue(pairName: "Orphan", kind: .missingAccount)])
+    }
+
+    func testDecodeRejectsNewerSchemaBeforeReadingTheRest() throws {
+        // The pairs are deliberately nonsense: a newer file may describe them
+        // in a shape this build cannot decode, and the version has to win.
+        let json = """
+        {
+          "schemaVersion": \(ConfigurationExport.currentSchemaVersion + 1),
+          "exportedAt": "2026-08-11T09:00:00Z",
+          "preferences": "not-what-this-build-expects",
+          "accounts": 42,
+          "pairs": null
+        }
+        """
+
+        XCTAssertThrowsError(try service.decodeExport(from: Data(json.utf8))) { error in
+            XCTAssertEqual(
+                error as? ConfigurationTransferService.ImportError,
+                .unsupportedSchema(
+                    found: ConfigurationExport.currentSchemaVersion + 1,
+                    supported: ConfigurationExport.currentSchemaVersion
+                )
+            )
+        }
     }
 
     func testImportRejectsNewerSchema() {
@@ -160,7 +230,7 @@ final class ConfigurationTransferServiceTests: XCTestCase {
 
     private func makeAccount() -> YandexAccount {
         YandexAccount(
-            id: UUID(),
+            id: accountID,
             displayName: "macyad-yandex",
             remoteName: "macyad-yandex",
             configPath: "/Users/me/.config/rclone/rclone.conf",
@@ -170,18 +240,20 @@ final class ConfigurationTransferServiceTests: XCTestCase {
     }
 
     private func makePair(
+        id: UUID = UUID(),
         name: String = "Docs",
         bookmark: Data = Data(),
         lastSyncAt: Date? = nil,
-        severity: Severity = .healthy
+        severity: Severity = .healthy,
+        accountID: UUID? = nil
     ) -> SyncPair {
         SyncPair(
-            id: UUID(),
+            id: id,
             name: name,
             localFolderBookmark: bookmark,
             localFolderDisplayPath: "/Users/me/Documents/Docs",
             remotePath: "macyad-yandex:Docs",
-            accountID: UUID(),
+            accountID: accountID ?? self.accountID,
             conflictPolicy: .block,
             scheduleMinutes: 15,
             deletePolicy: .mirrorToYandex,
