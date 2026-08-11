@@ -72,7 +72,11 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(copy.onboardingEnvironmentHint)
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        // Wrapping comes from the width limit below, not from
+                        // fixedSize: asking a long string for its ideal height
+                        // at unbounded width leaves this pane unable to lay out
+                        // at all, and the whole window renders blank.
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 8) {
                         ForEach(viewModel.statusRows(pairs: appModel.pairs, preferences: appModel.preferences, copy: copy), id: \.label) { row in
@@ -97,7 +101,7 @@ struct OnboardingView: View {
                     Text(copy.onboardingRecheckAfterCommandHint)
                         .font(.callout)
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
 

@@ -76,10 +76,33 @@ final class PairFlowUITests: XCTestCase {
             app.staticTexts["Documents"].firstMatch.waitForExistence(timeout: 5),
             "the sidebar lost its pairs after opening Onboarding"
         )
+        let retryButton = app.buttons["onboarding.retry"].firstMatch
+        XCTAssertTrue(retryButton.waitForExistence(timeout: 5), "the onboarding pane rendered nothing")
+
+        // Existence is not enough: when this pane fails to lay out, the whole
+        // window draws blank while every element is still in the accessibility
+        // tree — which is exactly how the bug got past the earlier assertions.
+        // An element that is not drawn is not hittable.
+        XCTAssertTrue(retryButton.isHittable, "the onboarding pane is present but not drawn")
         XCTAssertTrue(
-            app.buttons["onboarding.retry"].firstMatch.waitForExistence(timeout: 5),
-            "the onboarding pane rendered nothing"
+            app.staticTexts["Documents"].firstMatch.isHittable,
+            "the sidebar is present but not drawn"
         )
+
+        saveWindowScreenshot(app, named: "onboarding")
+    }
+
+    /// Writes the app window to MACYAD_UITEST_SCREENSHOT_DIR when it is set, so
+    /// a pane can be inspected without driving the real installation by hand.
+    /// The app window only — never the screen, which is not ours to capture.
+    private func saveWindowScreenshot(_ app: XCUIApplication, named name: String) {
+        // The runner is sandboxed: it can only write inside its own container,
+        // and xcodebuild does not pass an environment through, so the path is
+        // printed for whoever is watching the log.
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(name).png")
+        let data = app.windows.firstMatch.screenshot().pngRepresentation
+        try? data.write(to: url)
+        print("screenshot: \(url.path) (\(data.count) bytes)")
     }
 
     func testOverviewKeepsItsContentWithPairsPresent() {
