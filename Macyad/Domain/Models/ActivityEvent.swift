@@ -62,6 +62,39 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         inFlightOperation = try container.decodeIfPresent(String.self, forKey: .inFlightOperation)
     }
 
+    /// First sentence of the details, for the journal row. The full text runs
+    /// to hundreds of lines for a blocked run, but its opening line already
+    /// says why — and without it the row shows only "blocked" and the user has
+    /// no reason to suspect there is anything to open.
+    public var reasonLine: String? {
+        guard let details else {
+            return nil
+        }
+
+        let firstLine = details
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespaces)
+
+        guard let firstLine, !firstLine.isEmpty, firstLine != message else {
+            // Some failures put the same sentence in both fields; repeating it
+            // under itself just makes the row taller.
+            return nil
+        }
+
+        return firstLine
+    }
+
+    /// How many paths the run could not reconcile, when it collected them.
+    public var issueCount: Int? {
+        guard let issueSet, !issueSet.issues.isEmpty else {
+            return nil
+        }
+
+        return issueSet.issues.count
+    }
+
     /// The record an in-flight event becomes once we know nobody is going to
     /// finish it. Returns `nil` for events that are not in flight.
     public func interrupted(using copy: AppCopy, at date: Date = Date()) -> ActivityEvent? {

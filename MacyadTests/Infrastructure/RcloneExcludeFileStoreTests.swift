@@ -16,7 +16,9 @@ final class RcloneExcludeFileStoreTests: XCTestCase {
         let fileContents = try String(contentsOfFile: filePath, encoding: .utf8)
 
         XCTAssertEqual(URL(fileURLWithPath: filePath).deletingLastPathComponent(), paths.rcloneFiltersDirectory)
-        XCTAssertEqual(fileContents, ".DS_Store\n.DS_Store/**\n.git/**\n")
+        // rclone's own leftovers are appended to every filter file, so an
+        // aborted transfer's .partial cannot register as a local change.
+        XCTAssertEqual(fileContents, ".DS_Store\n.DS_Store/**\n.git/**\n*.partial\n*.rclone_chunk.*\n")
     }
 
     func testPrepareCheckExcludeFileCombinesSyncAndAdditionalPatterns() throws {
@@ -36,7 +38,7 @@ final class RcloneExcludeFileStoreTests: XCTestCase {
 
         XCTAssertEqual(
             fileContents,
-            ".DS_Store\n.DS_Store/**\n.venv/**\n.git/**\n.pytest_cache/**\n"
+            ".DS_Store\n.DS_Store/**\n.venv/**\n.git/**\n.pytest_cache/**\n*.partial\n*.rclone_chunk.*\n"
         )
     }
 
@@ -61,6 +63,8 @@ final class RcloneExcludeFileStoreTests: XCTestCase {
             aacd64c1-18a5-4454-8baf-aa6f9127deaf
             aacd64c1-18a5-4454-8baf-aa6f9127deaf/**
             Connections-OAS-Main (*).db
+            *.partial
+            *.rclone_chunk.*
             """
             + "\n"
         )

@@ -176,6 +176,47 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertTrue(outcome.details?.contains("permission denied") == true)
     }
 
+    func testStaleBaselineEntryForAnExcludedArtifactDoesNotBlockPull() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let pair = makePair()
+        // A baseline written before the pattern was excluded still lists the
+        // aborted transfer's leftover. The snapshots no longer show it, and
+        // without filtering the baseline that reads as a local deletion — which
+        // is exactly what kept a real pair blocked.
+        let baselineStore = InMemoryBaselineStore()
+        try await baselineStore.save(
+            PairConflictBaselineState(
+                pairID: pair.id,
+                localSnapshot: PairSnapshot(entries: [
+                    PairSnapshotEntry(
+                        path: "Invoice.pdf.04944cf7.partial",
+                        size: 360_448,
+                        modTime: Date(timeIntervalSince1970: 1_716_580_800),
+                        md5: nil
+                    )
+                ]),
+                remoteSnapshot: PairSnapshot(entries: []),
+                updatedAt: Date(timeIntervalSince1970: 1_716_580_800)
+            )
+        )
+
+        let service = SyncService(
+            processClient: StubProcessClient(result: ("", "", 0)),
+            configPath: "/tmp/macyad-rclone.conf",
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            excludeFileStore: StubExcludeFileStore(),
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+            baselineRepository: baselineStore
+        )
+
+        let outcome = await service.pull(pair)
+
+        XCTAssertEqual(outcome.severity, .healthy)
+    }
+
     func testPullUsesCopyCommand() async throws {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)

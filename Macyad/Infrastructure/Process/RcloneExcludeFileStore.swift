@@ -39,7 +39,7 @@ public struct PersistentRcloneExcludeFileStore: RcloneExcludeFilePreparing, @unc
         let sourcePatterns: [String]
         switch mode {
         case .sync:
-            sourcePatterns = pair.syncExcludes
+            sourcePatterns = pair.allSyncExcludes
         case .check:
             sourcePatterns = pair.allCheckExcludes
         }

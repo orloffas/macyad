@@ -61,7 +61,8 @@ fi
 
 xcodegen generate
 
-"${XCODEBUILD_PREFIX[@]}" xcodebuild test \
+# The +"..." form keeps `set -u` happy when the prefix is empty (unit runs).
+${XCODEBUILD_PREFIX[@]+"${XCODEBUILD_PREFIX[@]}"} xcodebuild test \
   -project "$PROJECT_PATH" \
   -scheme "$SCHEME" \
   -destination 'platform=macOS' \

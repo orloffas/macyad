@@ -102,9 +102,35 @@ struct ActivityListView: View {
                     .foregroundStyle(.primary)
                     .lineLimit(nil)
 
-                Text(copy.formatTimestamp(event.date))
+                if let reason = event.reasonLine {
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                HStack(spacing: 6) {
+                    Text(copy.formatTimestamp(event.date))
+
+                    if let issueCount = event.issueCount {
+                        Text("·")
+                        Text(copy.activityIssueCount(issueCount))
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+
+            // The whole row is already the button; a tinted "open details" label
+            // would read as a second, separate control. A plain trailing
+            // chevron is the macOS way to say "there is more behind this".
+            if event.reasonLine != nil || event.issueSet != nil {
+                Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityLabel(copy.activityOpenDetailsHint)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -121,10 +147,22 @@ struct ActivityListView: View {
                     .foregroundStyle(.primary)
                     .lineLimit(nil)
 
+                if let reason = run.representative.reasonLine {
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
                 HStack(spacing: 6) {
                     Text(copy.activityCollapsedRunSummary(count: run.count))
                     Text("·")
                     Text(copy.formatTimestamp(run.representative.date))
+
+                    if let issueCount = run.representative.issueCount {
+                        Text("·")
+                        Text(copy.activityIssueCount(issueCount))
+                    }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

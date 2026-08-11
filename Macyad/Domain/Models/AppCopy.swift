@@ -239,6 +239,34 @@ public struct AppCopy: Sendable {
         isRussian ? "Пары" : "Pairs"
     }
 
+    /// Russian needs three forms, and "1 файлов" reads as broken software.
+    func russianPlural(_ count: Int, one: String, few: String, many: String) -> String {
+        let mod100 = count % 100
+        if (11 ... 14).contains(mod100) {
+            return many
+        }
+
+        switch count % 10 {
+        case 1: return one
+        case 2 ... 4: return few
+        default: return many
+        }
+    }
+
+    /// Accessibility only: the row is a button, and VoiceOver should say what
+    /// activating it does.
+    public var activityOpenDetailsHint: String {
+        isRussian ? "Открыть подробности" : "Open details"
+    }
+
+    public func activityIssueCount(_ count: Int) -> String {
+        if isRussian {
+            return "\(count) " + russianPlural(count, one: "расхождение", few: "расхождения", many: "расхождений")
+        }
+
+        return count == 1 ? "1 mismatched path" : "\(count) mismatched paths"
+    }
+
     public var openInFinderTitle: String {
         isRussian ? "Открыть в Finder" : "Open in Finder"
     }
@@ -1352,9 +1380,9 @@ public struct AppCopy: Sendable {
     public func remoteDriftBlockedSummary(count: Int, samplePath: String?) -> String {
         if isRussian {
             if let samplePath {
-                return "На стороне remote есть \(count) измен. Example: \(samplePath). Push to Yandex заблокирован."
+                return "На стороне remote \(count) \(russianPlural(count, one: "изменение", few: "изменения", many: "изменений")). Пример: \(samplePath). Push to Yandex заблокирован."
             }
-            return "На стороне remote есть \(count) измен. Push to Yandex заблокирован."
+            return "На стороне remote \(count) \(russianPlural(count, one: "изменение", few: "изменения", many: "изменений")). Push to Yandex заблокирован."
         }
 
         if let samplePath {
@@ -1367,9 +1395,9 @@ public struct AppCopy: Sendable {
     public func localDriftBlockedSummary(count: Int, samplePath: String?) -> String {
         if isRussian {
             if let samplePath {
-                return "Локальная сторона содержит \(count) измен. Example: \(samplePath). Pull from Yandex заблокирован."
+                return "Локально \(count) \(russianPlural(count, one: "изменение", few: "изменения", many: "изменений")). Пример: \(samplePath). Pull from Yandex заблокирован."
             }
-            return "Локальная сторона содержит \(count) измен. Pull from Yandex заблокирован."
+            return "Локально \(count) \(russianPlural(count, one: "изменение", few: "изменения", many: "изменений")). Pull from Yandex заблокирован."
         }
 
         if let samplePath {

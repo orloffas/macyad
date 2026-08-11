@@ -20,7 +20,7 @@ public struct RcloneCommandBuilder {
     public static func syncArguments(for pair: SyncPair, excludeFilePath: String? = nil) -> [String] {
         withExcludes(
             ["sync", pair.localFolderDisplayPath, pair.remotePath],
-            patterns: pair.syncExcludes,
+            patterns: pair.allSyncExcludes,
             excludeFilePath: excludeFilePath
         )
     }
@@ -44,7 +44,7 @@ public struct RcloneCommandBuilder {
     public static func pullArguments(for pair: SyncPair, excludeFilePath: String? = nil) -> [String] {
         withExcludes(
             ["copy", pair.remotePath, pair.localFolderDisplayPath],
-            patterns: pair.syncExcludes,
+            patterns: pair.allSyncExcludes,
             excludeFilePath: excludeFilePath
         )
     }

@@ -313,7 +313,7 @@ public struct SyncService: Sendable {
             if baseline == nil,
                try localFolderInspector.containsUserVisibleContent(
                    atPath: pair.localFolderDisplayPath,
-                   excludedPatterns: pair.syncExcludes
+                   excludedPatterns: pair.allSyncExcludes
                ) == false {
                 let pullLog = try await runCommand(pullArguments(for: pair), observer: observer)
                 let baselineUpdated = try await refreshBaselineFromLocalSnapshot(for: pair, observer: observer)
@@ -410,8 +410,17 @@ public struct SyncService: Sendable {
         remoteSnapshot: PairSnapshot
     ) async throws -> BaselinePreparationResult {
         if let baseline = try await baselineRepository.load(pairID: pair.id) {
-            let analysis = planner.analyze(baseline: baseline, localSnapshot: localSnapshot, remoteSnapshot: remoteSnapshot)
-            return .ready(BaselinePreparation(baseline: baseline, analysis: analysis))
+            // The same filtering `check` applies. A baseline recorded before a
+            // pattern was excluded still lists those paths, and the current
+            // snapshots no longer do — the planner would read that as "the file
+            // was deleted locally" and block the run over a file nobody syncs.
+            let filteredBaseline = filterBaseline(baseline, for: pair.allSyncExcludes)
+            let analysis = planner.analyze(
+                baseline: filteredBaseline,
+                localSnapshot: localSnapshot,
+                remoteSnapshot: remoteSnapshot
+            )
+            return .ready(BaselinePreparation(baseline: filteredBaseline, analysis: analysis))
         }
 
         switch planner.bootstrapDisposition(pairID: pair.id, localSnapshot: localSnapshot, remoteSnapshot: remoteSnapshot, now: now()) {

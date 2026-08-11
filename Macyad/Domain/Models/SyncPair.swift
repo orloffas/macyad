@@ -177,8 +177,23 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         try container.encode(autoSyncMode, forKey: .autoSyncMode)
     }
 
+    /// rclone's own leftovers, excluded regardless of what the user edited.
+    /// An aborted transfer leaves `<name>.<random>.partial` behind, and that
+    /// file is local-only by definition: it makes the pair look like it has
+    /// local changes, which blocks the next pull and every scheduled push
+    /// until somebody deletes it by hand. These are never user data, so they
+    /// do not belong in the editable list.
+    public static let rcloneArtifactExcludes: [String] = [
+        "*.partial",
+        "*.rclone_chunk.*",
+    ]
+
+    public var allSyncExcludes: [String] {
+        orderedUnique(syncExcludes + Self.rcloneArtifactExcludes)
+    }
+
     public var allCheckExcludes: [String] {
-        orderedUnique(syncExcludes + checkAdditionalExcludes)
+        orderedUnique(syncExcludes + checkAdditionalExcludes + Self.rcloneArtifactExcludes)
     }
 
     public var nextScheduledReferenceAt: Date? {

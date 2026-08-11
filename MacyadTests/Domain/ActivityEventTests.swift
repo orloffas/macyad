@@ -75,6 +75,39 @@ final class ActivityEventTests: XCTestCase {
         XCTAssertEqual(decoded.routeToken?.eventID, eventID)
     }
 
+    func testReasonLineIsTheFirstLineOfTheDetails() {
+        let event = ActivityEvent(
+            id: UUID(),
+            date: Date(timeIntervalSince1970: 1_716_580_800),
+            message: "Pull from Yandex blocked",
+            severity: .warning,
+            pairID: UUID(),
+            details: """
+            The agreed baseline is missing. Push/Pull is blocked until the current state is reconciled.
+
+            What it means: the file currently exists only on the remote side.
+            """
+        )
+
+        XCTAssertEqual(
+            event.reasonLine,
+            "The agreed baseline is missing. Push/Pull is blocked until the current state is reconciled."
+        )
+    }
+
+    func testEventWithoutDetailsHasNoReasonLine() {
+        let event = ActivityEvent(
+            id: UUID(),
+            date: Date(timeIntervalSince1970: 1_716_580_800),
+            message: "Pull from Yandex completed",
+            severity: .healthy,
+            pairID: UUID()
+        )
+
+        XCTAssertNil(event.reasonLine)
+        XCTAssertNil(event.issueCount)
+    }
+
     func testLegacyEventIsNotTreatedAsInFlight() throws {
         let json = """
         {
