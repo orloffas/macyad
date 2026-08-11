@@ -240,7 +240,7 @@ struct MainWindowView: View {
         do {
             let pairs = try await environment.pairRepository.load()
             let reconciled = try await environment.reconcileAccountsAndPairs(pairs: pairs)
-            let events = try await environment.activityRepository.load()
+            let events = try await recoverInterruptedEvents(in: environment.activityRepository.load())
             let preferences = (try? await environment.preferencesStore.load()) ?? .defaults
             await MainActor.run {
                 appModel.preferences = preferences
@@ -264,6 +264,19 @@ struct MainWindowView: View {
                 didLoadPairs = false
             }
         }
+    }
+
+    /// An operation that was still running when the app went away never got to
+    /// write its result, so on the next launch its record would sit in the
+    /// journal claiming to be running. Close those records instead.
+    private func recoverInterruptedEvents(in events: [ActivityEvent]) async -> [ActivityEvent] {
+        let recovered = events.markingInterruptedRuns(using: AppCopy.current)
+        guard recovered != events else {
+            return events
+        }
+
+        try? await environment.activityRepository.save(recovered)
+        return recovered
     }
 
     @MainActor
@@ -362,7 +375,23 @@ struct MainWindowView: View {
         )
 
         let opTitle = operation.userFacingTitle(copy: AppCopy.current)
+        let eventID = UUID()
+        // Record the run before it starts. Until this existed the journal got
+        // its only entry after the operation returned, so a pull that was still
+        // copying when the app was quit left no trace at all: no event, no
+        // timestamp, no log — while rclone kept writing files in the background.
+        let startedEvent = ActivityEvent(
+            id: eventID,
+            date: Date(),
+            message: AppCopy.current.operationStartedMessage(opTitle),
+            severity: .info,
+            pairID: pair.id,
+            inFlightOperation: opTitle
+        )
+        try? await environment.activityRepository.append(startedEvent)
+
         await MainActor.run {
+            appModel.appendActivityEvent(startedEvent)
             // Emit an immediate marker so the Live monitor never looks
             // frozen during the slow pre-rclone snapshot phase (remote
             // lsjson can easily take 5-10 seconds on cold launch).
@@ -387,7 +416,6 @@ struct MainWindowView: View {
             }
             let updatedPair = outcome.pair
             try await replacePair(updatedPair)
-            let eventID = UUID()
             let routeToken = outcome.issueSet.map { _ in
                 ActivityRouteToken(pairID: updatedPair.id, eventID: eventID, openIssueTable: true)
             }
@@ -401,7 +429,9 @@ struct MainWindowView: View {
                 issueSet: outcome.issueSet,
                 routeToken: routeToken
             )
-            try await environment.activityRepository.append(event)
+            // Replaces the in-flight record written before the run, so the
+            // journal keeps one entry per operation instead of two.
+            try await environment.activityRepository.replace(event)
 
             if operation == .syncNow, updatedPair.lastKnownSeverity == .warning {
                 try? await environment.notificationClient.send(
@@ -412,7 +442,7 @@ struct MainWindowView: View {
             }
 
             await MainActor.run {
-                appModel.appendActivityEvent(event)
+                appModel.replaceActivityEvent(event)
                 environment.pairDetailViewModel.setLatestSeverity(updatedPair.lastKnownSeverity)
                 appModel.refreshBackgroundState()
                 liveMonitorViewModel.setExitStatus(.success)
@@ -426,16 +456,16 @@ struct MainWindowView: View {
             failedPair.lastKnownSeverity = .alarm
             try? await replacePair(failedPair)
             let event = ActivityEvent(
-                id: UUID(),
+                id: eventID,
                 date: Date(),
                 message: failureMessage(for: operation, copy: copy),
                 severity: .alarm,
                 pairID: pair.id,
                 details: detailedError
             )
-            try? await environment.activityRepository.append(event)
+            try? await environment.activityRepository.replace(event)
             await MainActor.run {
-                appModel.appendActivityEvent(event)
+                appModel.replaceActivityEvent(event)
                 environment.pairDetailViewModel.setError(localizedError)
                 environment.pairDetailViewModel.setLatestSeverity(.alarm)
                 appModel.refreshBackgroundState()

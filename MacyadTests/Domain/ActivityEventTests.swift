@@ -74,4 +74,89 @@ final class ActivityEventTests: XCTestCase {
         XCTAssertEqual(decoded.issueSet?.issues.first?.fileName, "test.txt")
         XCTAssertEqual(decoded.routeToken?.eventID, eventID)
     }
+
+    func testLegacyEventIsNotTreatedAsInFlight() throws {
+        let json = """
+        {
+          "id": "\(UUID().uuidString)",
+          "date": 1716580800,
+          "message": "Legacy warning",
+          "severity": "warning",
+          "pairID": "\(UUID().uuidString)"
+        }
+        """
+
+        let event = try JSONDecoder().decode(ActivityEvent.self, from: Data(json.utf8))
+
+        XCTAssertNil(event.inFlightOperation)
+        XCTAssertNil(event.interrupted(using: AppCopy(language: .english)))
+    }
+
+    func testInFlightEventBecomesInterrupted() {
+        let pairID = UUID()
+        let eventID = UUID()
+        let startedAt = Date(timeIntervalSince1970: 1_716_580_800)
+        let recoveredAt = Date(timeIntervalSince1970: 1_716_584_400)
+        let copy = AppCopy(language: .english)
+        let started = ActivityEvent(
+            id: eventID,
+            date: startedAt,
+            message: copy.operationStartedMessage("Pull from Yandex"),
+            severity: .info,
+            pairID: pairID,
+            inFlightOperation: "Pull from Yandex"
+        )
+
+        let interrupted = started.interrupted(using: copy, at: recoveredAt)
+
+        XCTAssertEqual(interrupted?.id, eventID)
+        XCTAssertEqual(interrupted?.pairID, pairID)
+        XCTAssertEqual(interrupted?.date, recoveredAt)
+        XCTAssertEqual(interrupted?.severity, .warning)
+        XCTAssertEqual(interrupted?.message, copy.operationInterruptedMessage("Pull from Yandex"))
+        XCTAssertEqual(interrupted?.details, copy.operationInterruptedDetails)
+        XCTAssertNil(interrupted?.inFlightOperation)
+    }
+
+    func testMarkingInterruptedRunsLeavesFinishedEventsAlone() {
+        let copy = AppCopy(language: .english)
+        let finished = ActivityEvent(
+            id: UUID(),
+            date: Date(timeIntervalSince1970: 1_716_580_800),
+            message: "Pull from Yandex completed",
+            severity: .healthy,
+            pairID: UUID()
+        )
+        let inFlight = ActivityEvent(
+            id: UUID(),
+            date: Date(timeIntervalSince1970: 1_716_580_900),
+            message: copy.operationStartedMessage("Push to Yandex"),
+            severity: .info,
+            pairID: UUID(),
+            inFlightOperation: "Push to Yandex"
+        )
+
+        let recovered = [finished, inFlight].markingInterruptedRuns(using: copy)
+
+        XCTAssertEqual(recovered.count, 2)
+        XCTAssertEqual(recovered[0], finished)
+        XCTAssertEqual(recovered[1].severity, .warning)
+        XCTAssertNil(recovered[1].inFlightOperation)
+    }
+
+    func testInFlightOperationSurvivesRoundTrip() throws {
+        let event = ActivityEvent(
+            id: UUID(),
+            date: Date(timeIntervalSince1970: 1_716_580_800),
+            message: "Pull from Yandex: running…",
+            severity: .info,
+            pairID: UUID(),
+            inFlightOperation: "Pull from Yandex"
+        )
+
+        let decoded = try JSONDecoder().decode(ActivityEvent.self, from: JSONEncoder().encode(event))
+
+        XCTAssertEqual(decoded, event)
+        XCTAssertEqual(decoded.inFlightOperation, "Pull from Yandex")
+    }
 }

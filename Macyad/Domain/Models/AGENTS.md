@@ -12,7 +12,7 @@
 | File | Description |
 |------|-------------|
 | `AccountRemovalState.swift` | Результат проверки допустимости удаления аккаунта: флаг `canRemove`, список блокирующих пар и inline-сообщение |
-| `ActivityEvent.swift` | Событие журнала активности: severity, pairID, message, опциональный `issueSet` и `routeToken` для навигации из уведомления; `Codable` |
+| `ActivityEvent.swift` | Событие журнала активности: severity, pairID, message, опциональный `issueSet` и `routeToken` для навигации из уведомления; `Codable`. Поле `inFlightOperation` хранит имя ещё не завершённой операции: событие пишется до старта работы, поэтому запись остаётся, даже если приложение закрыли посреди прогона. `interrupted(using:at:)` и `markingInterruptedRuns(using:at:)` превращают такие записи в «прервано» при следующем запуске |
 | `ActivityEventRun.swift` | Группировка идентичных `ActivityEvent` в коллапсируемый «run» для отображения в журнале; содержит фабрику `makeRuns(from:)` |
 | `ActivityIssueSet.swift` | Набор проблемных файлов одного события: `ActivityFileIssue` (путь, kind, differences, snapshots, решение), перечисления `ActivityFileProblemKind`, `ActivityFileDifference`, `FileResolutionDecision`, `ActivityRouteToken`; `Codable` |
 | `AppCopy.swift` | Локализованные строки UI на ru/en; `AppLanguageState` — thread-safe глобальное хранилище текущего языка |

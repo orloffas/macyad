@@ -46,12 +46,12 @@ struct PairDetailView: View {
                                     .textSelection(.enabled)
                                     .lineLimit(2)
                                 Button {
-                                    environment.folderRevealer.revealFolder(atPath: pair.localFolderDisplayPath)
+                                    environment.folderOpener.openFolder(atPath: pair.localFolderDisplayPath)
                                 } label: {
                                     Image(systemName: "folder")
                                 }
                                 .buttonStyle(.borderless)
-                                .help(copy.revealInFinderTitle)
+                                .help(copy.openInFinderTitle)
                             }
                         }
                         GridRow {
@@ -242,6 +242,10 @@ struct PairDetailView: View {
 
             HStack(spacing: 8) {
                 if viewModel.operationPhase != .idle {
+                    ProgressView()
+                        .controlSize(.small)
+                        .scaleEffect(0.6)
+                        .frame(width: 12, height: 12)
                     Text(operationPhaseTitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -253,7 +257,11 @@ struct PairDetailView: View {
                         .font(.caption)
                         .disabled(!hasArchived || onOpenLiveMonitor == nil)
                         .hoverTip(hasArchived ? "" : copy.showLastLogTooltipSessionOnly)
-                    if viewModel.operationPhase == .running,
+                    // Offered while queued too: the log view-model is created
+                    // and seeded before the operation reaches the front of the
+                    // queue, and a queued run is exactly when the user wants to
+                    // know what the app is waiting for.
+                    if viewModel.operationPhase != .idle,
                        viewModel.lastOperationKind != .scheduled,
                        appModel.currentRunningPairID == pair.id,
                        let onOpenLiveMonitor {

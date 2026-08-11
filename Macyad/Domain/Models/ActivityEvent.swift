@@ -9,6 +9,11 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
     public var details: String?
     public var issueSet: ActivityIssueSet?
     public var routeToken: ActivityRouteToken?
+    /// Human-readable name of an operation that has started but not finished.
+    /// The event is written before the work begins, so the journal shows the
+    /// run even if the app never gets to write its result; on the next launch
+    /// a still-in-flight event is turned into an "interrupted" record.
+    public var inFlightOperation: String?
 
     public init(
         id: UUID,
@@ -18,7 +23,8 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         pairID: UUID?,
         details: String? = nil,
         issueSet: ActivityIssueSet? = nil,
-        routeToken: ActivityRouteToken? = nil
+        routeToken: ActivityRouteToken? = nil,
+        inFlightOperation: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -28,6 +34,7 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         self.details = details
         self.issueSet = issueSet
         self.routeToken = routeToken
+        self.inFlightOperation = inFlightOperation
     }
 
     enum CodingKeys: String, CodingKey {
@@ -39,6 +46,7 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         case details
         case issueSet
         case routeToken
+        case inFlightOperation
     }
 
     public init(from decoder: Decoder) throws {
@@ -51,5 +59,33 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         details = try container.decodeIfPresent(String.self, forKey: .details)
         issueSet = try container.decodeIfPresent(ActivityIssueSet.self, forKey: .issueSet)
         routeToken = try container.decodeIfPresent(ActivityRouteToken.self, forKey: .routeToken)
+        inFlightOperation = try container.decodeIfPresent(String.self, forKey: .inFlightOperation)
+    }
+
+    /// The record an in-flight event becomes once we know nobody is going to
+    /// finish it. Returns `nil` for events that are not in flight.
+    public func interrupted(using copy: AppCopy, at date: Date = Date()) -> ActivityEvent? {
+        guard let inFlightOperation else {
+            return nil
+        }
+
+        return ActivityEvent(
+            id: id,
+            date: date,
+            message: copy.operationInterruptedMessage(inFlightOperation),
+            severity: .warning,
+            pairID: pairID,
+            details: copy.operationInterruptedDetails
+        )
+    }
+}
+
+extension Array where Element == ActivityEvent {
+    /// Rewrites events a previous launch left in flight. Any operation still
+    /// marked as running when the app starts was cut short by a quit or a
+    /// crash: its outcome is unknown, and leaving it as "running…" forever
+    /// would be a lie.
+    public func markingInterruptedRuns(using copy: AppCopy, at date: Date = Date()) -> [ActivityEvent] {
+        map { $0.interrupted(using: copy, at: date) ?? $0 }
     }
 }

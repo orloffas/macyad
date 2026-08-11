@@ -20,6 +20,7 @@
 - `MenuBarPopoverView` работает в контексте `StatusBarBridge` (PlatformAdapters) — размер popover фиксирован; не добавляй сложные layout-элементы, требующие динамической высоты.
 - `AppRoute.allCases` определяет порядок секций в сайдбаре — изменения маршрутизации требуют обновления `App/AppRouter.swift`.
 - `ActivityReviewApplyResult` объявлен в `MainWindowView.swift` — при перемещении в Domain обновляй импорты во всех потребителях.
+- Ручная операция пишет событие журнала **дважды**: `run(_:for:)` сохраняет запись с `inFlightOperation` до старта работы и заменяет её (`activityRepository.replace`, тот же `id`) результатом или ошибкой. Не возвращай `append` в финальные ветки — иначе на одну операцию появится два события, а прерванный прогон снова не оставит следа. `loadPairsIfNeeded()` при старте прогоняет `recoverInterruptedEvents` и закрывает записи, оставшиеся «в полёте» от прошлого запуска.
 
 ### Testing Requirements
 Ручное тестирование через `./script/build_and_run.sh`. Проверять: открытие Settings, sidebar-навигация, запуск Push/Pull/Check, появление popover из menu bar. UI-тесты — `MacyadUITests/`.

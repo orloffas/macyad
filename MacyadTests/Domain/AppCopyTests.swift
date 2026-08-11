@@ -6,6 +6,9 @@ final class AppCopyTests: XCTestCase {
         let copy = AppCopy(language: .english)
 
         XCTAssertEqual(copy.onboardingTitle, "Onboarding")
+        XCTAssertEqual(copy.onboardingEnvironmentTitle, "Environment status")
+        XCTAssertEqual(copy.recheckEnvironmentButtonTitle, "Re-check environment")
+        XCTAssertEqual(copy.onboardingLastCheckedAt("never"), "Last check: never")
         XCTAssertEqual(copy.settingsTitle, "Settings")
         XCTAssertEqual(copy.statusReady, "Ready")
         XCTAssertEqual(copy.syncButtonTitle, "Push to Yandex")
@@ -28,12 +31,18 @@ final class AppCopyTests: XCTestCase {
         XCTAssertEqual(copy.issueReviewDecisionSectionTitle, "Decision")
         XCTAssertEqual(copy.accountRemovalBlockedMessage(pairNames: ["Docs"]), "This account can't be removed while pair Docs still references it.")
         XCTAssertEqual(copy.activityCollapsedRunSummary(count: 3), "3 identical events")
+        XCTAssertEqual(copy.operationStartedMessage("Pull from Yandex"), "Pull from Yandex: running…")
+        XCTAssertEqual(copy.openInFinderTitle, "Open in Finder")
+        XCTAssertTrue(copy.operationInterruptedMessage("Pull from Yandex").hasPrefix("Pull from Yandex: interrupted"))
     }
 
     func testRussianCopyUsesRussianLabels() {
         let copy = AppCopy(language: .russian)
 
         XCTAssertEqual(copy.onboardingTitle, "Подключение")
+        XCTAssertEqual(copy.onboardingEnvironmentTitle, "Состояние окружения")
+        XCTAssertEqual(copy.recheckEnvironmentButtonTitle, "Проверить окружение")
+        XCTAssertEqual(copy.onboardingLastCheckedAt("никогда"), "Последняя проверка: никогда")
         XCTAssertEqual(copy.settingsTitle, "Настройки")
         XCTAssertEqual(copy.statusReady, "Готово")
         XCTAssertEqual(copy.syncButtonTitle, "Push to Yandex")
@@ -56,6 +65,9 @@ final class AppCopyTests: XCTestCase {
         XCTAssertEqual(copy.issueReviewDecisionSectionTitle, "Решение")
         XCTAssertEqual(copy.accountRemovalBlockedMessage(pairNames: ["Docs", "Photos"]), "Account нельзя удалить, пока к нему привязаны pair: Docs, Photos.")
         XCTAssertEqual(copy.activityCollapsedRunSummary(count: 3), "3 одинаковых события")
+        XCTAssertEqual(copy.operationStartedMessage("Pull from Yandex"), "Pull from Yandex: выполняется…")
+        XCTAssertEqual(copy.openInFinderTitle, "Открыть в Finder")
+        XCTAssertTrue(copy.operationInterruptedMessage("Pull from Yandex").hasPrefix("Pull from Yandex: прервано"))
     }
 
     func testNewKeysEnglish() {
