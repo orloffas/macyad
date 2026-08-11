@@ -18,7 +18,19 @@ struct OverviewView: View {
                 .fontWeight(.semibold)
 
             LabeledContent(copy.overviewStatusLabel, value: appModel.statusSummary.title)
-            LabeledContent(copy.overviewWorkspaceLabel, value: environment.paths.workspaceRoot.path)
+            LabeledContent(copy.overviewWorkspaceLabel) {
+                HStack(spacing: 6) {
+                    Text(environment.paths.workspaceRoot.path)
+                        .textSelection(.enabled)
+                    Button {
+                        environment.folderRevealer.revealFolder(atPath: environment.paths.workspaceRoot.path)
+                    } label: {
+                        Image(systemName: "folder")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(copy.revealInFinderTitle)
+                }
+            }
             LabeledContent(copy.overviewPairsLabel, value: "\(appModel.pairs.count)")
 
             Table(viewModel.rows, selection: $selectedPairID) {

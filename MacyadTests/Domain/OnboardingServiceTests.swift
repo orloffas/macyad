@@ -14,13 +14,15 @@ final class OnboardingServiceTests: XCTestCase {
         let locator = StubRcloneLocator(location: nil)
         let service = OnboardingService(
             locator: locator,
-            paths: .makeForTesting(rootURL: URL(fileURLWithPath: "/tmp/MacyadTests", isDirectory: true))
+            paths: .makeForTesting(rootURL: URL(fileURLWithPath: "/tmp/MacyadTests", isDirectory: true)),
+            rcloneVersion: { _ in "rclone v1.68.2" }
         )
 
         let state = try await service.refresh()
 
         XCTAssertEqual(state.step, .installRclone)
         XCTAssertEqual(state.brewInstallCommand, "brew install rclone")
+        XCTAssertNil(state.rcloneVersion)
         XCTAssertEqual(state.configPath, "/tmp/MacyadTests/rclone/rclone.conf")
     }
 
@@ -31,13 +33,15 @@ final class OnboardingServiceTests: XCTestCase {
         let service = OnboardingService(
             locator: locator,
             paths: .makeForTesting(rootURL: URL(fileURLWithPath: "/tmp/MacyadTests", isDirectory: true)),
-            configURL: configURL
+            configURL: configURL,
+            rcloneVersion: { _ in "rclone v1.68.2" }
         )
 
         let state = try await service.refresh()
 
         XCTAssertEqual(state.step, .configureRemote)
         XCTAssertEqual(state.rcloneLocation, "/opt/homebrew/bin/rclone")
+        XCTAssertEqual(state.rcloneVersion, "rclone v1.68.2")
         XCTAssertTrue(state.remoteCreateCommand.hasPrefix("rclone --config "))
         XCTAssertTrue(state.remoteCreateCommand.contains(" config create macyad-yandex yandex"))
         XCTAssertTrue(state.remoteCreateCommand.contains(configURL.path))
@@ -50,7 +54,12 @@ final class OnboardingServiceTests: XCTestCase {
         let configURL = rootURL.appendingPathComponent(".config/rclone/rclone.conf")
         let paths = AppPaths.makeForTesting(rootURL: rootURL)
         let locator = StubRcloneLocator(location: "/opt/homebrew/bin/rclone")
-        let service = OnboardingService(locator: locator, paths: paths, configURL: configURL)
+        let service = OnboardingService(
+            locator: locator,
+            paths: paths,
+            configURL: configURL,
+            rcloneVersion: { _ in "rclone v1.68.2" }
+        )
 
         defer {
             try? fileManager.removeItem(at: rootURL)
@@ -70,5 +79,6 @@ final class OnboardingServiceTests: XCTestCase {
 
         XCTAssertEqual(state.step, .createFirstPair)
         XCTAssertEqual(state.rcloneLocation, "/opt/homebrew/bin/rclone")
+        XCTAssertEqual(state.rcloneVersion, "rclone v1.68.2")
     }
 }

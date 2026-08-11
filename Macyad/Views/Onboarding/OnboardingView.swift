@@ -14,7 +14,7 @@ struct OnboardingView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            switch viewModel.state.step {
+            switch viewModel.visibleStep(pairCount: appModel.pairs.count) {
             case .installRclone:
                 CommandCopyRowView(
                     title: copy.installRcloneTitle,
@@ -59,8 +59,22 @@ struct OnboardingView: View {
                 }
 
             case .complete:
-                Text(copy.setupComplete)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(copy.setupComplete)
+                        .foregroundStyle(.secondary)
+
+                    Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 8) {
+                        ForEach(viewModel.statusRows(pairs: appModel.pairs, preferences: appModel.preferences, copy: copy), id: \.label) { row in
+                            GridRow {
+                                Text(row.label)
+                                    .foregroundStyle(.secondary)
+                                Text(row.value)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                    }
+                    .font(.callout)
+                }
             }
 
             Button(copy.retryButtonTitle) {

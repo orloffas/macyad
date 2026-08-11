@@ -10,17 +10,31 @@ public struct OnboardingService: OnboardingServicing {
     public let locator: RcloneLocating
     public let paths: AppPaths
     private let configURL: URL
+    private let rcloneVersion: @Sendable (String) async -> String?
 
-    public init(locator: RcloneLocating, paths: AppPaths, configURL: URL? = nil) {
+    public init(
+        locator: RcloneLocating,
+        paths: AppPaths,
+        configURL: URL? = nil,
+        rcloneVersion: (@Sendable (String) async -> String?)? = nil
+    ) {
         self.locator = locator
         self.paths = paths
         self.configURL = configURL ?? paths.rcloneConfigFile
+        self.rcloneVersion = rcloneVersion ?? Self.readRcloneVersion
     }
 
     public func refresh() async throws -> OnboardingState {
         let location = try await locator.locate()
+        let version: String?
         let hasConfiguredRemote = !RcloneConfigInspector(configURL: configURL).remoteNames().isEmpty
         let step: OnboardingState.Step
+
+        if let location {
+            version = await rcloneVersion(location)
+        } else {
+            version = nil
+        }
 
         if location == nil {
             step = .installRclone
@@ -33,6 +47,7 @@ public struct OnboardingService: OnboardingServicing {
         return OnboardingState(
             step: step,
             rcloneLocation: location,
+            rcloneVersion: version,
             brewInstallCommand: "brew install rclone",
             remoteCreateCommand: RcloneCommandBuilder.remoteCreateCommand(
                 configPath: configURL.path,
@@ -40,5 +55,14 @@ public struct OnboardingService: OnboardingServicing {
             ),
             configPath: configURL.path
         )
+    }
+
+    private static func readRcloneVersion(executablePath: String) async -> String? {
+        guard let result = try? await RcloneProcessClient(executablePath: executablePath).run(["version"]),
+              result.exitCode == 0 else {
+            return nil
+        }
+
+        return result.stdout.split(whereSeparator: \.isNewline).first.map(String.init)
     }
 }

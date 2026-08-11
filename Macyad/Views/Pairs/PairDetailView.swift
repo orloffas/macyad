@@ -3,6 +3,7 @@ import SwiftUI
 
 struct PairDetailView: View {
     @EnvironmentObject private var appModel: AppModel
+    @EnvironmentObject private var environment: AppEnvironment
     let pair: SyncPair?
     let displaySeverity: Severity
     @ObservedObject var viewModel: PairDetailViewModel
@@ -40,9 +41,18 @@ struct PairDetailView: View {
                         GridRow {
                             Text(copy.localFolderTitle)
                                 .foregroundStyle(.secondary)
-                            Text(pair.localFolderDisplayPath)
-                                .textSelection(.enabled)
-                                .lineLimit(2)
+                            HStack(spacing: 6) {
+                                Text(pair.localFolderDisplayPath)
+                                    .textSelection(.enabled)
+                                    .lineLimit(2)
+                                Button {
+                                    environment.folderRevealer.revealFolder(atPath: pair.localFolderDisplayPath)
+                                } label: {
+                                    Image(systemName: "folder")
+                                }
+                                .buttonStyle(.borderless)
+                                .help(copy.revealInFinderTitle)
+                            }
                         }
                         GridRow {
                             Text(copy.remotePathTitle)

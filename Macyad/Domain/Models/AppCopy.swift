@@ -239,6 +239,10 @@ public struct AppCopy: Sendable {
         isRussian ? "Пары" : "Pairs"
     }
 
+    public var revealInFinderTitle: String {
+        isRussian ? "Показать в Finder" : "Reveal in Finder"
+    }
+
     public var inspectorTitle: String {
         isRussian ? "Инспектор" : "Inspector"
     }
@@ -357,6 +361,54 @@ public struct AppCopy: Sendable {
 
     public var retryButtonTitle: String {
         isRussian ? "Проверить снова" : "Check again"
+    }
+
+    public var onboardingRcloneStatusLabel: String {
+        "rclone"
+    }
+
+    public var onboardingRemoteStatusLabel: String {
+        "Remote"
+    }
+
+    public var onboardingPairsStatusLabel: String {
+        isRussian ? "Пары" : "Pairs"
+    }
+
+    public var onboardingSchedulerStatusLabel: String {
+        isRussian ? "Плановая синхронизация" : "Scheduled sync"
+    }
+
+    public var onboardingLastCheckStatusLabel: String {
+        isRussian ? "Последняя проверка" : "Last check"
+    }
+
+    public var onboardingRcloneMissing: String {
+        isRussian ? "Не найден" : "Missing"
+    }
+
+    public var onboardingRemoteConfigured: String {
+        isRussian ? "Настроен" : "Configured"
+    }
+
+    public var onboardingRemoteMissing: String {
+        isRussian ? "Не настроен" : "Not configured"
+    }
+
+    public var onboardingSchedulerActive: String {
+        isRussian ? "Активна" : "Active"
+    }
+
+    public var onboardingSchedulerPaused: String {
+        isRussian ? "Пауза" : "Paused"
+    }
+
+    public var onboardingSchedulerIdle: String {
+        isRussian ? "Нет активных пар" : "No active pairs"
+    }
+
+    public var onboardingNeverChecked: String {
+        isRussian ? "Ещё не выполнялась" : "Not checked yet"
     }
 
     public var copyButtonTitle: String {

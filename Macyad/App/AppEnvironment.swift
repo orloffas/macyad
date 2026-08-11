@@ -48,6 +48,7 @@ final class AppEnvironment: ObservableObject {
     let statusService: StatusService
     let onboardingService: OnboardingServicing
     let onboardingViewModel: OnboardingViewModel
+    let folderRevealer: FolderRevealing
     let pairRepository: PairRepository
     let accountRepository: AccountRepository
     let conflictStateRepository: PairConflictStateRepository
@@ -90,6 +91,7 @@ final class AppEnvironment: ObservableObject {
             service: onboardingService,
             pasteboard: PasteboardBridge()
         )
+        self.folderRevealer = FinderRevealBridge()
         self.settingsViewModel = SettingsViewModel(
             preferencesStore: preferencesStore,
             loginItemService: loginItemService,
