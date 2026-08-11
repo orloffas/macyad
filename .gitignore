@@ -11,11 +11,9 @@ build/
 *.profraw
 *.bak-disable-ai-memory-*
 
-# OMC — track plans & ccg artifacts, ignore session/runtime churn
-.omc/*
-!.omc/plans/
-!.omc/artifacts/
-.omc/plans/reviews/*.stderr.log
+# Agent tooling scratch space. Never tracked: these transcripts embed absolute
+# paths, process listings and prompts from the machine that produced them.
+.omc/
 .omx/
 .pytest_cache/
 .ruff_cache/

@@ -27,7 +27,7 @@ final class RcloneProcessClientTests: XCTestCase {
         let scriptURL = rootURL.appendingPathComponent("pgrep")
         try """
         #!/bin/sh
-        printf '4863 rclone copy macyad-yandex:/RemoteDesktopManagerFree /Users/user/Documents/YaD/RemoteDesktopManagerFree --config /tmp/rclone.conf\n'
+        printf '4863 rclone copy macyad-yandex:/SampleFolder /Users/test/Documents/YaD/SampleFolder --config /tmp/rclone.conf\n'
         """.write(to: scriptURL, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes(
             [.posixPermissions: 0o755],
@@ -61,8 +61,8 @@ final class RcloneProcessClientTests: XCTestCase {
                 let commandLine = String(parts[1])
                 guard commandLine.contains("rclone"),
                       commandLine.contains(" copy "),
-                      commandLine.contains("macyad-yandex:/RemoteDesktopManagerFree"),
-                      commandLine.contains("/Users/user/Documents/YaD/RemoteDesktopManagerFree"),
+                      commandLine.contains("macyad-yandex:/SampleFolder"),
+                      commandLine.contains("/Users/test/Documents/YaD/SampleFolder"),
                       commandLine.contains("/tmp/rclone.conf") else {
                     return nil
                 }
@@ -71,7 +71,7 @@ final class RcloneProcessClientTests: XCTestCase {
             .first
 
         XCTAssertEqual(operation?.pid, 4_863)
-        XCTAssertTrue(operation?.commandLine.contains("RemoteDesktopManagerFree") == true)
+        XCTAssertTrue(operation?.commandLine.contains("SampleFolder") == true)
         _ = inspector
     }
 }

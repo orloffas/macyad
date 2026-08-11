@@ -10,12 +10,13 @@
 
 | File | Description |
 |------|-------------|
-| `README.md` | Обзор продукта, run / verification / reset инструкции, описание текущего продуктового поведения |
+| `README.md` | Публичный README (английский) — продукт, установка, модель синхронизации, troubleshooting |
+| `README.ru.md` | Русская версия README; при правке одного файла обязательно синхронизировать второй |
+| `LICENSE` | MIT |
 | `DESIGN_PRINCIPLES.md` | UI/UX guidelines: posture, layout, density, menu bar, anti-patterns |
 | `project.yml` | `xcodegen` спецификация targets (`MacyadCore`, `Macyad`, `MacyadTests`, `MacyadUITests`) и schemes |
 | `Macyad.xcodeproj/` | Сгенерированный из `project.yml` Xcode project (не редактировать вручную) |
-| `.gitignore` | Игнор-листы для build artifacts, derived data, worktree-каталогов |
-| `package.json`, `node_modules/` | Только для dev-only tooling (не часть приложения) |
+| `.gitignore` | Игнор-листы для build artifacts, derived data, worktree-каталогов, агентских артефактов |
 
 ## Subdirectories
 
@@ -24,15 +25,15 @@
 | `Macyad/` | Source приложения и core framework (см. `Macyad/AGENTS.md`) |
 | `MacyadTests/` | Unit-тесты `MacyadCore` (см. `MacyadTests/AGENTS.md`) |
 | `MacyadUITests/` | UI-тесты приложения `Macyad` (см. `MacyadUITests/AGENTS.md`) |
-| `docs/` | Документация и историческое planning (см. `docs/AGENTS.md`) |
+| `docs/` | Документация, скриншоты README, рабочий to-do (см. `docs/AGENTS.md`) |
 | `script/` | Build / run / test shell-скрипты (см. `script/AGENTS.md`) |
 | `.codex/` | Codex CLI environment-конфигурация для repo (см. `.codex/AGENTS.md`) |
-| `src-tauri/` | Legacy Tauri leftover — содержит только `target/` build cache, в коде не используется |
 
 ## For AI Agents
 
 ### Working In This Directory
 
+- **Репозиторий публичный.** Не коммить абсолютные пути вида `/Users/<имя>/…`, имена машин, вывод `ps`, транскрипты агентских сессий и содержимое реальных папок пользователя. В тестовых данных использовать `/Users/test/…` и вымышленные имена.
 - Любой code change оформляется через `git commit` (правило из `## Git Workflow`).
 - При изменении `project.yml` обязательно перегенерировать project: `xcodegen generate`.
 - Не редактировать содержимое `Macyad.xcodeproj/` руками — это output `xcodegen`.
@@ -86,10 +87,11 @@
 
 Если задача приводит к нескольким независимым изменениям, их нужно раскладывать по отдельным осмысленным commit.
 
-<!-- ai-memory-project-policy:start -->
-## AI-Memory Disabled
+## Public Repository
 
-- AI-Memory / ctx-memory skill, plugin, MCP, and automatic indexing are disabled system-wide by user request (2026-06-08).
-- Do not auto-load, invoke, index with, or require AI-Memory/ctx-memory in Codex, Claude Code, hooks, or project workflows unless the user explicitly re-enables it.
-- Do not use Superpowers (`obra/superpowers`, `superpowers@openai-curated`, `superpowers:writing-skills`) unless the user explicitly re-enables it.
-<!-- ai-memory-project-policy:end -->
+Репозиторий опубликован под MIT. Всё, что попадает в commit, читают посторонние люди.
+
+- Никаких абсолютных путей с именем пользователя, имён машин, IP-адресов, кусков логов с реальными файлами.
+- Агентские артефакты (`.omc/`, транскрипты консультаций, планы, сгенерированные машиной пошаговые логи) не коммитятся — они в `.gitignore`.
+- Скриншоты для README снимаются только на seeded демонстрационной конфигурации (`MacyadUITests/ScreenshotUITests.swift`), не на реальной установке.
+- `README.md` и `README.ru.md` должны совпадать по смыслу: правка одного без второго — незакрытая задача.
