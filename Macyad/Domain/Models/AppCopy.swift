@@ -239,6 +239,31 @@ public struct AppCopy: Sendable {
         isRussian ? "Пары" : "Pairs"
     }
 
+    public var overviewNameColumn: String {
+        isRussian ? "Имя" : "Name"
+    }
+
+    public var overviewLastSyncColumn: String {
+        isRussian ? "Последняя синхронизация" : "Last sync"
+    }
+
+    /// The one place a severity turns into words. The panes used to each carry
+    /// their own switch over the same four strings, which is how Overview and
+    /// the pair detail ended up calling the same state two different things in
+    /// Russian.
+    public func severityTitle(_ severity: Severity) -> String {
+        switch severity {
+        case .healthy:
+            severityHealthy
+        case .info:
+            severityInfo
+        case .warning:
+            severityWarning
+        case .alarm:
+            severityAlarm
+        }
+    }
+
     /// Russian needs three forms, and "1 файлов" reads as broken software.
     func russianPlural(_ count: Int, one: String, few: String, many: String) -> String {
         let mod100 = count % 100
@@ -772,7 +797,7 @@ public struct AppCopy: Sendable {
 
     public var issueReviewNoSelectionMessage: String {
         isRussian
-            ? "Выделите одну строку в таблице, чтобы увидеть человеческое объяснение, raw comparison и metadata snapshots."
+            ? "Выделите одну строку в таблице, чтобы увидеть понятное объяснение, исходное сравнение и снимки метаданных."
             : "Select a single row in the table to inspect the human explanation, raw comparison, and snapshot metadata."
     }
 

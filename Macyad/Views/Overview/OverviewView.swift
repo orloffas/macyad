@@ -20,7 +20,7 @@ struct OverviewView: View {
             LabeledContent(copy.overviewStatusLabel, value: appModel.statusSummary.title)
             LabeledContent(copy.overviewWorkspaceLabel) {
                 HStack(spacing: 6) {
-                    Text(environment.paths.workspaceRoot.path)
+                    Text(environment.paths.workspaceDisplayPath)
                         .textSelection(.enabled)
                     Button {
                         environment.folderOpener.openFolder(atPath: environment.paths.workspaceRoot.path)
@@ -34,10 +34,10 @@ struct OverviewView: View {
             LabeledContent(copy.overviewPairsLabel, value: "\(appModel.pairs.count)")
 
             Table(viewModel.rows, selection: $selectedPairID) {
-                TableColumn("Name") { row in
+                TableColumn(copy.overviewNameColumn) { row in
                     Text(row.name)
                 }
-                TableColumn("Status") { row in
+                TableColumn(copy.overviewStatusLabel) { row in
                     HStack(spacing: 4) {
                         if row.isPaused {
                             Image(systemName: "pause.circle")
@@ -47,7 +47,7 @@ struct OverviewView: View {
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                         } else {
-                            Text(row.severity.rawValue.capitalized)
+                            Text(copy.severityTitle(row.severity))
                                 .foregroundStyle(colorForSeverity(row.severity))
                         }
                     }
@@ -70,13 +70,12 @@ struct OverviewView: View {
                     .help(copy.autoSyncModeTooltip(row.autoSyncMode))
                 }
                 .width(min: 110, ideal: 125, max: 150)
-                TableColumn("Last sync") { row in
+                // No separate severity column: `Status` above already shows the
+                // severity whenever the pair is not paused, and two columns
+                // repeating "Warning" side by side taught the reader nothing.
+                TableColumn(copy.overviewLastSyncColumn) { row in
                     Text(row.lastSyncTitle)
                         .foregroundStyle(.secondary)
-                }
-                TableColumn("Severity") { row in
-                    Text(row.severity.rawValue.capitalized)
-                        .foregroundStyle(colorForSeverity(row.severity))
                 }
             }
         }

@@ -150,16 +150,7 @@ struct ActivityDetailView: View {
     }
 
     private func severityTitle(_ severity: Severity, copy: AppCopy) -> String {
-        switch severity {
-        case .healthy:
-            copy.severityHealthy
-        case .info:
-            copy.severityInfo
-        case .warning:
-            copy.severityWarning
-        case .alarm:
-            copy.severityAlarm
-        }
+        copy.severityTitle(severity)
     }
 
     private func symbolName(for severity: Severity) -> String {

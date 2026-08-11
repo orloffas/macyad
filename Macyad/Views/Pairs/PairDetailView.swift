@@ -350,18 +350,7 @@ struct PairDetailView: View {
     }
 
     private func severityTitle(_ severity: Severity) -> String {
-        let copy = appModel.copy
-
-        switch severity {
-        case .healthy:
-            return copy.severityHealthy
-        case .info:
-            return copy.severityInfo
-        case .warning:
-            return copy.severityWarning
-        case .alarm:
-            return copy.severityAlarm
-        }
+        appModel.copy.severityTitle(severity)
     }
 
     private func deletePolicyTitle(_ policy: SyncPair.DeletePolicy) -> String {
