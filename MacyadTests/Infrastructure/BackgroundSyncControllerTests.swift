@@ -100,6 +100,42 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertTrue(events[0].message.contains("Scheduled Push to Yandex completed"))
     }
 
+    func testFailingPairSaveStillClosesTheJournalEntry() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Docs", lastSyncAt: now.addingTimeInterval(-4_000))
+        let activityStore = InMemoryActivityStore()
+        let scheduler = SchedulerService(
+            policy: ScheduledSyncEligibilityPolicy(),
+            syncService: SyncService(
+                processClient: RecordingProcessClient(),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+                snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+                baselineRepository: InMemoryBaselineStore()
+            )
+        )
+        let controller = BackgroundSyncController(
+            scheduler: scheduler,
+            pairStore: InMemoryPairStore(pairs: [pair], failsOnSave: true),
+            preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
+            activityStore: activityStore,
+            notificationClient: RecordingNotificationClient(),
+            now: { now },
+            sleep: { _ in }
+        )
+
+        await controller.runCycle()
+
+        // rclone already ran; a failed pair save must not leave the entry
+        // written at start claiming the operation is still going.
+        let events = try await activityStore.load()
+        XCTAssertEqual(events.count, 1)
+        XCTAssertNil(events[0].inFlightOperation)
+    }
+
     func testRunCyclePersistsSafeInitialPushIntoEmptyRemote() async throws {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
@@ -319,10 +355,14 @@ final class BackgroundSyncControllerTests: XCTestCase {
 }
 
 private actor InMemoryPairStore: PairStoreControlling {
-    private var pairs: [SyncPair]
+    private struct SaveFailure: Error {}
 
-    init(pairs: [SyncPair]) {
+    private var pairs: [SyncPair]
+    private let failsOnSave: Bool
+
+    init(pairs: [SyncPair], failsOnSave: Bool = false) {
         self.pairs = pairs
+        self.failsOnSave = failsOnSave
     }
 
     func load() async throws -> [SyncPair] {
@@ -330,6 +370,10 @@ private actor InMemoryPairStore: PairStoreControlling {
     }
 
     func save(_ pairs: [SyncPair]) async throws {
+        guard !failsOnSave else {
+            throw SaveFailure()
+        }
+
         self.pairs = pairs
     }
 }

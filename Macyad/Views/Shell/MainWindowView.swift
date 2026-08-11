@@ -270,7 +270,7 @@ struct MainWindowView: View {
     /// write its result, so on the next launch its record would sit in the
     /// journal claiming to be running. Close those records instead.
     private func recoverInterruptedEvents(in events: [ActivityEvent]) async -> [ActivityEvent] {
-        let recovered = events.markingInterruptedRuns(using: AppCopy.current)
+        let recovered = events.markingInterruptedRuns(using: AppCopy.current, startedBefore: environment.launchedAt)
         guard recovered != events else {
             return events
         }
@@ -398,7 +398,7 @@ struct MainWindowView: View {
             liveMonitorViewModel.appendLine(
                 "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : ——— \(opTitle) queued for \(pair.name) ———"
             )
-            appModel.currentRunningPairID = pair.id
+            appModel.activeManualPairIDs.insert(pair.id)
             environment.pairDetailViewModel.setOperationPhase(.queued, kind: .manual)
             environment.pairDetailViewModel.setError(nil)
         }
@@ -475,9 +475,7 @@ struct MainWindowView: View {
 
         await MainActor.run {
             environment.pairDetailViewModel.setOperationPhase(.idle)
-            if appModel.currentRunningPairID == pair.id {
-                appModel.currentRunningPairID = nil
-            }
+            appModel.activeManualPairIDs.remove(pair.id)
             // Promote the just-completed run to the archived slot so the
             // "Show last log" affordance lights up. A future run on this
             // pair will overwrite this archive with its own output.

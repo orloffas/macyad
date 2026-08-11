@@ -388,7 +388,7 @@ public struct AppCopy: Sendable {
     }
 
     public var onboardingSchedulerPaused: String {
-        isRussian ? "Пауза" : "Paused"
+        isRussian ? "Приостановлена" : "Paused"
     }
 
     public var onboardingSchedulerIdle: String {

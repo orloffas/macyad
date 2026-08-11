@@ -45,6 +45,9 @@ final class AppEnvironment: ObservableObject {
     }
 
     let launchMode: AppLaunchMode
+    /// When this process came up. Used to tell journal entries left behind by
+    /// a previous launch from ones this launch is still working on.
+    let launchedAt = Date()
     let paths: AppPaths
     let rcloneLocator: RcloneLocating
     let statusService: StatusService

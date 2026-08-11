@@ -244,8 +244,6 @@ struct PairDetailView: View {
                 if viewModel.operationPhase != .idle {
                     ProgressView()
                         .controlSize(.small)
-                        .scaleEffect(0.6)
-                        .frame(width: 12, height: 12)
                     Text(operationPhaseTitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -263,7 +261,7 @@ struct PairDetailView: View {
                     // know what the app is waiting for.
                     if viewModel.operationPhase != .idle,
                        viewModel.lastOperationKind != .scheduled,
-                       appModel.currentRunningPairID == pair.id,
+                       appModel.activeManualPairIDs.contains(pair.id),
                        let onOpenLiveMonitor {
                         Button(copy.openLiveMonitorButtonTitle) { onOpenLiveMonitor(.running) }
                             .buttonStyle(.link)

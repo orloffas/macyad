@@ -24,7 +24,10 @@ final class AppModel: ObservableObject {
     @Published var statusSummary = MenuBarSummary(title: AppCopy.current.statusSetupRequired, alarmCount: 0, warningCount: 0)
     @Published var preferences: AppPreferences = .defaults
     @Published var pairsWithArchivedLog: Set<UUID> = []
-    @Published var currentRunningPairID: UUID?
+    /// Pairs whose manual operation is queued or running. A set rather than a
+    /// single id: two pairs can be waiting on the serial coordinator at once,
+    /// and the one that started second used to hide the first one's live log.
+    @Published var activeManualPairIDs: Set<UUID> = []
     var openMainWindow: () -> Void = {}
     var quitApplication: () -> Void = {}
     var refreshBackgroundState: () -> Void = {}

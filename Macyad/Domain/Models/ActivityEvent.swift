@@ -85,7 +85,22 @@ extension Array where Element == ActivityEvent {
     /// marked as running when the app starts was cut short by a quit or a
     /// crash: its outcome is unknown, and leaving it as "running…" forever
     /// would be a lie.
-    public func markingInterruptedRuns(using copy: AppCopy, at date: Date = Date()) -> [ActivityEvent] {
-        map { $0.interrupted(using: copy, at: date) ?? $0 }
+    ///
+    /// `startedBefore` is the current launch, and entries newer than it are
+    /// left alone: the scheduler runs whether or not the main window is on
+    /// screen, so a launch with no window (a login item) can be several
+    /// minutes into a scheduled push by the time this pass runs.
+    public func markingInterruptedRuns(
+        using copy: AppCopy,
+        startedBefore launchDate: Date,
+        at date: Date = Date()
+    ) -> [ActivityEvent] {
+        map { event in
+            guard event.date < launchDate else {
+                return event
+            }
+
+            return event.interrupted(using: copy, at: date) ?? event
+        }
     }
 }

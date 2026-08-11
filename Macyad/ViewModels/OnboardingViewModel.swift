@@ -85,7 +85,10 @@ public final class OnboardingViewModel: ObservableObject {
             OnboardingStatusRow(
                 label: copy.onboardingSchedulerStatusLabel,
                 value: schedulerStatus,
-                isSatisfied: !preferences.isGlobalSchedulerPaused && hasScheduledPair
+                // Every pair set to manual is a choice, not a fault; only the
+                // global pause — which is easy to forget you switched on —
+                // deserves the attention icon.
+                isSatisfied: !preferences.isGlobalSchedulerPaused
             )
         ]
     }

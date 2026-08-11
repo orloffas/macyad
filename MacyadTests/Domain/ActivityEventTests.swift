@@ -118,6 +118,23 @@ final class ActivityEventTests: XCTestCase {
         XCTAssertNil(interrupted?.inFlightOperation)
     }
 
+    func testMarkingInterruptedRunsSparesRunsStartedByThisLaunch() {
+        let copy = AppCopy(language: .english)
+        let launchedAt = Date(timeIntervalSince1970: 1_716_580_800)
+        let startedByThisLaunch = ActivityEvent(
+            id: UUID(),
+            date: launchedAt.addingTimeInterval(30),
+            message: copy.operationStartedMessage("Push to Yandex"),
+            severity: .info,
+            pairID: UUID(),
+            inFlightOperation: "Push to Yandex"
+        )
+
+        let recovered = [startedByThisLaunch].markingInterruptedRuns(using: copy, startedBefore: launchedAt)
+
+        XCTAssertEqual(recovered, [startedByThisLaunch])
+    }
+
     func testMarkingInterruptedRunsLeavesFinishedEventsAlone() {
         let copy = AppCopy(language: .english)
         let finished = ActivityEvent(
@@ -136,7 +153,10 @@ final class ActivityEventTests: XCTestCase {
             inFlightOperation: "Push to Yandex"
         )
 
-        let recovered = [finished, inFlight].markingInterruptedRuns(using: copy)
+        let recovered = [finished, inFlight].markingInterruptedRuns(
+            using: copy,
+            startedBefore: Date(timeIntervalSince1970: 1_716_581_000)
+        )
 
         XCTAssertEqual(recovered.count, 2)
         XCTAssertEqual(recovered[0], finished)

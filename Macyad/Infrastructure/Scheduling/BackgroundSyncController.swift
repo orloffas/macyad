@@ -107,11 +107,10 @@ public actor BackgroundSyncController {
 
         let updatedPairs = results.map(\.pair)
 
-        do {
-            try await pairStore.save(updatedPairs)
-        } catch {
-            return
-        }
+        // A failed save must not skip the journal: rclone has already run, and
+        // returning here would leave the entry written at start claiming to be
+        // running until the next launch.
+        try? await pairStore.save(updatedPairs)
 
         for result in eventfulResults {
             let event = makeEvent(for: result, at: now(), eventID: inFlightEventIDs.removeValue(forKey: result.pair.id) ?? UUID())
