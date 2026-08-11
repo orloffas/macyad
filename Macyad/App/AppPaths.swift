@@ -3,6 +3,11 @@ import Foundation
 public struct AppPaths: Sendable {
     public let appSupportRoot: URL
     public let workspaceRoot: URL
+    /// What the UI shows for the workspace. Same as `workspaceRoot` everywhere
+    /// except the seeded screenshot runs, where the real path is a throwaway
+    /// directory under `/var/folders/…` that would only confuse a reader of
+    /// the README.
+    public var workspaceDisplayPath: String
     public let rcloneFiltersDirectory: URL
     public let rcloneConfigFile: URL
     public let conflictStateDirectory: URL
@@ -39,9 +44,11 @@ public struct AppPaths: Sendable {
     }
 
     public static func makeForTesting(rootURL: URL) -> AppPaths {
-        AppPaths(
+        let workspaceRoot = rootURL.appendingPathComponent("Workspace", isDirectory: true)
+        return AppPaths(
             appSupportRoot: rootURL,
-            workspaceRoot: rootURL.appendingPathComponent("Workspace", isDirectory: true),
+            workspaceRoot: workspaceRoot,
+            workspaceDisplayPath: workspaceRoot.path,
             rcloneFiltersDirectory: rootURL.appendingPathComponent("rclone", isDirectory: true).appendingPathComponent("filters", isDirectory: true),
             rcloneConfigFile: rootURL.appendingPathComponent("rclone", isDirectory: true).appendingPathComponent("rclone.conf"),
             conflictStateDirectory: rootURL.appendingPathComponent("conflicts", isDirectory: true),

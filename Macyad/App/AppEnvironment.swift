@@ -138,8 +138,8 @@ final class AppEnvironment: ObservableObject {
             onboardingService = OnboardingService(locator: rcloneLocator, paths: paths)
         }
 
-        if launchMode.seedsSamplePairs {
-            try seedSamplePairs(at: paths)
+        if let seededLanguage = launchMode.seededSampleLanguage {
+            try seedSamplePairs(at: paths, language: seededLanguage)
         }
 
         let pairRepository = PairRepository(paths: paths)
@@ -213,81 +213,152 @@ final class AppEnvironment: ObservableObject {
         return (reconciled.pairs, reconciled.accounts)
     }
 
-    /// Writes a small, fixed configuration so UI tests can exercise the panes
-    /// that only do anything once pairs exist. Ephemeral paths only — this must
-    /// never touch a real installation.
-    private static func seedSamplePairs(at paths: AppPaths) throws {
-        let accountID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
-        let account = YandexAccount(
-            id: accountID,
-            displayName: "macyad-yandex",
-            remoteName: "macyad-yandex",
-            configPath: paths.rcloneConfigFile.path,
-            isManaged: false,
-            createdAt: Date(timeIntervalSince1970: 1_716_000_000)
-        )
-        let pairs = ["Documents", "Photos"].enumerated().map { index, name in
+    /// Writes a fixed demonstration configuration so UI tests can exercise the
+    /// panes that only do anything once pairs exist, and so the README
+    /// screenshots show a populated app. Ephemeral paths only — this must never
+    /// touch a real installation.
+    ///
+    /// Everything here is invented: the folder paths belong to no real account
+    /// and the remote token is a literal placeholder. The state is deliberately
+    /// varied — every auto-sync mode, every severity — because a screenshot of
+    /// four identical healthy rows explains nothing.
+    private static func seedSamplePairs(at paths: AppPaths, language: AppLanguage) throws {
+        // Set before any copy is read: the seeded journal messages are built
+        // from AppCopy, and the screenshots are taken in both languages.
+        AppLanguageState.update(language)
+        let copy = AppCopy.current
+
+        let personalAccountID = UUID(uuidString: "11111111-1111-1111-1111-111111111111")!
+        let workAccountID = UUID(uuidString: "11111111-1111-1111-1111-111111111112")!
+        let accounts = [
+            YandexAccount(
+                id: personalAccountID,
+                displayName: "macyad-yandex",
+                remoteName: "macyad-yandex",
+                configPath: paths.rcloneConfigFile.path,
+                isManaged: false,
+                createdAt: Date(timeIntervalSince1970: 1_716_000_000)
+            ),
+            YandexAccount(
+                id: workAccountID,
+                displayName: "macyad-yandex-work",
+                remoteName: "macyad-yandex-work",
+                configPath: paths.rcloneConfigFile.path,
+                isManaged: true,
+                createdAt: Date(timeIntervalSince1970: 1_717_000_000)
+            )
+        ]
+
+        let now = Date()
+        let minute = 60.0
+        let hour = 3_600.0
+        let samples: [(name: String, account: UUID, mode: AutoSyncMode, severity: Severity, lastSync: TimeInterval, minutes: Int)] = [
+            ("Documents", personalAccountID, .push, .healthy, 8 * minute, 15),
+            ("Photos", personalAccountID, .pull, .healthy, 41 * minute, 60),
+            ("Projects", workAccountID, .push, .warning, 3 * hour, 30),
+            ("Music", personalAccountID, .off, .healthy, 26 * hour, 15)
+        ]
+        let pairs = samples.enumerated().map { index, sample in
             SyncPair(
                 id: UUID(uuidString: "2222222\(index)-2222-2222-2222-222222222222")!,
-                name: name,
+                name: sample.name,
                 localFolderBookmark: Data("bookmark".utf8),
-                localFolderDisplayPath: paths.workspaceRoot.appendingPathComponent(name).path,
-                remotePath: "macyad-yandex:/\(name)",
-                accountID: accountID,
+                localFolderDisplayPath: "/Users/alex/Yandex/\(sample.name)",
+                remotePath: "\(sample.account == workAccountID ? "macyad-yandex-work" : "macyad-yandex"):/\(sample.name)",
+                accountID: sample.account,
                 conflictPolicy: .block,
-                scheduleMinutes: 15,
+                scheduleMinutes: sample.minutes,
                 deletePolicy: .mirrorToYandex,
-                lastKnownSeverity: index == 0 ? .healthy : .warning,
-                autoSyncMode: index == 0 ? .push : .off
+                lastKnownSeverity: sample.severity,
+                lastSyncAt: now.addingTimeInterval(-sample.lastSync),
+                autoSyncMode: sample.mode
             )
         }
 
         // A blocked run carries one issue per mismatched path, and a real pair
         // reaches several hundred. Seed that too: it is the size the panes are
         // actually asked to render, and an empty journal never exercises it.
+        let issueNames = ["report", "invoice", "notes", "draft", "summary", "handout"]
         let issues = (0 ..< 500).map { index in
-            ActivityFileIssue(
-                relativePath: "Folder \(index / 50)/file-\(index).pdf",
+            let path = "Quarter \(index / 125 + 1)/\(issueNames[index % issueNames.count])-\(index).pdf"
+            return ActivityFileIssue(
+                relativePath: path,
                 problemKind: .remoteOnlyChanged,
                 differences: [.baselineMissing, .missingLocal],
                 localSnapshot: nil,
                 remoteSnapshot: PairSnapshotEntry(
-                    path: "Folder \(index / 50)/file-\(index).pdf",
-                    size: 991,
-                    modTime: Date(timeIntervalSince1970: 1_716_000_000),
+                    path: path,
+                    size: Int64(24_576 + index * 37),
+                    modTime: now.addingTimeInterval(-Double(index) * minute),
                     md5: nil
                 ),
                 baselineSnapshot: nil,
                 selectedDecision: .later
             )
         }
-        let events = (0 ..< 20).map { index in
+
+        // One blocked run with a reviewable issue set, and a normal-looking
+        // journal around it. A screenshot of twenty identical warnings would
+        // misrepresent what the app usually shows.
+        let blockedEvent = ActivityEvent(
+            id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
+            date: now.addingTimeInterval(-3 * hour),
+            message: copy.scheduledSyncBlockedTitle(.push),
+            severity: .warning,
+            pairID: pairs[2].id,
+            details: copy.baselineMissingBlockedSummary,
+            issueSet: ActivityIssueSet(issues: issues)
+        )
+        let routine: [(TimeInterval, String, Severity, Int)] = [
+            (8 * minute, copy.scheduledSyncCompleted(.push), .healthy, 0),
+            (23 * minute, copy.manualCheckCompleted, .healthy, 0),
+            (41 * minute, copy.scheduledSyncCompleted(.pull), .healthy, 1),
+            (55 * minute, copy.manualSyncCompleted, .healthy, 0),
+            (78 * minute, copy.manualPullCompleted, .healthy, 1),
+            (2 * hour, copy.scheduledSyncCompleted(.push), .healthy, 0),
+            (4 * hour, copy.manualCheckWarningDetected, .warning, 1),
+            (6 * hour, copy.scheduledSyncCompleted(.pull), .healthy, 1),
+            (9 * hour, copy.manualSyncCompleted, .healthy, 3),
+            (26 * hour, copy.manualSyncCompleted, .healthy, 3)
+        ]
+        let events = [blockedEvent] + routine.map { age, message, severity, pairIndex in
             ActivityEvent(
                 id: UUID(),
-                date: Date().addingTimeInterval(Double(index * -60)),
-                message: "Scheduled Push to Yandex blocked",
-                severity: .warning,
-                pairID: pairs[0].id,
-                details: "The agreed baseline is missing. Push/Pull is blocked until the current state is reconciled.",
-                issueSet: ActivityIssueSet(issues: issues)
+                date: now.addingTimeInterval(-age),
+                message: message,
+                severity: severity,
+                pairID: pairs[pairIndex].id
             )
         }
 
         // A configured remote, so the onboarding pane reaches its completed
-        // state — the branch that only exists when pairs are present.
+        // state — the branch that only exists when pairs are present. The token
+        // is a placeholder, not a credential.
         try """
         [macyad-yandex]
         type = yandex
         token = {"access_token":"seeded","token_type":"OAuth"}
 
+        [macyad-yandex-work]
+        type = yandex
+        token = {"access_token":"seeded","token_type":"OAuth"}
+
         """.write(to: paths.rcloneConfigFile, atomically: true, encoding: .utf8)
+
+        let preferences = AppPreferences(
+            selectedLanguage: language.rawValue,
+            launchAtLoginEnabled: true,
+            defaultScheduleMinutes: 15,
+            isGlobalSchedulerPaused: false
+        )
 
         // Written synchronously, before anything reads them: the repositories
         // are actors, and a Task here would race the first load.
         let encoder = JSONEncoder()
-        try encoder.encode([account]).write(to: paths.accountsFile, options: .atomic)
+        try encoder.encode(accounts).write(to: paths.accountsFile, options: .atomic)
         try encoder.encode(pairs).write(to: paths.pairsFile, options: .atomic)
         try encoder.encode(events).write(to: paths.activityFile, options: .atomic)
+        try encoder.encode(preferences).write(to: paths.preferencesFile, options: .atomic)
     }
 
     private static func makePaths(
@@ -301,7 +372,14 @@ final class AppEnvironment: ObservableObject {
         let rootURL = fileManager.temporaryDirectory
             .appendingPathComponent("macyad-ui-tests", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        let paths = AppPaths.makeForTesting(rootURL: rootURL)
+        var paths = AppPaths.makeForTesting(rootURL: rootURL)
+
+        if launchMode.seededSampleLanguage != nil {
+            // Where the workspace would be on a real installation. The actual
+            // directory is a throwaway one, and its `/var/folders/…` path is
+            // noise in a README screenshot.
+            paths.workspaceDisplayPath = "/Users/alex/Library/Application Support/MacYaD/Workspace"
+        }
 
         try fileManager.createDirectory(at: paths.appSupportRoot, withIntermediateDirectories: true, attributes: nil)
         try fileManager.createDirectory(at: paths.workspaceRoot, withIntermediateDirectories: true, attributes: nil)

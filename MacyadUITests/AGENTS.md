@@ -13,6 +13,7 @@ UI-тесты приложения `Macyad` через `XCUIApplication`. Пок
 |------|-------------|
 | `OnboardingUITests.swift` | Запуск с `UITEST_ONBOARDING_MISSING_RCLONE`: проверяет наличие кнопок `onboarding.retry` и `onboarding.copyCommand` в onboarding-окне |
 | `PairFlowUITests.swift` | Запуск с `UITEST_READY_STATE`: проверяет наличие кнопки `pair.new` (или локализованного "Новая пара"), открытие Settings-окна по кнопке `settings.open` |
+| `ScreenshotUITests.swift` | Снимает скриншоты для `README.md` / `README.ru.md` на seeded конфигурации, по одному прогону на язык; заодно проверяет, что каждая панель отрисовалась |
 
 ## For AI Agents
 
@@ -20,6 +21,18 @@ UI-тесты приложения `Macyad` через `XCUIApplication`. Пок
 - Существования элемента недостаточно: при провале раскладки окно рисуется пустым, а дерево доступности остаётся полным, и `waitForExistence` проходит. Ключевые экраны проверять через `isHittable` — неотрисованный элемент недоступен для нажатия. Именно так пропустили баг с пустым окном 2026-08-11.
 - `-UITEST_SEEDED_PAIRS` поднимает приложение с парами, журналом и настроенным remote во временных путях: без данных целые ветки UI (например, состояние «настроено» в онбординге) не рендерятся вообще.
 - `saveWindowScreenshot` в `PairFlowUITests` пишет снимок окна в контейнер раннера и печатает путь в лог — единственный способ увидеть, что панель действительно нарисована.
+- Файлы, записанные в `FileManager.default.temporaryDirectory` раннера, снаружи забрать нельзя. Для скриншотов, которые нужны после прогона, — только `XCTAttachment` с `lifetime = .keepAlways`, дальше `xcrun xcresulttool export attachments --path <bundle>.xcresult --output-path <dir>`; имена вложений лежат в `manifest.json`.
+- В строках сайдбара (`Label` внутри `List`) текст приходит в `value`, а не в `label` — `NSPredicate(format: "label == …")` их не находит. Ищи их через `app.staticTexts["<точная строка>"]`, подставляя строку по языку запуска.
+- Скриншоты README снимаются **только** на `-UITEST_SEEDED_PAIRS`: реальная установка пользователя в кадр попадать не должна. Флаг `-UITEST_LANG_RU` рядом с ним переключает seeded-состояние на русский. Пересъём:
+
+  ```bash
+  xcodebuild test -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS' \
+    -only-testing:MacyadUITests/ScreenshotUITests \
+    -resultBundlePath shots.xcresult
+  xcrun xcresulttool export attachments --path shots.xcresult --output-path shots
+  ```
+
+  Гейта по переменной окружения у этих тестов нет намеренно: на macOS до тестового процесса не доходит ни обычная переменная, переданная `xcodebuild`, ни документированный префикс `TEST_RUNNER_` (проверено 2026-08-11 — `ProcessInfo.processInfo.environment` в раннере пуст по обоим именам). Гейт молча пропускал бы весь класс.
 
 - Target type: `bundle.ui-testing`, зависит от app target `Macyad` — импорт `MacyadCore` недоступен.
 - Launch arguments (`UITEST_ONBOARDING_MISSING_RCLONE`, `UITEST_READY_STATE`) обрабатываются `AppLaunchMode` и переводят приложение в эфемерное состояние с изолированными путями (`usesEphemeralPaths`).

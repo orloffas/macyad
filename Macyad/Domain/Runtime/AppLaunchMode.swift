@@ -5,10 +5,12 @@ public enum AppLaunchMode: Sendable, Equatable {
     case foreground
     case uiTestOnboardingMissingRclone
     case uiTestReadyState
-    /// Ready state plus a couple of pairs on disk. The panes that show a list
-    /// or a table behave differently once they have rows, and every other UI
-    /// test runs against an empty state where those paths are never taken.
-    case uiTestSeededPairs
+    /// Ready state plus a few pairs on disk. The panes that show a list or a
+    /// table behave differently once they have rows, and every other UI test
+    /// runs against an empty state where those paths are never taken. The
+    /// language is carried here because the same seeded state is what the
+    /// README screenshots are taken from, in both languages.
+    case uiTestSeededPairs(language: AppLanguage)
 
     public init(
         arguments: [String],
@@ -26,7 +28,7 @@ public enum AppLaunchMode: Sendable, Equatable {
         if flags.contains("UITEST_ONBOARDING_MISSING_RCLONE") {
             self = .uiTestOnboardingMissingRclone
         } else if flags.contains("UITEST_SEEDED_PAIRS") {
-            self = .uiTestSeededPairs
+            self = .uiTestSeededPairs(language: flags.contains("UITEST_LANG_RU") ? .russian : .english)
         } else if flags.contains("UITEST_READY_STATE") {
             self = .uiTestReadyState
         } else if Self.requestsForegroundLaunch(arguments: arguments, environment: environment) {
@@ -61,8 +63,14 @@ public enum AppLaunchMode: Sendable, Equatable {
         }
     }
 
-    public var seedsSamplePairs: Bool {
-        self == .uiTestSeededPairs
+    /// The language the seeded state is written with, or nil when this mode
+    /// seeds nothing.
+    public var seededSampleLanguage: AppLanguage? {
+        guard case let .uiTestSeededPairs(language) = self else {
+            return nil
+        }
+
+        return language
     }
 
     private static func requestsForegroundLaunch(
