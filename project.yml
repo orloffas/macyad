@@ -6,6 +6,15 @@ settings:
     GENERATE_INFOPLIST_FILE: YES
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     SWIFT_VERSION: 6.0
+    # Ad-hoc подпись Xcode меняет CDHash на каждой пересборке, поэтому TCC
+    # считает приложение новым и заново спрашивает доступ к папкам — в том
+    # числе во время прогона тестов. Подпись стабильным self-signed
+    # сертификатом фиксирует designated requirement, и выданное разрешение
+    # переживает пересборку. Значение берётся из MACYAD_CODESIGN_IDENTITY;
+    # без него остаётся прежняя ad-hoc подпись, чтобы сборка на машине без
+    # сертификата не ломалась.
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "$(MACYAD_CODESIGN_IDENTITY:default=-)"
 targets:
   MacyadCore:
     type: framework

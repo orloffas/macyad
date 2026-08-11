@@ -24,6 +24,19 @@ esac
 
 cd "$ROOT_DIR"
 
+# Подписываем тестовые сборки тем же сертификатом, что и деплой. Без него
+# Xcode подписывает ad-hoc, CDHash меняется на каждой пересборке, и TCC
+# заново спрашивает доступ к папкам прямо посреди прогона тестов.
+if [[ -z "${MACYAD_CODESIGN_IDENTITY:-}" ]]; then
+  CANDIDATE_IDENTITY="MacYaD Local Development"
+  if /usr/bin/security find-identity -p codesigning | grep -Fq "$CANDIDATE_IDENTITY"; then
+    export MACYAD_CODESIGN_IDENTITY="$CANDIDATE_IDENTITY"
+  else
+    echo "warning: codesign identity '$CANDIDATE_IDENTITY' not found; tests run with an ad-hoc signature" >&2
+    echo "warning: macOS will re-ask for folder permissions during the run" >&2
+  fi
+fi
+
 if [[ "$RUNS_UI_TESTS" == "1" ]]; then
   pkill -x MacYaD >/dev/null 2>&1 || true
   pkill -x MacyadUITests-Runner >/dev/null 2>&1 || true

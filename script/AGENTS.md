@@ -12,7 +12,7 @@ Shell-скрипты для сборки, запуска и тестирован
 | File | Description |
 |------|-------------|
 | `build_and_run.sh` | Главный entry-point: `xcodegen generate` → `xcodebuild` → stage → launch / package DMG. Modes: `run` (default), `debug` (lldb attach), `logs` (log stream), `telemetry`, `verify`, `package`. Флаги: `--clean`, `--clean-all`, `--no-launch`, `--package-dmg`, `--package-after-build`, `--foreground`, `--background`, `--no-prompt`. Интерактивный prompt по умолчанию при запуске из TTY. |
-| `test.sh` | Юнит- и UI-тесты через `xcodebuild test`. Modes: `unit`/`core` → scheme `MacyadCore`; `ui`/`all` → scheme `Macyad`. Изолированный `derivedDataPath` чтобы не конфликтовать с build artifacts. |
+| `test.sh` | Юнит- и UI-тесты через `xcodebuild test`. Modes: `unit`/`core` → scheme `MacyadCore`; `ui`/`all` → scheme `Macyad`. Изолированный `derivedDataPath` чтобы не конфликтовать с build artifacts. Экспортирует `MACYAD_CODESIGN_IDENTITY`, если сертификат `MacYaD Local Development` есть в keychain: иначе Xcode подписывает ad-hoc, `CDHash` меняется на каждой пересборке и `TCC` заново спрашивает доступ к папкам прямо во время прогона. |
 
 ## For AI Agents
 
