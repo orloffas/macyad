@@ -153,10 +153,7 @@ struct MainWindowView: View {
                     viewModel: environment.overviewViewModel,
                     onSelectPair: { id in appModel.sidebarSelection = .pair(id) },
                     onChangeAutoSyncMode: { id, mode in
-                        if let index = appModel.pairs.firstIndex(where: { $0.id == id }) {
-                            appModel.pairs[index].autoSyncMode = mode
-                            Task { try? await environment.pairRepository.save(appModel.pairs) }
-                        }
+                        Task { await changeAutoSyncMode(pairID: id, to: mode) }
                     }
                 )
             case .pair:
@@ -180,10 +177,7 @@ struct MainWindowView: View {
                 )
                 .onAppear {
                     environment.pairDetailViewModel.onChangeAutoSyncMode = { pair, newMode in
-                        if let index = appModel.pairs.firstIndex(where: { $0.id == pair.id }) {
-                            appModel.pairs[index].autoSyncMode = newMode
-                            try? await environment.pairRepository.save(appModel.pairs)
-                        }
+                        await changeAutoSyncMode(pairID: pair.id, to: newMode)
                     }
                 }
             }
@@ -462,6 +456,29 @@ struct MainWindowView: View {
         }
     }
 
+    /// Persist first, revert on failure. Mutating `appModel` and swallowing the
+    /// save error would leave the UI claiming a direction the scheduler never
+    /// sees: the background cycle reloads pairs from disk, so a dropped write
+    /// means the user sees Auto-Pull while `rclone sync local remote` keeps
+    /// running from the stale value.
+    @MainActor
+    private func changeAutoSyncMode(pairID: UUID, to mode: AutoSyncMode) async {
+        guard let index = appModel.pairs.firstIndex(where: { $0.id == pairID }),
+              appModel.pairs[index].autoSyncMode != mode else {
+            return
+        }
+
+        let previousMode = appModel.pairs[index].autoSyncMode
+        appModel.pairs[index].autoSyncMode = mode
+
+        do {
+            try await environment.pairRepository.save(appModel.pairs)
+        } catch {
+            appModel.pairs[index].autoSyncMode = previousMode
+            environment.pairDetailViewModel.setError(error.localizedDescription)
+        }
+    }
+
     private func perform(_ operation: PairOperationKind, with syncService: SyncService, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async -> PairOperationOutcome {
         var updatedPair = pair
 
@@ -490,6 +507,12 @@ struct MainWindowView: View {
         case .pullFromYandex:
             let outcome = await syncService.pull(pair, observer: observer)
             updatedPair.lastKnownSeverity = outcome.severity
+            if outcome.shouldUpdateLastSync {
+                // Without this a successful manual pull leaves lastSyncAt
+                // untouched, so the next background cycle considers the pair
+                // due immediately instead of honouring scheduleMinutes.
+                updatedPair.lastSyncAt = Date()
+            }
             return PairOperationOutcome(
                 pair: updatedPair,
                 message: eventMessage(for: operation, outcome: outcome),

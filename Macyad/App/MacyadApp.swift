@@ -135,8 +135,9 @@ struct MacyadApp: App {
                 await MainActor.run {
                     let vm = bridge.ensureRunningViewModel(for: pair.id)
                     vm.clearLog()
+                    let operation = AppCopy.current.scheduledSyncOperationName(pair.autoSyncMode)
                     vm.appendLine(
-                        "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : ——— Scheduled Push to Yandex queued for \(pair.name) ———"
+                        "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : ——— Scheduled \(operation) queued for \(pair.name) ———"
                     )
                     return LiveMonitorClosureObserver(
                         onLineCallback: { [weak vm] line in

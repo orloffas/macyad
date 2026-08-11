@@ -784,11 +784,11 @@ public struct AppCopy: Sendable {
     }
 
     public var lastSyncTitle: String {
-        isRussian ? "Последний Push to Yandex" : "Last Push to Yandex"
+        isRussian ? "Последняя синхронизация" : "Last sync"
     }
 
     public var nextSyncTitle: String {
-        isRussian ? "Следующий Push to Yandex" : "Next Push to Yandex"
+        isRussian ? "Следующая синхронизация" : "Next sync"
     }
 
     public var noPairTitle: String {
@@ -870,7 +870,7 @@ public struct AppCopy: Sendable {
     }
 
     public var afterFirstSuccessfulSync: String {
-        isRussian ? "После первого успешного Push to Yandex" : "After the first successful Push to Yandex"
+        isRussian ? "После первой успешной синхронизации" : "After the first successful sync"
     }
 
     public var operationQueued: String {
@@ -983,7 +983,7 @@ public struct AppCopy: Sendable {
     }
 
     public var scheduledSyncSectionTitle: String {
-        "Scheduled sync"
+        isRussian ? "Плановая синхронизация" : "Scheduled sync"
     }
 
     public var pausedByGlobalSettingTooltip: String {
@@ -1036,8 +1036,8 @@ public struct AppCopy: Sendable {
 
     public var autoSyncModeExclusiveHint: String {
         isRussian
-            ? "Направления взаимоисключающие: одна пара синхронизируется либо вверх, либо вниз. Двусторонний режим потребовал бы разбора конфликтов на каждый файл."
-            : "Directions are mutually exclusive: a pair syncs either up or down. A two-way mode would require per-file conflict resolution."
+            ? "Пара синхронизируется строго в одну сторону: локально → Yandex или Yandex → локально. Ручные операции доступны всегда."
+            : "A pair syncs in one direction only: local → Yandex or Yandex → local. Manual operations remain available."
     }
 
     public var openLiveMonitorButtonTitle: String {
@@ -1087,7 +1087,7 @@ public struct AppCopy: Sendable {
     public func scheduledSyncBootstrapFailure(_ direction: AutoSyncMode) -> String {
         let operation = scheduledSyncOperationName(direction)
         return isRussian
-            ? "Не удалось инициализировать scheduled \(operation)."
+            ? "Не удалось инициализировать плановый \(operation)."
             : "Failed to initialize scheduled \(operation)."
     }
 
@@ -1128,10 +1128,6 @@ public struct AppCopy: Sendable {
     public func syncBlockedNotificationTitle(_ direction: AutoSyncMode) -> String {
         let operation = scheduledSyncOperationName(direction)
         return isRussian ? "MacYaD: \(operation) заблокирован" : "MacYaD: \(operation) blocked"
-    }
-
-    public var scheduledPushConflictBlockedTitle: String {
-        isRussian ? "Плановый Push to Yandex остановлен из-за drift/conflict" : "Scheduled Push to Yandex blocked by drift/conflict"
     }
 
     public var localFolderEmptyPushBlocked: String {

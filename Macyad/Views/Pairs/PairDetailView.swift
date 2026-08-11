@@ -212,12 +212,7 @@ struct PairDetailView: View {
             .pickerStyle(.segmented)
             .controlSize(.small)
             .fixedSize()
-            .help(copy.autoSyncModeTooltip(pair.autoSyncMode))
-
-            Text(copy.autoSyncModeExclusiveHint)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            .help(copy.autoSyncModeExclusiveHint)
         }
     }
 

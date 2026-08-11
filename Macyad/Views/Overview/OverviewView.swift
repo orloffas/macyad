@@ -49,10 +49,15 @@ struct OverviewView: View {
                             Text(copy.autoSyncModeTitle(mode)).tag(mode)
                         }
                     }
+                    // A segmented control needs ~200pt and would squeeze the
+                    // other columns; a popup button states the current mode in
+                    // ~110pt, which is what fits a table row.
+                    .pickerStyle(.menu)
                     .labelsHidden()
                     .controlSize(.small)
                     .help(copy.autoSyncModeTooltip(row.autoSyncMode))
                 }
+                .width(min: 110, ideal: 125, max: 150)
                 TableColumn("Last sync") { row in
                     Text(row.lastSyncTitle)
                         .foregroundStyle(.secondary)

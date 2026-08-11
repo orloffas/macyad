@@ -84,7 +84,7 @@ final class AppCopyTests: XCTestCase {
         let copy = AppCopy(language: .russian)
 
         XCTAssertEqual(copy.pauseAllSchedulesToggleTitle, "Приостановить всю плановую синхронизацию")
-        XCTAssertEqual(copy.scheduledSyncSectionTitle, "Scheduled sync")
+        XCTAssertEqual(copy.scheduledSyncSectionTitle, "Плановая синхронизация")
         XCTAssertEqual(copy.pausedByGlobalSettingTooltip, "Приостановлено глобальной настройкой")
         XCTAssertEqual(copy.pausedForThisPairTooltip, "Приостановлено для этой pair")
         XCTAssertEqual(copy.pausedByGlobalSettingShort, "Пауза (глобально)")
