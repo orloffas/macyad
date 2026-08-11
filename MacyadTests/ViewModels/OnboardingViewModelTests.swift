@@ -6,11 +6,13 @@ final class OnboardingViewModelTests: XCTestCase {
     private struct StubOnboardingService: OnboardingServicing {
         let step: OnboardingState.Step
 
-        func refresh() async throws -> OnboardingState {
+        func refresh(pairCount: Int) async throws -> OnboardingState {
             OnboardingState(
                 step: step,
                 rcloneLocation: step == .installRclone ? nil : "/opt/homebrew/bin/rclone",
                 rcloneVersion: step == .installRclone ? nil : "rclone v1.68.2",
+                configuredRemoteName: step == .installRclone || step == .configureRemote ? nil : "yd",
+                pairsCount: pairCount,
                 brewInstallCommand: "brew install rclone",
                 remoteCreateCommand: "rclone config create yd-app yandex --config /tmp/rclone.conf",
                 configPath: "/tmp/rclone.conf"
@@ -45,7 +47,7 @@ final class OnboardingViewModelTests: XCTestCase {
         let pasteboard = StubPasteboard()
         let model = OnboardingViewModel(service: service, pasteboard: pasteboard)
 
-        await model.retry()
+        await model.retry(pairCount: 0)
 
         XCTAssertEqual(model.state.step, .configureRemote)
         XCTAssertEqual(model.state.rcloneLocation, "/opt/homebrew/bin/rclone")
@@ -67,27 +69,14 @@ final class OnboardingViewModelTests: XCTestCase {
         XCTAssertEqual(pasteboard.copiedStrings, ["brew install rclone"])
     }
 
-    func testVisibleStepIsCompleteAfterFirstPairExists() async throws {
-        let model = OnboardingViewModel(
-            service: StubOnboardingService(step: .createFirstPair),
-            pasteboard: StubPasteboard()
-        )
-
-        await model.retry()
-
-        XCTAssertEqual(model.visibleStep(pairCount: 0), .createFirstPair)
-        XCTAssertEqual(model.visibleStep(pairCount: 1), .complete)
-    }
-
     func testStatusRowsSurfaceConfiguredState() async throws {
         let copy = AppCopy(language: .english)
         let model = OnboardingViewModel(
-            service: StubOnboardingService(step: .createFirstPair),
+            service: StubOnboardingService(step: .complete),
             pasteboard: StubPasteboard()
         )
-        let checkedAt = Date(timeIntervalSince1970: 1_000_000)
 
-        await model.retry(now: checkedAt)
+        await model.retry(pairCount: 1)
 
         XCTAssertEqual(
             model.statusRows(
@@ -96,19 +85,34 @@ final class OnboardingViewModelTests: XCTestCase {
                 copy: copy
             ),
             [
-                OnboardingStatusRow(label: "rclone", value: "rclone v1.68.2"),
-                OnboardingStatusRow(label: "Remote", value: "Configured"),
-                OnboardingStatusRow(label: "Pairs", value: "1"),
-                OnboardingStatusRow(label: "Scheduled sync", value: "Active"),
-                OnboardingStatusRow(label: "Last check", value: copy.formatTimestamp(checkedAt))
+                OnboardingStatusRow(label: "rclone", value: "rclone v1.68.2 — /opt/homebrew/bin/rclone", isSatisfied: true),
+                OnboardingStatusRow(label: "Remote", value: "yd", isSatisfied: true),
+                OnboardingStatusRow(label: "Pairs", value: "1", isSatisfied: true),
+                OnboardingStatusRow(label: "Scheduled sync", value: "Active", isSatisfied: true)
             ]
         )
+    }
+
+    func testStatusRowsFlagMissingRcloneAndRemote() async throws {
+        let copy = AppCopy(language: .english)
+        let model = OnboardingViewModel(
+            service: StubOnboardingService(step: .installRclone),
+            pasteboard: StubPasteboard()
+        )
+
+        await model.retry(pairCount: 0)
+
+        let rows = model.statusRows(pairs: [], preferences: .defaults, copy: copy)
+
+        XCTAssertEqual(rows[0], OnboardingStatusRow(label: "rclone", value: "Missing", isSatisfied: false))
+        XCTAssertEqual(rows[1], OnboardingStatusRow(label: "Remote", value: "Not configured", isSatisfied: false))
+        XCTAssertEqual(rows[2], OnboardingStatusRow(label: "Pairs", value: "0", isSatisfied: false))
     }
 
     func testStatusRowsSurfacePausedScheduler() async throws {
         let copy = AppCopy(language: .english)
         let model = OnboardingViewModel(
-            service: StubOnboardingService(step: .createFirstPair),
+            service: StubOnboardingService(step: .complete),
             pasteboard: StubPasteboard()
         )
         let paused = AppPreferences(
@@ -118,11 +122,26 @@ final class OnboardingViewModelTests: XCTestCase {
             isGlobalSchedulerPaused: true
         )
 
-        await model.retry()
+        await model.retry(pairCount: 1)
 
         XCTAssertEqual(
             model.statusRows(pairs: [makePair(autoSyncMode: .off)], preferences: paused, copy: copy)[3],
-            OnboardingStatusRow(label: "Scheduled sync", value: "Paused")
+            OnboardingStatusRow(label: "Scheduled sync", value: "Paused", isSatisfied: false)
         )
+    }
+
+    func testLastCheckedDescriptionReportsTimestamp() async throws {
+        let copy = AppCopy(language: .english)
+        let model = OnboardingViewModel(
+            service: StubOnboardingService(step: .complete),
+            pasteboard: StubPasteboard()
+        )
+        let checkedAt = Date(timeIntervalSince1970: 1_000_000)
+
+        XCTAssertEqual(model.lastCheckedDescription(copy: copy), "Last check: Not checked yet")
+
+        await model.retry(pairCount: 1, now: checkedAt)
+
+        XCTAssertEqual(model.lastCheckedDescription(copy: copy), "Last check: \(copy.formatTimestamp(checkedAt))")
     }
 }

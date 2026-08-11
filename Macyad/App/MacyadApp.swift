@@ -114,7 +114,7 @@ struct MacyadApp: App {
 
     private func refreshOnboardingState() {
         Task { @MainActor in
-            await environment.onboardingViewModel.retry()
+            await environment.onboardingViewModel.retry(pairCount: appModel.pairs.count)
             appModel.applyOnboardingState(environment.onboardingViewModel.state, using: environment.statusService)
         }
     }

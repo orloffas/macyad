@@ -11,6 +11,8 @@ public struct OnboardingState: Equatable, Sendable {
     public var step: Step
     public var rcloneLocation: String?
     public var rcloneVersion: String?
+    public var configuredRemoteName: String?
+    public var pairsCount: Int
     public var brewInstallCommand: String
     public var remoteCreateCommand: String
     public var configPath: String
@@ -19,6 +21,8 @@ public struct OnboardingState: Equatable, Sendable {
         step: Step,
         rcloneLocation: String?,
         rcloneVersion: String? = nil,
+        configuredRemoteName: String? = nil,
+        pairsCount: Int = 0,
         brewInstallCommand: String,
         remoteCreateCommand: String,
         configPath: String
@@ -26,6 +30,8 @@ public struct OnboardingState: Equatable, Sendable {
         self.step = step
         self.rcloneLocation = rcloneLocation
         self.rcloneVersion = rcloneVersion
+        self.configuredRemoteName = configuredRemoteName
+        self.pairsCount = pairsCount
         self.brewInstallCommand = brewInstallCommand
         self.remoteCreateCommand = remoteCreateCommand
         self.configPath = configPath

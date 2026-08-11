@@ -18,7 +18,7 @@ final class OnboardingServiceTests: XCTestCase {
             rcloneVersion: { _ in "rclone v1.68.2" }
         )
 
-        let state = try await service.refresh()
+        let state = try await service.refresh(pairCount: 0)
 
         XCTAssertEqual(state.step, .installRclone)
         XCTAssertEqual(state.brewInstallCommand, "brew install rclone")
@@ -37,9 +37,10 @@ final class OnboardingServiceTests: XCTestCase {
             rcloneVersion: { _ in "rclone v1.68.2" }
         )
 
-        let state = try await service.refresh()
+        let state = try await service.refresh(pairCount: 0)
 
         XCTAssertEqual(state.step, .configureRemote)
+        XCTAssertNil(state.configuredRemoteName)
         XCTAssertEqual(state.rcloneLocation, "/opt/homebrew/bin/rclone")
         XCTAssertEqual(state.rcloneVersion, "rclone v1.68.2")
         XCTAssertTrue(state.remoteCreateCommand.hasPrefix("rclone --config "))
@@ -49,21 +50,51 @@ final class OnboardingServiceTests: XCTestCase {
     }
 
     func testDetectedRcloneWithStandardConfiguredRemoteProducesCreateFirstPairStep() async throws {
-        let fileManager = FileManager.default
-        let rootURL = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        let configURL = rootURL.appendingPathComponent(".config/rclone/rclone.conf")
-        let paths = AppPaths.makeForTesting(rootURL: rootURL)
-        let locator = StubRcloneLocator(location: "/opt/homebrew/bin/rclone")
+        let context = try makeConfiguredRemoteContext()
+
+        defer {
+            try? FileManager.default.removeItem(at: context.rootURL)
+        }
+
+        let state = try await context.service.refresh(pairCount: 0)
+
+        XCTAssertEqual(state.step, .createFirstPair)
+        XCTAssertEqual(state.rcloneLocation, "/opt/homebrew/bin/rclone")
+        XCTAssertEqual(state.rcloneVersion, "rclone v1.68.2")
+        XCTAssertEqual(state.configuredRemoteName, "yd")
+        XCTAssertEqual(state.pairsCount, 0)
+    }
+
+    func testConfiguredEnvironmentWithExistingPairsProducesCompleteStep() async throws {
+        let context = try makeConfiguredRemoteContext()
+
+        defer {
+            try? FileManager.default.removeItem(at: context.rootURL)
+        }
+
+        let state = try await context.service.refresh(pairCount: 5)
+
+        XCTAssertEqual(state.step, .complete)
+        XCTAssertEqual(state.configuredRemoteName, "yd")
+        XCTAssertEqual(state.pairsCount, 5)
+    }
+
+    func testMissingRcloneStaysOnInstallStepEvenWithPairs() async throws {
         let service = OnboardingService(
-            locator: locator,
-            paths: paths,
-            configURL: configURL,
+            locator: StubRcloneLocator(location: nil),
+            paths: .makeForTesting(rootURL: URL(fileURLWithPath: "/tmp/MacyadTests", isDirectory: true)),
             rcloneVersion: { _ in "rclone v1.68.2" }
         )
 
-        defer {
-            try? fileManager.removeItem(at: rootURL)
-        }
+        let state = try await service.refresh(pairCount: 5)
+
+        XCTAssertEqual(state.step, .installRclone)
+    }
+
+    private func makeConfiguredRemoteContext() throws -> (rootURL: URL, service: OnboardingService) {
+        let fileManager = FileManager.default
+        let rootURL = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let configURL = rootURL.appendingPathComponent(".config/rclone/rclone.conf")
 
         try fileManager.createDirectory(at: configURL.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: nil)
         try """
@@ -75,10 +106,13 @@ final class OnboardingServiceTests: XCTestCase {
             encoding: .utf8
         )
 
-        let state = try await service.refresh()
+        let service = OnboardingService(
+            locator: StubRcloneLocator(location: "/opt/homebrew/bin/rclone"),
+            paths: AppPaths.makeForTesting(rootURL: rootURL),
+            configURL: configURL,
+            rcloneVersion: { _ in "rclone v1.68.2" }
+        )
 
-        XCTAssertEqual(state.step, .createFirstPair)
-        XCTAssertEqual(state.rcloneLocation, "/opt/homebrew/bin/rclone")
-        XCTAssertEqual(state.rcloneVersion, "rclone v1.68.2")
+        return (rootURL, service)
     }
 }

@@ -8,10 +8,12 @@ public protocol PasteboardWriting: AnyObject {
 public struct OnboardingStatusRow: Equatable, Sendable {
     public let label: String
     public let value: String
+    public let isSatisfied: Bool
 
-    public init(label: String, value: String) {
+    public init(label: String, value: String, isSatisfied: Bool) {
         self.label = label
         self.value = value
+        self.isSatisfied = isSatisfied
     }
 }
 
@@ -37,11 +39,11 @@ public final class OnboardingViewModel: ObservableObject {
         self.pasteboard = pasteboard
     }
 
-    public func retry(now: Date = Date()) async {
+    public func retry(pairCount: Int, now: Date = Date()) async {
         isRefreshing = true
         defer { isRefreshing = false }
 
-        state = (try? await service.refresh()) ?? state
+        state = (try? await service.refresh(pairCount: pairCount)) ?? state
         lastCheckedAt = now
     }
 
@@ -50,16 +52,13 @@ public final class OnboardingViewModel: ObservableObject {
         lastCopiedCommand = command
     }
 
-    public func visibleStep(pairCount: Int) -> OnboardingState.Step {
-        state.step == .createFirstPair && pairCount > 0 ? .complete : state.step
-    }
-
     public func statusRows(pairs: [SyncPair], preferences: AppPreferences, copy: AppCopy) -> [OnboardingStatusRow] {
         let schedulerStatus: String
+        let hasScheduledPair = pairs.contains { $0.autoSyncMode != .off }
 
         if preferences.isGlobalSchedulerPaused {
             schedulerStatus = copy.onboardingSchedulerPaused
-        } else if pairs.contains(where: { $0.autoSyncMode != .off }) {
+        } else if hasScheduledPair {
             schedulerStatus = copy.onboardingSchedulerActive
         } else {
             schedulerStatus = copy.onboardingSchedulerIdle
@@ -68,20 +67,30 @@ public final class OnboardingViewModel: ObservableObject {
         return [
             OnboardingStatusRow(
                 label: copy.onboardingRcloneStatusLabel,
-                value: state.rcloneVersion ?? state.rcloneLocation ?? copy.onboardingRcloneMissing
+                value: state.rcloneLocation.map { location in
+                    [state.rcloneVersion, location].compactMap { $0 }.joined(separator: " — ")
+                } ?? copy.onboardingRcloneMissing,
+                isSatisfied: state.rcloneLocation != nil
             ),
             OnboardingStatusRow(
                 label: copy.onboardingRemoteStatusLabel,
-                value: state.step == .installRclone || state.step == .configureRemote
-                    ? copy.onboardingRemoteMissing
-                    : copy.onboardingRemoteConfigured
+                value: state.configuredRemoteName ?? copy.onboardingRemoteMissing,
+                isSatisfied: state.configuredRemoteName != nil
             ),
-            OnboardingStatusRow(label: copy.onboardingPairsStatusLabel, value: "\(pairs.count)"),
-            OnboardingStatusRow(label: copy.onboardingSchedulerStatusLabel, value: schedulerStatus),
             OnboardingStatusRow(
-                label: copy.onboardingLastCheckStatusLabel,
-                value: lastCheckedAt.map(copy.formatTimestamp) ?? copy.onboardingNeverChecked
+                label: copy.onboardingPairsStatusLabel,
+                value: "\(pairs.count)",
+                isSatisfied: !pairs.isEmpty
+            ),
+            OnboardingStatusRow(
+                label: copy.onboardingSchedulerStatusLabel,
+                value: schedulerStatus,
+                isSatisfied: !preferences.isGlobalSchedulerPaused && hasScheduledPair
             )
         ]
+    }
+
+    public func lastCheckedDescription(copy: AppCopy) -> String {
+        copy.onboardingLastCheckedAt(lastCheckedAt.map(copy.formatTimestamp) ?? copy.onboardingNeverChecked)
     }
 }

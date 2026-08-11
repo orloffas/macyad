@@ -239,8 +239,8 @@ public struct AppCopy: Sendable {
         isRussian ? "Пары" : "Pairs"
     }
 
-    public var revealInFinderTitle: String {
-        isRussian ? "Показать в Finder" : "Reveal in Finder"
+    public var openInFinderTitle: String {
+        isRussian ? "Открыть в Finder" : "Open in Finder"
     }
 
     public var inspectorTitle: String {
@@ -355,14 +355,6 @@ public struct AppCopy: Sendable {
             : "Create your first pair after the remote is ready."
     }
 
-    public var setupComplete: String {
-        isRussian ? "Настройка завершена." : "Setup complete."
-    }
-
-    public var retryButtonTitle: String {
-        isRussian ? "Проверить снова" : "Check again"
-    }
-
     public var onboardingRcloneStatusLabel: String {
         "rclone"
     }
@@ -385,10 +377,6 @@ public struct AppCopy: Sendable {
 
     public var onboardingRcloneMissing: String {
         isRussian ? "Не найден" : "Missing"
-    }
-
-    public var onboardingRemoteConfigured: String {
-        isRussian ? "Настроен" : "Configured"
     }
 
     public var onboardingRemoteMissing: String {
@@ -933,6 +921,34 @@ public struct AppCopy: Sendable {
         isRussian ? "Выполняется" : "Running"
     }
 
+    public func operationStartedMessage(_ operation: String) -> String {
+        isRussian ? "\(operation): выполняется…" : "\(operation): running…"
+    }
+
+    public func operationInterruptedMessage(_ operation: String) -> String {
+        if isRussian {
+            return "\(operation): прервано — приложение было закрыто во время выполнения"
+        }
+
+        return "\(operation): interrupted — the app was quit while it was running"
+    }
+
+    public var operationInterruptedDetails: String {
+        if isRussian {
+            return """
+            Результат неизвестен: MacYaD завершился до того, как операция отчиталась. \
+            Часть файлов могла быть перенесена. Нажмите «Проверить Яндекс», чтобы \
+            сравнить папки, и при необходимости повторите операцию.
+            """
+        }
+
+        return """
+        The result is unknown: MacYaD exited before the operation reported back. \
+        Some files may have been transferred. Run "Check Yandex" to compare the \
+        folders and repeat the operation if needed.
+        """
+    }
+
     public var pairValidationEmptyName: String {
         isRussian ? "Введите имя пары." : "Enter a pair name."
     }
@@ -1294,6 +1310,24 @@ public struct AppCopy: Sendable {
 
     public var folderPickerPrompt: String {
         isRussian ? "Выбрать" : "Choose"
+    }
+
+    public var onboardingEnvironmentTitle: String {
+        isRussian ? "Состояние окружения" : "Environment status"
+    }
+
+    public var onboardingEnvironmentHint: String {
+        isRussian
+            ? "Здесь видно всё, от чего зависит синхронизация: rclone, remote, пары и плановая синхронизация. Заглядывайте сюда, когда что-то перестало работать."
+            : "This is everything syncing depends on: rclone, the remote, your pairs and scheduled sync. Come back here when something stops working."
+    }
+
+    public var recheckEnvironmentButtonTitle: String {
+        isRussian ? "Проверить окружение" : "Re-check environment"
+    }
+
+    public func onboardingLastCheckedAt(_ value: String) -> String {
+        "\(onboardingLastCheckStatusLabel): \(value)"
     }
 
     public func formatTimestamp(_ date: Date) -> String {

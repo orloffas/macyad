@@ -1,7 +1,7 @@
 import Foundation
 
 public protocol OnboardingServicing: Sendable {
-    func refresh() async throws -> OnboardingState
+    func refresh(pairCount: Int) async throws -> OnboardingState
 }
 
 public struct OnboardingService: OnboardingServicing {
@@ -24,10 +24,10 @@ public struct OnboardingService: OnboardingServicing {
         self.rcloneVersion = rcloneVersion ?? Self.readRcloneVersion
     }
 
-    public func refresh() async throws -> OnboardingState {
+    public func refresh(pairCount: Int) async throws -> OnboardingState {
         let location = try await locator.locate()
         let version: String?
-        let hasConfiguredRemote = !RcloneConfigInspector(configURL: configURL).remoteNames().isEmpty
+        let configuredRemoteName = RcloneConfigInspector(configURL: configURL).remoteNames().first
         let step: OnboardingState.Step
 
         if let location {
@@ -38,16 +38,20 @@ public struct OnboardingService: OnboardingServicing {
 
         if location == nil {
             step = .installRclone
-        } else if hasConfiguredRemote {
-            step = .createFirstPair
-        } else {
+        } else if configuredRemoteName == nil {
             step = .configureRemote
+        } else if pairCount > 0 {
+            step = .complete
+        } else {
+            step = .createFirstPair
         }
 
         return OnboardingState(
             step: step,
             rcloneLocation: location,
             rcloneVersion: version,
+            configuredRemoteName: configuredRemoteName,
+            pairsCount: pairCount,
             brewInstallCommand: "brew install rclone",
             remoteCreateCommand: RcloneCommandBuilder.remoteCreateCommand(
                 configPath: configURL.path,

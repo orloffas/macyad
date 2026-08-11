@@ -15,7 +15,7 @@
 | `ActivityIssueFormatter.swift` | Форматирование `ActivityFileIssue` в локализованные строки и raw comparison block для Issue Review UI; вычисление идеальных ширин колонок таблицы через `NSFont` (`ActivityIssueTableLayout`); геометрия окна (`IssueReviewWindowLayout`) |
 | `DriftService.swift` | Интерпретация rclone check output (stdout/stderr/exitCode) в `CheckDisposition` (healthy/warning/alarm) и `Severity` |
 | `LocalFolderInspector.swift` | Протокол `LocalFolderInspecting` и реализация `FileManagerLocalFolderInspector`: рекурсивная проверка, содержит ли локальная папка user-visible файлы с учётом rclone exclude patterns |
-| `OnboardingService.swift` | Протокол `OnboardingServicing` и реализация: определяет текущий шаг онбординга (`installRclone` / `configureRemote` / `createFirstPair`) через `RcloneLocating` и `RcloneConfigInspector` |
+| `OnboardingService.swift` | Протокол `OnboardingServicing` и реализация: `refresh(pairCount:)` определяет текущий шаг (`installRclone` / `configureRemote` / `createFirstPair` / `complete`) через `RcloneLocating` и `RcloneConfigInspector`; заполняет `configuredRemoteName`, `rcloneVersion` и `pairsCount` для чеклиста окружения |
 | `PairConflictPlanner.swift` | Baseline-aware анализ расхождений: сравнивает local/remote snapshots с baseline, классифицирует каждый path (`unchanged`, `localOnlyChanged`, `remoteOnlyChanged`, `conflict`, `deleteVsModifyConflict`); `bootstrapDisposition` для первичного создания baseline |
 | `LiveMonitorPresenting.swift` | Протокол `LiveMonitorPresenting` + `LiveMonitorSlot` (`.running` / `.archived`): абстракция показа окна Live monitor. Конкретная реализация (`LiveMonitorWindowBridge`) живёт в `PlatformAdapters/`. Используется в `MacyadApp` для проброса presenter в `AppModel` и в lifecycle scheduled push |
 | `PairService.swift` | Создание, обновление и удаление `SyncPair`; валидация полей; запрет удаления последней пары |
@@ -35,6 +35,7 @@
 - `actor` применяется только для типов с изменяемым состоянием (`SchedulerService`, `SerialOperationCoordinator`); остальные сервисы — `struct`.
 - Новый сервис создаётся в отдельном файле; если требует инъекции — принимает зависимости через `init`.
 - Операционный контракт `SyncService`: `push`/`pull`/`check` возвращают `OperationOutcome`, не бросают ошибок — внутренние ошибки конвертируются в `severity: .alarm`.
+- `OnboardingService.refresh(pairCount:)` требует контекста снаружи: шаг `.complete` выставляется только когда rclone найден, remote настроен и `pairCount > 0`. Не вычисляй «настройка завершена» во вьюхе — это единственная точка решения, её же читает `StatusService` через `AppModel.onboardingState`.
 
 ### Testing Requirements
 

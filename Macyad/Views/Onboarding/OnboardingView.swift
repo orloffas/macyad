@@ -10,11 +10,11 @@ struct OnboardingView: View {
         let copy = appModel.copy
 
         VStack(alignment: .leading, spacing: 16) {
-            Text(copy.onboardingTitle)
+            Text(viewModel.state.step == .complete ? copy.onboardingEnvironmentTitle : copy.onboardingTitle)
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            switch viewModel.visibleStep(pairCount: appModel.pairs.count) {
+            switch viewModel.state.step {
             case .installRclone:
                 CommandCopyRowView(
                     title: copy.installRcloneTitle,
@@ -60,12 +60,15 @@ struct OnboardingView: View {
 
             case .complete:
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(copy.setupComplete)
+                    Text(copy.onboardingEnvironmentHint)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                    Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 8) {
+                    Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 8) {
                         ForEach(viewModel.statusRows(pairs: appModel.pairs, preferences: appModel.preferences, copy: copy), id: \.label) { row in
                             GridRow {
+                                Image(systemName: row.isSatisfied ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                                    .foregroundStyle(row.isSatisfied ? Color.green : Color.orange)
                                 Text(row.label)
                                     .foregroundStyle(.secondary)
                                 Text(row.value)
@@ -77,22 +80,34 @@ struct OnboardingView: View {
                 }
             }
 
-            Button(copy.retryButtonTitle) {
-                Task { await refresh() }
+            HStack(spacing: 10) {
+                Button(copy.recheckEnvironmentButtonTitle) {
+                    Task { await refresh() }
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("onboarding.retry")
+                .disabled(viewModel.isRefreshing)
+
+                if viewModel.isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+
+                Text(viewModel.lastCheckedDescription(copy: copy))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .accessibilityIdentifier("onboarding.retry")
-            .disabled(viewModel.isRefreshing)
 
             Spacer()
         }
         .padding(20)
-        .task {
+        .task(id: appModel.pairs.count) {
             await refresh()
         }
     }
 
     private func refresh() async {
-        await viewModel.retry()
+        await viewModel.retry(pairCount: appModel.pairs.count)
         appModel.applyOnboardingState(viewModel.state, using: environment.statusService)
         appModel.refreshBackgroundState()
     }
