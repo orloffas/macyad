@@ -1,160 +1,169 @@
-# macyad
+**English** | [Русский](README.ru.md)
 
-Нативное `macOS` приложение `MacYaD` на `Swift` и `SwiftUI` для orchestration поверх `rclone` и sync-pair workflow для Yandex Disk.
+<div align="center">
 
-## Language Policy
+<img src="docs/images/icon.png" width="128" alt="MacYaD icon">
 
-Язык проекта по умолчанию — русский.
+# MacYaD
 
-Даже если исходные материалы, задачи, сообщения или prompt'ы приходят на английском языке, все ответы, внутренняя рабочая коммуникация и проектная документация должны вестись на русском языке.
+**A native macOS menu bar app for safe, one-way Yandex Disk sync — powered by rclone.**
 
-Устоявшиеся professional terms, product names, команды, пути, code entities и другие технические идентификаторы можно оставлять без перевода, если это нужно для точности.
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
+![Swift 6](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)
+![Engine: rclone](https://img.shields.io/badge/engine-rclone-3F87C1)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-## Git Workflow
+<img src="docs/images/01-pair-detail-en.png" width="900" alt="MacYaD main window with a sync pair selected">
 
-- Любые изменения в репозитории должны оформляться через `git commit`.
-- Готовую работу нельзя оставлять только в виде незакоммиченных изменений.
-- Если задача состоит из нескольких независимых частей, их нужно оформлять отдельными осмысленными commit.
+</div>
 
-## Текущее продуктовое поведение
+## What MacYaD is
 
-- Каждая `pair` привязана к конкретному `Yandex account` и конкретному `rclone remote`.
-- В приложении одновременно выполняется только одна операция из набора `Push to Yandex`, `Pull from Yandex`, `Check Yandex` и плановой синхронизации. Остальные операции ставятся в очередь.
-- Плановая синхронизация задаётся per-pair режимом `Auto-sync`: `Выключена` / `Auto-Push` / `Auto-Pull`. Режимы взаимоисключающие — пара синхронизируется либо вверх, либо вниз.
-  - `Auto-Push` — по расписанию выполняется `Push to Yandex` (локальная папка → Yandex).
-  - `Auto-Pull` — по расписанию выполняется `Pull From Yandex` (Yandex → локальная папка).
-  - Двустороннего режима нет намеренно: `Push` (`rclone sync`) и `Pull` (`rclone copy`) применяются ко всему дереву целиком, поэтому одновременная работа обоих направлений требовала бы per-path движка с разбором конфликтов на каждый файл. Пары `SyncPair.autoSyncMode` достаточно, чтобы это состояние было непредставимо.
-- `Push to Yandex` больше не считается “безусловным sync”. Перед push приложение сравнивает текущее состояние с последним согласованным baseline и блокирует опасный overwrite.
-- `Conflict policy` на уровне пары:
-  - `Block Push/Pull on conflict` — default для новых и legacy pair;
-  - `Keep Both Copies` — сохранён как product intent пары, но фактическое решение всё равно принимается через `Review files`.
-- Manual `Push/Pull` при drift/conflict ничего не меняют автоматически:
-  - создают reviewable `activity event`;
-  - в `Activity Detail` появляется кнопка `Review files`;
-  - пользователь выбирает `Keep local`, `Keep remote`, `Keep both` или `Later` по строкам, по выбранной группе или сразу по всем видимым строкам.
-- Плановая синхронизация всегда non-destructive в обе стороны:
-  - не делает auto-reconcile;
-  - `Auto-Push` не перетирает remote drift, `Auto-Pull` не перетирает local drift;
-  - выполняется только если preflight считает операцию безопасной, иначе пара уходит в `warning` с reviewable списком файлов.
-- `Check Yandex` опирается на baseline-aware сравнение и различает `clean`, `baseline missing`, `remote-only drift`, `local-only drift` и `true conflicts`.
-- `Activity` хранится 48 часов. Для `warning` и `alarm` в `Details` сохраняются полные `rclone` logs, а для reviewable конфликтов — структурированный список проблемных файлов с путями, observed differences и выбранными решениями.
+Yandex Disk has no first-class macOS client that a careful person can trust with a large folder. `rclone` does the job well, but it is a command line tool: you write the flags yourself, and one wrong direction quietly overwrites a year of work.
 
-## Где лежит app state
+MacYaD is a native front end for that job. It keeps a list of **sync pairs** — a local folder, a Yandex account, a remote path — and runs `rclone` for you with a safety check in front of every destructive step. It lives in the menu bar, shows what happened and why, and stops rather than guessing whenever the two sides disagree.
 
-Основное состояние приложения находится в `~/Library/Application Support/MacYaD/`:
+It does not implement its own sync engine, and it does not replace `rclone`. It decides *when it is safe to run it*.
 
-- `rclone/rclone.conf` — app-managed `rclone` config
-- `rclone/filters/` — временные и актуальные `exclude-from` files
-- `conflicts/` — baseline snapshot state для pair conflict planner
-- `pairs.json` — список sync pair
-- `accounts.json` — список подключённых Yandex account
-- `preferences.json` — пользовательские настройки
-- `activity.json` — журнал событий
-- `Workspace/` — локальный workspace приложения, если он используется в текущем сценарии
+## Before you install
 
-## Yandex accounts
+Worth knowing up front, so nothing here is a surprise:
 
-- Управление account'ами вынесено в `Settings`.
-- `Add account` создаёт логическую запись аккаунта внутри MacYaD и резервирует отдельный `remoteName`.
-- Одна `pair` всегда относится ровно к одному account.
-- Если account уже используется в существующих pair, удалить его нельзя, пока pair не будут перепривязаны или удалены.
-- В `Settings` для каждого account показываются:
-  - `displayName`
-  - `remoteName`
-  - `configPath`
-  - copyable команды `Reconnect`, `Recreate managed remote` и `Remove remote`
+- **`rclone` is required.** MacYaD does not bundle it. Install it with `brew install rclone` and configure a Yandex remote — the app shows you the exact commands to copy.
+- **This is not two-way sync.** Each pair syncs in one direction, `Auto-Push` **or** `Auto-Pull`, never both. That is a deliberate design decision, not a missing feature — see [How syncing works](#how-syncing-works).
+- **`Push to Yandex` uses `rclone sync`.** It makes the remote match the local folder, which includes deleting remote files that are gone locally. Safety checks run first, but you should understand the direction before enabling a schedule.
+- **Builds are self-signed and not notarized.** There is no paid Apple Developer account behind this project, so macOS will warn you on first launch. [Installation](#installation) has the two-click way around it.
+- **The app is not sandboxed.** It launches an external binary (`rclone`) and works with folders you pick anywhere on disk, neither of which a sandboxed app can do. macOS will ask for permission the first time it touches a folder.
+- **Everything stays on your Mac.** No account of ours, no telemetry, no server. Your `rclone` credentials live in an `rclone.conf` under your own home directory.
 
-## Notifications
+## Features
 
-- Системные `macOS notifications` используются только для `warning` и `alarm`.
-- Разрешение не запрашивается агрессивно на старте; оно запрашивается явным действием пользователя в `Settings`.
-- В `Settings` есть:
-  - текущий notification authorization status
-  - `Request Permission`
-  - `Send Test Notification`
-- Click по проблемному notification открывает главное окно, выбирает нужную `pair` и соответствующую `activity`; если у события есть reviewable issue list, из него можно сразу открыть `Review files`.
+- **Sync pairs** — a local folder bound to one Yandex account and one remote path, with its own schedule, exclude patterns and conflict policy.
+- **Three explicit operations** — `Push to Yandex`, `Pull from Yandex` and `Check Yandex`, each available on demand. Only one runs at a time; the rest queue up.
+- **Baseline-aware safety** — before any transfer, the current state is compared against the last agreed baseline, so a change made on the other side blocks the run instead of being silently overwritten.
+- **Conflict review** — when a run is blocked you get the actual file list, with search and filters, and decide per file or in bulk: `Keep local`, `Keep remote`, `Keep both` or `Later`.
+- **Non-destructive scheduling** — a scheduled run that finds drift stops and raises a warning. Automation never resolves a conflict on its own.
+- **Live monitor** — the raw `rclone` output as it streams, plus the exact command and its exit status. The last log of a finished run is kept.
+- **Activity journal** — 48 hours of events with severity, full `rclone` logs for anything that went wrong, and the reviewable file list attached to blocked runs.
+- **Multiple accounts** — several Yandex accounts side by side, each with its own remote in the app-managed `rclone.conf`.
+- **Config export & import** — move your pairs, accounts and preferences to another Mac. Credentials and folder permissions stay behind, and imported schedules arrive switched off.
+- **English and Russian** — the entire interface, switchable in Settings.
 
-## Запуск
+## Screenshots
+
+| | |
+|:---:|:---:|
+| <img src="docs/images/02-overview-en.png" alt="Overview"> | <img src="docs/images/04-conflict-review-en.png" alt="Conflict review"> |
+| **Overview** — every pair, its direction, state and last sync. | **Conflict review** — the blocked files, and what to do with each. |
+| <img src="docs/images/05-create-pair-en.png" alt="Creating a pair"> | <img src="docs/images/06-onboarding-en.png" alt="Environment status"> |
+| **New pair** — folder, account, remote path, schedule, excludes. | **Environment status** — rclone, remote, pairs, scheduling, checked on demand. |
+
+## How syncing works
+
+Three operations, and the app is deliberate about what each one does:
+
+| Operation | Under the hood | Direction |
+|---|---|---|
+| `Push to Yandex` | `rclone sync` | local → Yandex, remote is made to match |
+| `Pull from Yandex` | `rclone copy` | Yandex → local, nothing is deleted locally |
+| `Check Yandex` | `rclone check --one-way` | compares both sides, changes nothing |
+
+**The baseline.** After a successful run, MacYaD records what both sides looked like when they agreed. Every later run compares against that snapshot, which is what lets it tell *"you changed this file"* apart from *"the other side changed this file"* — a plain `rclone sync` cannot distinguish the two and simply overwrites.
+
+**When they disagree.** The run stops. `Check Yandex` classifies the situation as clean, baseline missing, remote-only drift, local-only drift or a true conflict, and a blocked run keeps the offending files attached to its journal entry, where you resolve them by hand.
+
+**Why there is no two-way mode.** `Push` and `Pull` operate on the whole tree. Running both directions automatically would need a per-file engine resolving conflicts on its own — exactly the mechanism that loses files quietly in other clients. Making the two directions mutually exclusive per pair keeps that state unrepresentable.
+
+**Scheduling.** Each pair is `Off`, `Auto-Push` or `Auto-Pull`, with its own interval. A scheduled run executes only when the preflight considers it safe; otherwise the pair turns to `warning` with a reviewable file list, and nothing is transferred. Notifications are sent for warnings and alarms only, and only after you grant permission in Settings.
+
+## Requirements
+
+- macOS 14.0 or later (Apple Silicon or Intel)
+- [`rclone`](https://rclone.org) — `brew install rclone`
+- A Yandex Disk account
+- To build: Xcode 16+ and [`xcodegen`](https://github.com/yonaskolb/XcodeGen) — `brew install xcodegen`
+
+## Installation
+
+There are no prebuilt releases yet, so build it from source:
 
 ```bash
+git clone https://github.com/orloffas/macyad.git
+cd macyad
 ./script/build_and_run.sh
 ```
 
-Без аргументов script работает в interactive-режиме: можно выбрать clean build, clean everywhere, запуск приложения после build и сборку `DMG`. Для неинтерактивного использования доступны `--clean`, `--clean-all`, `--no-launch`, `--package-dmg`, `--package-after-build`, `--foreground` и `--background`.
+The script generates the Xcode project, builds the app, installs it to `~/Applications/MacYaD.app` and launches it. Run without arguments it asks what you want; `--clean`, `--no-launch`, `--package-dmg` and `--background` do the same non-interactively.
 
-`build_and_run.sh` складывает build artifacts в `~/Library/Caches/MacYaD/Build`, чтобы запуск не запрашивал доступ к `Documents`, если сам репозиторий лежит внутри `~/Documents`.
+**First launch.** Because the build is self-signed, macOS blocks the first open. Right-click `MacYaD.app` → **Open** → **Open** in the dialog. Once is enough.
 
-## Стабильная локальная подпись (одноразовая настройка)
+**Folder permissions.** The first time a pair touches a folder, macOS asks for access. Pick your folders through the app's own folder picker and the grant is remembered.
 
-Без стабильной подписи Xcode подписывает сборку ad-hoc, `CDHash` меняется при каждой пересборке, и `TCC` считает приложение новым — отсюда повторные запросы доступа к папкам после каждого обновления.
+**Rebuilding without re-granting permissions (optional).** By default Xcode signs each build ad-hoc, the code hash changes, and macOS treats every rebuild as a brand new app — so it asks for folder access again. A one-time self-signed certificate fixes that; see [`docs/local-signing.md`](docs/local-signing.md).
 
-Одноразово создайте self-signed codesigning-сертификат и разрешите `codesign` доступ к его ключу:
+## First run
 
-```bash
-CERT_NAME="MacYaD Local Development"
-WORK="$(mktemp -d)"
+The **Onboarding** pane walks through the three steps and checks each one:
 
-cat > "$WORK/cert.cnf" <<EOF
-[req]
-distinguished_name=req_distinguished_name
-x509_extensions=v3_codesign
-prompt=no
-[req_distinguished_name]
-CN=$CERT_NAME
-[v3_codesign]
-basicConstraints=critical,CA:false
-keyUsage=critical,digitalSignature
-extendedKeyUsage=critical,codeSigning
-subjectKeyIdentifier=hash
-EOF
+1. **Install `rclone`** — copy `brew install rclone`, run it, come back and press *Re-check environment*.
+2. **Configure a Yandex remote** — copy the `rclone config create … yandex` command the app shows. It opens a browser for Yandex to authorize; the token lands in the config file the app manages.
+3. **Create your first pair** — pick a local folder, the account, the remote path, an interval and a direction.
 
-openssl req -new -newkey rsa:2048 -nodes -x509 -days 7300 \
-  -keyout "$WORK/cert.key" -out "$WORK/cert.crt" -config "$WORK/cert.cnf"
-openssl pkcs12 -export -legacy -macalg sha1 \
-  -inkey "$WORK/cert.key" -in "$WORK/cert.crt" -name "$CERT_NAME" \
-  -out "$WORK/cert.p12" -passout pass:macyad
-security import "$WORK/cert.p12" -k ~/Library/Keychains/login.keychain-db \
-  -P macyad -A -T /usr/bin/codesign
-security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
-  -k "$(read -rs -p 'login keychain password: ' p && echo "$p")" \
-  ~/Library/Keychains/login.keychain-db
-rm -rf "$WORK"
-```
+Once configured, the same pane becomes a permanent environment check: `rclone` version and path, the configured remote, the number of pairs, and whether scheduling is running. It is where to look first when sync stops working.
 
-После этого `build_and_run.sh` автоматически переподписывает bundle этим сертификатом (identity переопределяется через `MACYAD_CODESIGN_IDENTITY`). Если сертификата нет, script печатает warning и оставляет ad-hoc подпись.
+## Where your data lives
 
-Тем же сертификатом подписываются и тестовые сборки: `project.yml` задаёт `CODE_SIGN_IDENTITY: $(MACYAD_CODESIGN_IDENTITY:default=-)`, а `./script/test.sh` сам подставляет сертификат, если находит его в keychain. Благодаря этому designated requirement у тестовой сборки совпадает с задеплоенной копией, и `TCC` не переспрашивает доступ к папкам посреди прогона тестов. Без сертификата подпись остаётся ad-hoc и сборка не ломается — `xcodebuild` тоже можно запускать напрямую, задав `MACYAD_CODESIGN_IDENTITY` в окружении.
+Everything sits under `~/Library/Application Support/MacYaD/`:
 
-Проверка, что подпись стабильна:
+| Path | Contents |
+|---|---|
+| `rclone/rclone.conf` | app-managed `rclone` config, including remote tokens |
+| `rclone/filters/` | generated `--exclude-from` files |
+| `conflicts/` | baseline snapshots used by the conflict planner |
+| `pairs.json`, `accounts.json` | your pairs and accounts |
+| `preferences.json` | app settings |
+| `activity.json` | the 48-hour journal |
+
+**Export** (Settings → Configuration) writes pairs, accounts and preferences to a single JSON file. It deliberately leaves out `rclone` credentials, macOS folder permissions and run history — those are tied to one machine and one keychain. **Import** replaces the current configuration, disables every schedule and marks pairs whose folder or remote is missing on this Mac.
+
+## Development
 
 ```bash
-codesign -dvvv ~/Applications/MacYaD.app 2>&1 | grep -E 'Authority|Signature'
-codesign -dr - ~/Applications/MacYaD.app
+xcodegen generate                 # Macyad.xcodeproj is generated, not committed
+./script/test.sh unit             # MacyadCore unit tests
+./script/test.sh ui               # unit + XCUITest (needs an unlocked, awake display)
+./script/build_and_run.sh --verify
 ```
 
-`Authority=MacYaD Local Development` вместо `Signature=adhoc` означает, что designated requirement больше не меняется между сборками и выданные разрешения сохранятся.
+The layout is a plain Domain / Infrastructure / ViewModels / Views split, with `MacyadCore` holding everything testable and the app target holding the SwiftUI layer and the AppKit bridges. Per-directory `AGENTS.md` files document each area, and [`DESIGN_PRINCIPLES.md`](DESIGN_PRINCIPLES.md) covers the UI conventions.
 
-## Сброс состояния приложения
+The screenshots in this README are produced by `MacyadUITests/ScreenshotUITests.swift` against a seeded demonstration configuration — no real account or folder is ever shown.
 
-Если приложение запускается со старыми параметрами, остановите `MacYaD` и удалите пользовательское состояние:
+## Troubleshooting
+
+**`rclone` not found.** The app looks in the usual Homebrew locations. Check the Onboarding pane: it reports the exact path it resolved.
+
+**A pair refuses to push or pull.** Open the pair's latest journal entry — a blocked run always says which side changed and lists the files. `Check Yandex` re-runs the comparison without touching anything.
+
+**macOS asks for folder access after every rebuild.** Expected with ad-hoc signing; see the stable signing note in [Installation](#installation).
+
+**Starting over.** Quit the app and remove its state:
 
 ```bash
 pkill -x MacYaD || true
 rm -rf "$HOME/Library/Application Support/MacYaD"
-defaults delete me.orloff.macyad 2>/dev/null || true
-defaults delete com.orloff.macyad 2>/dev/null || true
 rm -rf "$HOME/Library/Saved Application State/me.orloff.macyad.savedState"
-rm -rf "$HOME/Library/Saved Application State/com.orloff.macyad.savedState"
+defaults delete me.orloff.macyad 2>/dev/null || true
 ```
 
-Команда удаляет `pairs.json`, `preferences.json`, `activity.json` и локальный `Workspace` приложения. `com.orloff.macyad` оставлен в списке как legacy bundle identifier для очистки старых запусков.
+This deletes your pairs, preferences and journal. Your synced files are untouched.
 
-## Verification
+## Contributing
 
-```bash
-xcodegen generate
-xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
-./script/build_and_run.sh --verify
-```
+Issues and pull requests are welcome. Please run `./script/test.sh unit` before opening one, and keep changes to the UI in line with `DESIGN_PRINCIPLES.md`.
 
-Если `xcodebuild test` запускается из sandboxed среды и не может подключиться к `testmanagerd`, используйте обычный локальный shell-сеанс вне sandbox либо задайте отдельный `derivedDataPath`, как в `./script/test.sh unit`.
+## License
+
+[MIT](LICENSE) © Andrei Orlov
+
+Built on [`rclone`](https://rclone.org), which does the actual work. MacYaD is not affiliated with Yandex or with the rclone project.
