@@ -1,4 +1,5 @@
 import Combine
+import Foundation
 import MacyadCore
 
 @MainActor
@@ -15,6 +16,9 @@ final class SettingsViewModel: ObservableObject {
     @Published var lastCopiedCommand: String?
     @Published var errorMessage: String?
     @Published var isRestartPromptPresented = false
+    @Published var pendingImportPlan: ConfigurationImportPlan?
+    @Published var importSummary: String?
+    @Published var importIssues: [String] = []
 
     private let preferencesStore: AppPreferencesStore
     private let loginItemService: LoginItemControlling
@@ -23,11 +27,14 @@ final class SettingsViewModel: ObservableObject {
     private let notificationClient: UserNotificationControlling
     private let paths: AppPaths
     private let pasteboard: PasteboardWriting
+    private let filePicker: ConfigurationFilePicking
     private let accountService = AccountService()
+    private let transferService = ConfigurationTransferService()
     private var didLoad = false
     private var loadedLanguage = AppPreferences.defaults.selectedLanguage
     var languageDidChange: @MainActor (AppLanguage) -> Void = { _ in }
     var preferencesDidChange: @MainActor (AppPreferences) -> Void = { _ in }
+    var configurationDidImport: @MainActor ([SyncPair], [YandexAccount]) -> Void = { _, _ in }
 
     init(
         preferencesStore: AppPreferencesStore,
@@ -36,7 +43,8 @@ final class SettingsViewModel: ObservableObject {
         pairRepository: PairRepository,
         notificationClient: UserNotificationControlling,
         paths: AppPaths,
-        pasteboard: PasteboardWriting
+        pasteboard: PasteboardWriting,
+        filePicker: ConfigurationFilePicking
     ) {
         self.preferencesStore = preferencesStore
         self.loginItemService = loginItemService
@@ -45,6 +53,105 @@ final class SettingsViewModel: ObservableObject {
         self.notificationClient = notificationClient
         self.paths = paths
         self.pasteboard = pasteboard
+        self.filePicker = filePicker
+    }
+
+    func exportConfiguration(pairs: [SyncPair]) async {
+        guard let destination = filePicker.pickExportDestination() else {
+            return
+        }
+
+        let export = transferService.makeExport(
+            preferences: makePreferences(),
+            accounts: accounts,
+            pairs: pairs
+        )
+
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            try encoder.encode(export).write(to: destination, options: .atomic)
+            errorMessage = nil
+        } catch {
+            errorMessage = AppCopy.current.configurationExportFailed(error.localizedDescription)
+        }
+    }
+
+    /// Reads and validates the file, then stops: replacing the configuration
+    /// is the user's call, so the plan waits for a confirmation.
+    func prepareConfigurationImport() async {
+        guard let source = filePicker.pickImportSource() else {
+            return
+        }
+
+        do {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let export = try decoder.decode(ConfigurationExport.self, from: Data(contentsOf: source))
+            let remoteNames = RcloneConfigInspector(configURL: paths.rcloneConfigFile).remoteNames()
+
+            pendingImportPlan = try transferService.prepareImport(
+                export,
+                configPath: paths.rcloneConfigFile.path,
+                availableRemoteNames: remoteNames,
+                folderExists: { path in
+                    var isDirectory: ObjCBool = false
+                    let exists = FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory)
+                    return exists && isDirectory.boolValue
+                },
+                bookmarkForPath: { filePicker.bookmark(forFolderAt: $0) }
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = AppCopy.current.configurationImportFailed(error.localizedDescription)
+        }
+    }
+
+    func cancelConfigurationImport() {
+        pendingImportPlan = nil
+    }
+
+    func applyPendingConfigurationImport() async {
+        guard let plan = pendingImportPlan else {
+            return
+        }
+
+        pendingImportPlan = nil
+        let copy = AppCopy.current
+
+        do {
+            try await accountRepository.save(plan.accounts)
+            try await pairRepository.save(plan.pairs)
+            try await preferencesStore.save(plan.preferences)
+
+            accounts = try await accountRepository.load()
+            apply(plan.preferences)
+            try? loginItemService.setEnabled(plan.preferences.launchAtLoginEnabled)
+            preferencesDidChange(plan.preferences)
+            configurationDidImport(plan.pairs, plan.accounts)
+
+            importIssues = plan.issues.map { issue in
+                switch issue.kind {
+                case let .missingLocalFolder(path):
+                    copy.configurationImportMissingFolderIssue(pair: issue.pairName, path: path)
+                case let .missingRemote(name):
+                    copy.configurationImportMissingRemoteIssue(pair: issue.pairName, remote: name)
+                }
+            }
+            importSummary = copy.configurationImportSummary(
+                pairs: plan.pairs.count,
+                accounts: plan.accounts.count
+            )
+            errorMessage = nil
+        } catch {
+            errorMessage = copy.configurationImportFailed(error.localizedDescription)
+        }
+    }
+
+    func dismissImportSummary() {
+        importSummary = nil
+        importIssues = []
     }
 
     func loadIfNeeded() async {

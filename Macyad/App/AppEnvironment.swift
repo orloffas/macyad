@@ -104,7 +104,8 @@ final class AppEnvironment: ObservableObject {
             pairRepository: pairRepository,
             notificationClient: notificationClient,
             paths: paths,
-            pasteboard: PasteboardBridge()
+            pasteboard: PasteboardBridge(),
+            filePicker: ConfigurationFilePanelBridge()
         )
         self.pairDetailViewModel = PairDetailViewModel()
         self.overviewViewModel = OverviewViewModel()

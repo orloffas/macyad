@@ -243,6 +243,129 @@ public struct AppCopy: Sendable {
         isRussian ? "Открыть в Finder" : "Open in Finder"
     }
 
+    public var configurationSectionTitle: String {
+        isRussian ? "Конфигурация" : "Configuration"
+    }
+
+    public var exportConfigurationButtonTitle: String {
+        isRussian ? "Экспортировать…" : "Export…"
+    }
+
+    public var importConfigurationButtonTitle: String {
+        isRussian ? "Импортировать…" : "Import…"
+    }
+
+    public var configurationExportHint: String {
+        if isRussian {
+            return """
+            В файл попадают пары, аккаунты и настройки приложения. \
+            Паролей и токенов Yandex в нём нет — они хранятся в rclone.conf. \
+            Выданные macOS разрешения на доступ к папкам файл тоже не переносит: \
+            на другом Mac папки нужно будет выбрать заново.
+            """
+        }
+
+        return """
+        The file holds pairs, accounts and app preferences. It contains no \
+        Yandex passwords or tokens — those live in rclone.conf. It also cannot \
+        carry macOS folder permissions: on another Mac the folders have to be \
+        picked again.
+        """
+    }
+
+    public var configurationExportPanelTitle: String {
+        isRussian ? "Экспорт конфигурации MacYaD" : "Export MacYaD configuration"
+    }
+
+    public var configurationImportPanelTitle: String {
+        isRussian ? "Импорт конфигурации MacYaD" : "Import MacYaD configuration"
+    }
+
+    public var configurationExportFileName: String {
+        "macyad-configuration.json"
+    }
+
+    public var configurationImportConfirmTitle: String {
+        isRussian ? "Заменить текущую конфигурацию?" : "Replace the current configuration?"
+    }
+
+    public func configurationImportConfirmMessage(pairs: Int, accounts: Int) -> String {
+        if isRussian {
+            return """
+            В файле: пар — \(pairs), аккаунтов — \(accounts). \
+            Текущие пары, аккаунты и настройки будут заменены. \
+            Файлы в локальных папках и на Yandex не затрагиваются.
+            """
+        }
+
+        return """
+        The file holds \(pairs) pair(s) and \(accounts) account(s). Your current \
+        pairs, accounts and preferences will be replaced. Files in the local \
+        folders and on Yandex are left alone.
+        """
+    }
+
+    public var configurationImportConfirmButtonTitle: String {
+        isRussian ? "Заменить" : "Replace"
+    }
+
+    public func configurationImportSummary(pairs: Int, accounts: Int) -> String {
+        if isRussian {
+            return """
+            Импортировано пар: \(pairs), аккаунтов: \(accounts). \
+            Плановая синхронизация выключена у всех пар: сначала выполните \
+            «\(checkButtonTitle)» и убедитесь, что папки совпадают, и только \
+            потом включайте Auto-sync.
+            """
+        }
+
+        return """
+        Imported \(pairs) pair(s) and \(accounts) account(s). Scheduled sync is \
+        off for every pair: run "\(checkButtonTitle)" first to confirm the two \
+        sides agree, then turn Auto-sync back on.
+        """
+    }
+
+    public var configurationImportDoneTitle: String {
+        isRussian ? "Конфигурация импортирована" : "Configuration imported"
+    }
+
+    public var configurationImportIssuesTitle: String {
+        isRussian ? "Требуют внимания:" : "Needs attention:"
+    }
+
+    public func configurationImportMissingFolderIssue(pair: String, path: String) -> String {
+        if isRussian {
+            return "\(pair): папка \(path) не найдена на этом Mac — выберите её в настройках пары."
+        }
+
+        return "\(pair): the folder \(path) is not on this Mac — pick it in the pair settings."
+    }
+
+    public func configurationImportMissingRemoteIssue(pair: String, remote: String) -> String {
+        if isRussian {
+            return "\(pair): remote «\(remote)» не настроен в rclone на этом Mac."
+        }
+
+        return "\(pair): the remote \"\(remote)\" is not configured in rclone on this Mac."
+    }
+
+    public func configurationImportUnsupportedSchema(found: Int, supported: Int) -> String {
+        if isRussian {
+            return "Файл создан более новой версией MacYaD (формат \(found), поддерживается \(supported))."
+        }
+
+        return "The file comes from a newer MacYaD (format \(found), supported \(supported))."
+    }
+
+    public func configurationExportFailed(_ reason: String) -> String {
+        isRussian ? "Не удалось экспортировать конфигурацию: \(reason)" : "Could not export the configuration: \(reason)"
+    }
+
+    public func configurationImportFailed(_ reason: String) -> String {
+        isRussian ? "Не удалось импортировать конфигурацию: \(reason)" : "Could not import the configuration: \(reason)"
+    }
+
     public var inspectorTitle: String {
         isRussian ? "Инспектор" : "Inspector"
     }

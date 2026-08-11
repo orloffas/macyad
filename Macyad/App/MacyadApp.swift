@@ -60,6 +60,19 @@ struct MacyadApp: App {
         environment.settingsViewModel.preferencesDidChange = { [weak appModel = appModel] preferences in
             appModel?.preferences = preferences
         }
+        environment.settingsViewModel.configurationDidImport = { [weak appModel = appModel] pairs, accounts in
+            guard let appModel else {
+                return
+            }
+
+            appModel.applyPersistedState(
+                pairs: pairs,
+                accounts: accounts,
+                events: appModel.events(for: nil),
+                using: environment.statusService
+            )
+            appModel.refreshBackgroundState()
+        }
         appModel.openMainWindow = {
             appDelegate.showMainWindow()
         }

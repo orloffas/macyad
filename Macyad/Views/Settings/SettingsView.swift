@@ -133,6 +133,22 @@ struct SettingsView: View {
                 } footer: {
                     Text(copy.onboardingAccountsHint)
                 }
+
+                Section {
+                    HStack {
+                        Button(copy.exportConfigurationButtonTitle) {
+                            Task { await viewModel.exportConfiguration(pairs: appModel.pairs) }
+                        }
+                        Button(copy.importConfigurationButtonTitle) {
+                            Task { await viewModel.prepareConfigurationImport() }
+                        }
+                        Spacer()
+                    }
+                } header: {
+                    Text(copy.configurationSectionTitle)
+                } footer: {
+                    Text(copy.configurationExportHint)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -158,6 +174,34 @@ struct SettingsView: View {
                 window.title = copy.settingsWindowTitle
             }
         )
+        .alert(
+            copy.configurationImportConfirmTitle,
+            isPresented: Binding(
+                get: { viewModel.pendingImportPlan != nil },
+                set: { if !$0 { viewModel.cancelConfigurationImport() } }
+            ),
+            presenting: viewModel.pendingImportPlan
+        ) { plan in
+            Button(copy.configurationImportConfirmButtonTitle, role: .destructive) {
+                Task { await viewModel.applyPendingConfigurationImport() }
+            }
+            Button(copy.cancelButtonTitle, role: .cancel) {
+                viewModel.cancelConfigurationImport()
+            }
+        } message: { plan in
+            Text(copy.configurationImportConfirmMessage(pairs: plan.pairs.count, accounts: plan.accounts.count))
+        }
+        .alert(
+            copy.configurationImportDoneTitle,
+            isPresented: Binding(
+                get: { viewModel.importSummary != nil },
+                set: { if !$0 { viewModel.dismissImportSummary() } }
+            )
+        ) {
+            Button(copy.closeButtonTitle) { viewModel.dismissImportSummary() }
+        } message: {
+            Text(importResultMessage)
+        }
         .alert(
             copy.restartPromptTitle,
             isPresented: restartPromptBinding,
@@ -235,6 +279,21 @@ struct SettingsView: View {
             get: { viewModel.isGlobalSchedulerPaused },
             set: { viewModel.updateIsGlobalSchedulerPaused($0) }
         )
+    }
+
+    /// The summary, plus anything the import could not carry over. Issues are
+    /// part of the same alert rather than a separate screen: with a handful of
+    /// pairs a list of two or three lines says everything a preview table
+    /// would have said.
+    private var importResultMessage: String {
+        let copy = appModel.copy
+        guard !viewModel.importIssues.isEmpty else {
+            return viewModel.importSummary ?? ""
+        }
+
+        return ([viewModel.importSummary ?? "", "", copy.configurationImportIssuesTitle]
+            + viewModel.importIssues.map { "• \($0)" })
+            .joined(separator: "\n")
     }
 
     private var notificationStatusTitle: String {
