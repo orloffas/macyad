@@ -8,6 +8,7 @@
 
 **A native macOS menu bar app for safe, one-way Yandex Disk sync — powered by rclone.**
 
+[![Release](https://img.shields.io/github/v/release/orloffas/macyad?color=blue)](https://github.com/orloffas/macyad/releases/latest)
 [![CI](https://github.com/orloffas/macyad/actions/workflows/ci.yml/badge.svg)](https://github.com/orloffas/macyad/actions/workflows/ci.yml)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)
@@ -97,7 +98,9 @@ Three operations, and the app is deliberate about what each one does:
 
 ## Installation
 
-There are no prebuilt releases yet, so build it from source:
+[**Download the latest release**](https://github.com/orloffas/macyad/releases/latest) — a DMG with the app inside. Open it and drag MacYaD to Applications.
+
+Or build it yourself:
 
 ```bash
 git clone https://github.com/orloffas/macyad.git
@@ -105,7 +108,7 @@ cd macyad
 ./script/build_and_run.sh
 ```
 
-The script generates the Xcode project, builds the app, installs it to `~/Applications/MacYaD.app` and launches it. Run without arguments it asks what you want; `--clean`, `--no-launch`, `--package-dmg` and `--background` do the same non-interactively.
+The script generates the Xcode project, builds the app, installs it to `/Applications/MacYaD.app` — or `~/Applications` if the system folder is not writable — and launches it. Run without arguments it asks what you want; `--clean`, `--no-launch`, `--package-dmg` and `--background` do the same non-interactively.
 
 **First launch.** Because the build is self-signed, macOS blocks the first open. Right-click `MacYaD.app` → **Open** → **Open** in the dialog. Once is enough.
 
@@ -195,6 +198,7 @@ Built on [`rclone`](https://rclone.org), which does the actual work. MacYaD is n
 
 **Нативное macOS-приложение в menu bar для безопасной односторонней синхронизации с Яндекс Диском на движке rclone.**
 
+[![Release](https://img.shields.io/github/v/release/orloffas/macyad?color=blue)](https://github.com/orloffas/macyad/releases/latest)
 [![CI](https://github.com/orloffas/macyad/actions/workflows/ci.yml/badge.svg)](https://github.com/orloffas/macyad/actions/workflows/ci.yml)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)
@@ -284,7 +288,9 @@ MacYaD заменяет клиент, а не хранилище: файлы п�
 
 ## Установка
 
-Готовых релизов пока нет, поэтому собираем из исходников:
+[**Скачать последний релиз**](https://github.com/orloffas/macyad/releases/latest) — DMG с приложением внутри. Откройте его и перетащите MacYaD в Applications.
+
+Либо соберите сами:
 
 ```bash
 git clone https://github.com/orloffas/macyad.git
@@ -292,7 +298,7 @@ cd macyad
 ./script/build_and_run.sh
 ```
 
-Скрипт генерирует Xcode-проект, собирает приложение, устанавливает его в `~/Applications/MacYaD.app` и запускает. Без аргументов он спрашивает, что делать; `--clean`, `--no-launch`, `--package-dmg` и `--background` делают то же самое неинтерактивно.
+Скрипт генерирует Xcode-проект, собирает приложение, устанавливает его в `/Applications/MacYaD.app` — или в `~/Applications`, если системная папка недоступна на запись, — и запускает. Без аргументов он спрашивает, что делать; `--clean`, `--no-launch`, `--package-dmg` и `--background` делают то же самое неинтерактивно.
 
 **Первый запуск.** Сборка self-signed, поэтому macOS блокирует первое открытие. Правый клик по `MacYaD.app` → **Открыть** → **Открыть** в диалоге. Достаточно одного раза.
 
