@@ -147,7 +147,7 @@ xcodegen generate                 # Macyad.xcodeproj is generated, not committed
 ./script/build_and_run.sh --verify
 ```
 
-The layout is a plain Domain / Infrastructure / ViewModels / Views split, with `MacyadCore` holding everything testable and the app target holding the SwiftUI layer and the AppKit bridges. Per-directory `AGENTS.md` files document each area, and [`DESIGN_PRINCIPLES.md`](DESIGN_PRINCIPLES.md) covers the UI conventions.
+The layout is a plain Domain / Infrastructure / ViewModels / Views split, with `MacyadCore` holding everything testable and the app target holding the SwiftUI layer and the AppKit bridges. Per-directory `AGENTS.md` files document each area, including the UI conventions in `Macyad/Views/AGENTS.md`.
 
 The screenshots in this README are produced by `MacyadUITests/ScreenshotUITests.swift` against a seeded demonstration configuration — no real account or folder is ever shown.
 
@@ -334,7 +334,7 @@ xcodegen generate                 # Macyad.xcodeproj генерируется, �
 ./script/build_and_run.sh --verify
 ```
 
-Структура — обычное разделение Domain / Infrastructure / ViewModels / Views: в `MacyadCore` лежит всё тестируемое, в app-таргете — слой SwiftUI и мосты к AppKit. Каждую область описывает свой `AGENTS.md`, UI-конвенции — в [`DESIGN_PRINCIPLES.md`](DESIGN_PRINCIPLES.md).
+Структура — обычное разделение Domain / Infrastructure / ViewModels / Views: в `MacyadCore` лежит всё тестируемое, в app-таргете — слой SwiftUI и мосты к AppKit. Каждую область описывает свой `AGENTS.md`; UI-конвенции — в `Macyad/Views/AGENTS.md`.
 
 Скриншоты в этом README снимает `MacyadUITests/ScreenshotUITests.swift` на seeded демонстрационной конфигурации — реальные аккаунты и папки в кадр не попадают.
 

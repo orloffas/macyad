@@ -12,7 +12,6 @@
 |------|-------------|
 | `README.md` | Публичный README: английская половина, затем русская (`# MacYaD (русский)`) в том же файле — GitHub не умеет переключать язык иначе как ссылкой-якорем |
 | `LICENSE` | MIT. `LICENSE.ru.md` — неофициальный перевод, юридическую силу имеет только английский оригинал |
-| `DESIGN_PRINCIPLES.md` | UI/UX guidelines: posture, layout, density, menu bar, anti-patterns |
 | `project.yml` | `xcodegen` спецификация targets (`MacyadCore`, `Macyad`, `MacyadTests`, `MacyadUITests`) и schemes |
 | `Macyad.xcodeproj/` | Сгенерированный из `project.yml` Xcode project (не редактировать вручную) |
 | `.gitignore` | Игнор-листы для build artifacts, derived data, worktree-каталогов, агентских артефактов |
@@ -26,7 +25,6 @@
 | `MacyadUITests/` | UI-тесты приложения `Macyad` (см. `MacyadUITests/AGENTS.md`) |
 | `docs/` | Документация, скриншоты README, рабочий to-do (см. `docs/AGENTS.md`) |
 | `script/` | Build / run / test shell-скрипты (см. `script/AGENTS.md`) |
-| `.codex/` | Codex CLI environment-конфигурация для repo (см. `.codex/AGENTS.md`) |
 
 ## For AI Agents
 
