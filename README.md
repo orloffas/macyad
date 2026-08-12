@@ -108,7 +108,7 @@ cd macyad
 ./script/build_and_run.sh
 ```
 
-The script generates the Xcode project, builds the app, installs it to `/Applications/MacYaD.app` and launches it. Run without arguments it asks what you want; `--clean`, `--no-launch`, `--package-dmg` and `--background` do the same non-interactively.
+The script generates the Xcode project, builds the app, installs it to `/Applications/MacYaD.app` — or `~/Applications` if the system folder is not writable — and launches it. Run without arguments it asks what you want; `--clean`, `--no-launch`, `--package-dmg` and `--background` do the same non-interactively.
 
 **First launch.** Because the build is self-signed, macOS blocks the first open. Right-click `MacYaD.app` → **Open** → **Open** in the dialog. Once is enough.
 
@@ -298,7 +298,7 @@ cd macyad
 ./script/build_and_run.sh
 ```
 
-Скрипт генерирует Xcode-проект, собирает приложение, устанавливает его в `/Applications/MacYaD.app` и запускает. Без аргументов он спрашивает, что делать; `--clean`, `--no-launch`, `--package-dmg` и `--background` делают то же самое неинтерактивно.
+Скрипт генерирует Xcode-проект, собирает приложение, устанавливает его в `/Applications/MacYaD.app` — или в `~/Applications`, если системная папка недоступна на запись, — и запускает. Без аргументов он спрашивает, что делать; `--clean`, `--no-launch`, `--package-dmg` и `--background` делают то же самое неинтерактивно.
 
 **Первый запуск.** Сборка self-signed, поэтому macOS блокирует первое открытие. Правый клик по `MacYaD.app` → **Открыть** → **Открыть** в диалоге. Достаточно одного раза.
 
