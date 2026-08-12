@@ -17,7 +17,7 @@
 
 | Directory | Purpose |
 |-----------|---------|
-| `images/` | Скриншоты для `README.md` и `README.ru.md`; снимаются автоматически (см. `MacyadUITests/AGENTS.md`) |
+| `images/` | Скриншоты для обеих языковых половин `README.md`; снимаются автоматически (см. `MacyadUITests/AGENTS.md`) |
 
 ## For AI Agents
 

@@ -13,7 +13,7 @@ UI-тесты приложения `Macyad` через `XCUIApplication`. Пок
 |------|-------------|
 | `OnboardingUITests.swift` | Запуск с `UITEST_ONBOARDING_MISSING_RCLONE`: проверяет наличие кнопок `onboarding.retry` и `onboarding.copyCommand` в onboarding-окне |
 | `PairFlowUITests.swift` | Запуск с `UITEST_READY_STATE`: проверяет наличие кнопки `pair.new` (или локализованного "Новая пара"), открытие Settings-окна по кнопке `settings.open` |
-| `ScreenshotUITests.swift` | Снимает скриншоты для `README.md` / `README.ru.md` на seeded конфигурации, по одному прогону на язык; заодно проверяет, что каждая панель отрисовалась |
+| `ScreenshotUITests.swift` | Снимает скриншоты для обеих языковых половин `README.md` на seeded конфигурации, по одному прогону на язык; заодно проверяет, что каждая панель отрисовалась |
 
 ## For AI Agents
 

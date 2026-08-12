@@ -68,7 +68,7 @@ run gh api -X PATCH "repos/$REPO" \
   -F has_issues=true \
   -F has_wiki=false \
   -F has_projects=false \
-  -F has_discussions=true \
+  -F has_discussions=false \
   -F allow_squash_merge=true \
   -F allow_merge_commit=false \
   -F allow_rebase_merge=false \
@@ -77,7 +77,7 @@ run gh api -X PATCH "repos/$REPO" \
   -f squash_merge_commit_title=PR_TITLE \
   -f squash_merge_commit_message=PR_BODY \
   >/dev/null
-say "ok: issues, discussions, squash-only merges, branch auto-delete"
+say "ok: issues, squash-only merges, branch auto-delete"
 say
 
 # --- Branch ruleset ----------------------------------------------------------
