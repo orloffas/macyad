@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # The app has no package manifests — it builds against the SDK and shells out
+  # to rclone. The only pinned third-party things here are the actions used by
+  # the workflows above.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(ci)"

@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit tests
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Pinned rather than default: the image ships several Xcode versions and
+      # promotes a new default on its own schedule, which is not a thing a
+      # green build should depend on.
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.4.app
+          xcodebuild -version
+          swift --version
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      # The same entry point used locally, so CI cannot drift from the
+      # instructions in the README. It generates the project itself, and warns
+      # about the missing signing certificate instead of failing.
+      - name: Unit tests
+        run: ./script/test.sh unit
+
+      # The unit scheme builds MacyadCore only. Views and the AppKit bridges
+      # live in the app target, and nothing else here would notice them
+      # breaking.
+      - name: Build the app target
+        run: |
+          xcodebuild build \
+            -project Macyad.xcodeproj \
+            -scheme Macyad \
+            -destination 'platform=macOS' \
+            -derivedDataPath .derived-data-ci
+
+  # UI tests are deliberately absent. XCUITest drives a real window, and
+  # script/test.sh refuses to run against a sleeping or locked display —
+  # a hosted runner has neither. They stay a local gate; see
+  # MacyadUITests/AGENTS.md.

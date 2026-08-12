@@ -1,0 +1,56 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "27 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze Swift
+    runs-on: macos-15
+    timeout-minutes: 60
+    # Code scanning is free on public repositories and requires a paid plan on
+    # private ones. Without this guard every run on a private repo fails with
+    # "Advanced Security must be enabled", which is noise, not a signal.
+    if: github.event.repository.visibility == 'public'
+
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: swift
+          build-mode: manual
+
+      # Swift is analyzed from what the build actually compiles, so this has to
+      # be a real build rather than autobuild.
+      - name: Build
+        run: |
+          xcodegen generate
+          xcodebuild build \
+            -project Macyad.xcodeproj \
+            -scheme Macyad \
+            -destination 'platform=macOS' \
+            -derivedDataPath .derived-data-codeql
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:swift"

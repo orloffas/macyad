@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a change to what MacYaD does
+labels: ["enhancement", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two things this project will not do, so nobody spends an evening writing them up:
+
+        - **Automatic two-way sync.** Push and Pull stay mutually exclusive per pair. This is the
+          design, not a gap — see "How syncing works" in the README.
+        - **Resolving conflicts on its own.** When the two sides disagree, the run stops and asks.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you hitting?
+      description: Describe the situation, not the solution. What were you trying to do when the app got in the way?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today instead?
+      description: A workaround, another tool, or rclone by hand.
+    validations:
+      required: false
