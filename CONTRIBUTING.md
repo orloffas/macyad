@@ -52,6 +52,17 @@ Two things worth knowing before you send a PR:
 - Each directory has an `AGENTS.md` describing what lives there and the traps specific to it. Read the one next to the code you are changing; update it if your change invalidates it.
 - Commit messages and PR descriptions in English.
 
+## AI assistance
+
+This project is written with heavy use of AI coding assistants, which is why
+the commit history carries `Co-Authored-By` trailers. You are welcome to use
+them too.
+
+One expectation either way: you are responsible for the code you send. Be able
+to explain what it does and why it is written that way, and run the tests
+before opening the PR. A patch nobody understands is a liability regardless of
+who or what produced it.
+
 ## Pull requests
 
 `main` is protected: work on a branch and open a PR, including maintainer work. CI runs unit tests and builds the app target; both must pass.
