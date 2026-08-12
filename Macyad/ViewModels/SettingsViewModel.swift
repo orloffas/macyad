@@ -296,6 +296,26 @@ final class SettingsViewModel: ObservableObject {
         lastCopiedCommand = command
     }
 
+    /// Puts the answers to the bug report form's required fields on the
+    /// clipboard, so that reporting a problem does not start with hunting for
+    /// four version numbers.
+    func copyDiagnostics(
+        appVersion: String,
+        onboardingState: OnboardingState,
+        pairCount: Int,
+        copy: AppCopy
+    ) {
+        let report = copy.diagnosticsReport(
+            appVersion: appVersion,
+            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            rcloneVersion: onboardingState.rcloneVersion,
+            rcloneLocation: onboardingState.rcloneLocation,
+            pairCount: pairCount
+        )
+
+        self.copy(report)
+    }
+
     func reconnectCommand(for account: YandexAccount) -> String {
         RcloneCommandBuilder.remoteReconnectCommand(configPath: account.configPath, remoteName: account.remoteName)
     }

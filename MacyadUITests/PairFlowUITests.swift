@@ -34,6 +34,16 @@ final class PairFlowUITests: XCTestCase {
         // it also proves the settings window rendered in full.
         XCTAssertTrue(app.buttons["configuration.export"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["configuration.import"].firstMatch.exists)
+
+        // The bug report form asks for a version, so the app has to show one.
+        XCTAssertTrue(
+            app.buttons["diagnostics.copy"].firstMatch.exists,
+            "Settings has no way to copy the diagnostics a bug report asks for"
+        )
+        let version = app.staticTexts
+            .matching(NSPredicate(format: "value MATCHES %@ OR label MATCHES %@", #"\d+\.\d+\.\d+ \(\d+\)"#, #"\d+\.\d+\.\d+ \(\d+\)"#))
+            .firstMatch
+        XCTAssertTrue(version.exists, "Settings does not show the app version")
     }
 
     // MARK: - New AC tests (Stage 9)
