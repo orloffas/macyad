@@ -1,0 +1,11 @@
+{
+  "title": "MacYaD",
+  "icon": "{{ICON}}",
+  "background": "{{BACKGROUND}}",
+  "icon-size": 128,
+  "window": { "size": { "width": 640, "height": 400 } },
+  "contents": [
+    { "x": 160, "y": 190, "type": "file", "path": "{{APP}}" },
+    { "x": 480, "y": 190, "type": "link", "path": "/Applications" }
+  ]
+}

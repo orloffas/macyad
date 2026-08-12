@@ -8,6 +8,11 @@ Macyad.xcodeproj/
 .derived-data-*/
 build/
 *.profraw
+
+# Intermediates of script/make_dmg_background.swift — only the combined TIFF
+# that Finder reads is tracked.
+script/dmg/background.png
+script/dmg/background@2x.png
 *.bak-disable-ai-memory-*
 
 # Agent tooling scratch space. Never tracked: these transcripts embed absolute

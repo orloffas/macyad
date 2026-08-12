@@ -32,8 +32,43 @@ jobs:
             exit 1
           fi
 
-      - name: Install xcodegen
-        run: brew install xcodegen
+      - name: Install tools
+        run: |
+          brew install xcodegen
+          npm install -g appdmg
+
+      # The same self-signed certificate the maintainer builds with locally, so
+      # a downloaded release and a local build have the same designated
+      # requirement and macOS does not treat them as two different apps.
+      #
+      # The keychain is created for this run and destroyed with the runner.
+      # Without the secrets — a fork, or before they are configured — the build
+      # still succeeds and ships an ad-hoc signature.
+      - name: Import the signing certificate
+        if: ${{ secrets.MACYAD_CERTIFICATE_P12 != '' }}
+        env:
+          CERTIFICATE_P12: ${{ secrets.MACYAD_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACYAD_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo -n "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/certificate.p12"
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          security find-identity -p codesigning "$KEYCHAIN_PATH"
 
       - name: Build
         run: |
@@ -45,25 +80,19 @@ jobs:
             -destination 'platform=macOS' \
             -derivedDataPath .derived-data-release
 
-      # Signed ad-hoc: there is no Apple Developer account behind this project
-      # and no secret to sign with on a hosted runner. Gatekeeper will warn on
-      # first launch, which the README says up front.
-      - name: Package the DMG
+      - name: Sign
         run: |
           APP=".derived-data-release/Build/Products/Release/MacYaD.app"
           test -d "$APP" || { echo "::error::no app bundle at $APP"; exit 1; }
 
-          codesign --verify --strict "$APP"
+          ./script/sign_app.sh "$APP"
+          codesign -dvvv "$APP" 2>&1 | grep -E 'Authority|Signature|Identifier' || true
+          codesign -dr - "$APP"
 
-          STAGING="$(mktemp -d)/MacYaD"
-          mkdir -p "$STAGING"
-          ditto "$APP" "$STAGING/MacYaD.app"
-          ln -s /Applications "$STAGING/Applications"
-
-          hdiutil create \
-            -volname "MacYaD" \
-            -srcfolder "$STAGING" \
-            -ov -format UDZO \
+      - name: Package the DMG
+        run: |
+          ./script/package_dmg.sh \
+            ".derived-data-release/Build/Products/Release/MacYaD.app" \
             "MacYaD-${GITHUB_REF_NAME}.dmg"
 
           shasum -a 256 "MacYaD-${GITHUB_REF_NAME}.dmg" | tee checksum.txt
@@ -75,7 +104,7 @@ jobs:
           {
             echo "## Install"
             echo
-            echo "Download the DMG, drag MacYaD to Applications, then **right-click the app → Open → Open**."
+            echo "Open the DMG and drag MacYaD to Applications, then **right-click the app → Open → Open**."
             echo "The build is self-signed and not notarized, so the first launch needs that once."
             echo
             echo "\`rclone\` is required and not bundled: \`brew install rclone\`."
