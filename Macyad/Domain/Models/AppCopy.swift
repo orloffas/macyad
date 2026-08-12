@@ -312,6 +312,28 @@ public struct AppCopy: Sendable {
         isRussian ? "Скопировать для багрепорта" : "Copy for a bug report"
     }
 
+    public func aboutCopyright(year: Int) -> String {
+        isRussian ? "© \(year) Andrei Orlov · Лицензия MIT" : "© \(year) Andrei Orlov · MIT License"
+    }
+
+    public var aboutRepositoryLinkTitle: String {
+        isRussian ? "Репозиторий на GitHub" : "GitHub repository"
+    }
+
+    public var aboutReportIssueLinkTitle: String {
+        isRussian ? "Сообщить о проблеме" : "Report an issue"
+    }
+
+    public var aboutReleasesLinkTitle: String {
+        isRussian ? "Все версии" : "Releases"
+    }
+
+    public var aboutRcloneCredit: String {
+        isRussian
+            ? "Синхронизацию выполняет rclone — отдельный проект с открытым кодом. MacYaD не связан ни с ним, ни с Яндексом."
+            : "The syncing is done by rclone, a separate open source project. MacYaD is affiliated with neither it nor Yandex."
+    }
+
     public var copyDiagnosticsHint: String {
         isRussian
             ? "Копирует версию приложения, версию macOS и данные rclone — то, что спрашивает форма багрепорта. Пути к вашим папкам и токены не копируются."

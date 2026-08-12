@@ -155,6 +155,17 @@ struct SettingsView: View {
                 Section {
                     LabeledContent(copy.appVersionLabel, value: AppMetadata.versionDisplay)
 
+                    Text(copy.aboutCopyright(year: AppMetadata.copyrightYear))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 16) {
+                        Link(copy.aboutRepositoryLinkTitle, destination: AppMetadata.repositoryURL)
+                        Link(copy.aboutReleasesLinkTitle, destination: AppMetadata.releasesURL)
+                        Link(copy.aboutReportIssueLinkTitle, destination: AppMetadata.newIssueURL)
+                        Spacer()
+                    }
+                    .font(.callout)
+
                     HStack {
                         Button(copy.copyDiagnosticsButtonTitle) {
                             viewModel.copyDiagnostics(
@@ -167,6 +178,11 @@ struct SettingsView: View {
                         .accessibilityIdentifier("diagnostics.copy")
                         Spacer()
                     }
+
+                    Text(copy.aboutRcloneCredit)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 } header: {
                     Text(copy.aboutSectionTitle)
                 } footer: {
