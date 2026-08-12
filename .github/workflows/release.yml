@@ -3,6 +3,15 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # A rehearsal: builds, signs and packages exactly as a release would, but
+  # publishes nothing unless asked. The alternative is finding out that signing
+  # or packaging is broken from a tag that has already been pushed.
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a GitHub release (otherwise the DMG is only kept as an artifact)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -13,6 +22,12 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
 
+    env:
+      # Whether the certificate is configured, not the certificate itself: the
+      # `secrets` context cannot be read from a step's `if`, and putting the
+      # key in job-level env would hand it to every step that follows.
+      HAS_CERTIFICATE: ${{ secrets.MACYAD_CERTIFICATE_P12 != '' }}
+
     steps:
       - uses: actions/checkout@v5
 
@@ -22,14 +37,21 @@ jobs:
       # The tag is the release, but the version people see in Settings comes
       # from project.yml. If the two disagree, the download and the app claim
       # different things — stop before that ships.
-      - name: Check the tag against MARKETING_VERSION
+      - name: Resolve the version
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
           PROJECT_VERSION="$(grep -m1 'MARKETING_VERSION:' project.yml | sed 's/.*"\(.*\)".*/\1/')"
-          echo "tag: $TAG_VERSION, project.yml: $PROJECT_VERSION"
-          if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match MARKETING_VERSION $PROJECT_VERSION in project.yml"
-            exit 1
+
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            echo "tag: $TAG_VERSION, project.yml: $PROJECT_VERSION"
+            if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match MARKETING_VERSION $PROJECT_VERSION in project.yml"
+              exit 1
+            fi
+            echo "RELEASE_NAME=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+          else
+            echo "manual run, version from project.yml: $PROJECT_VERSION"
+            echo "RELEASE_NAME=v$PROJECT_VERSION" >> "$GITHUB_ENV"
           fi
 
       - name: Install tools
@@ -45,7 +67,7 @@ jobs:
       # Without the secrets — a fork, or before they are configured — the build
       # still succeeds and ships an ad-hoc signature.
       - name: Import the signing certificate
-        if: ${{ secrets.MACYAD_CERTIFICATE_P12 != '' }}
+        if: env.HAS_CERTIFICATE == 'true'
         env:
           CERTIFICATE_P12: ${{ secrets.MACYAD_CERTIFICATE_P12 }}
           CERTIFICATE_PASSWORD: ${{ secrets.MACYAD_CERTIFICATE_PASSWORD }}
@@ -93,11 +115,20 @@ jobs:
         run: |
           ./script/package_dmg.sh \
             ".derived-data-release/Build/Products/Release/MacYaD.app" \
-            "MacYaD-${GITHUB_REF_NAME}.dmg"
+            "MacYaD-${RELEASE_NAME}.dmg"
 
-          shasum -a 256 "MacYaD-${GITHUB_REF_NAME}.dmg" | tee checksum.txt
+          shasum -a 256 "MacYaD-${RELEASE_NAME}.dmg" | tee checksum.txt
+
+      # Downloadable from the run itself, which is the point of a rehearsal:
+      # the DMG can be opened and looked at before anything is published.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MacYaD-${{ env.RELEASE_NAME }}-dmg
+          path: MacYaD-${{ env.RELEASE_NAME }}.dmg
+          retention-days: 7
 
       - name: Publish the release
+        if: github.event_name == 'push' || inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -116,8 +147,8 @@ jobs:
             echo '```'
           } > notes.md
 
-          gh release create "$GITHUB_REF_NAME" \
-            "MacYaD-${GITHUB_REF_NAME}.dmg" \
-            --title "$GITHUB_REF_NAME" \
+          gh release create "$RELEASE_NAME" \
+            "MacYaD-${RELEASE_NAME}.dmg" \
+            --title "$RELEASE_NAME" \
             --notes-file notes.md \
             --generate-notes
