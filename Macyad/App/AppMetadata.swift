@@ -19,4 +19,16 @@ enum AppMetadata {
     static var versionDisplay: String {
         "\(version) (\(build))"
     }
+
+    static let repositoryURL = URL(string: "https://github.com/orloffas/macyad")!
+    static let releasesURL = URL(string: "https://github.com/orloffas/macyad/releases")!
+    static let newIssueURL = URL(
+        string: "https://github.com/orloffas/macyad/issues/new?template=bug_report.yml"
+    )!
+
+    /// Current year, so the notice does not quietly go stale in a file nobody
+    /// remembers to edit every January.
+    static var copyrightYear: Int {
+        Calendar(identifier: .gregorian).component(.year, from: Date())
+    }
 }

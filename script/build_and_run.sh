@@ -10,7 +10,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${MACYAD_BUILD_DIR:-$HOME/Library/Caches/MacYaD/Build}"
 TEST_BUILD_DIR="${MACYAD_TEST_BUILD_DIR:-$HOME/Library/Caches/MacYaD/TestBuild}"
 APP_BUNDLE="$BUILD_DIR/Build/Products/Debug/$APP_NAME.app"
-STAGED_APP_DIR="${MACYAD_STAGED_APP_DIR:-$HOME/Applications}"
+# /Applications when it is writable, which is where the DMG installs the app.
+# Splitting the two meant a local build and a downloaded release lived in
+# different folders under the same bundle id: LaunchServices registered both,
+# and dragging a new version out of the DMG looked like it had done nothing
+# because the old copy was still the one being looked at.
+if [[ -n "${MACYAD_STAGED_APP_DIR:-}" ]]; then
+  STAGED_APP_DIR="$MACYAD_STAGED_APP_DIR"
+elif [[ -w /Applications ]]; then
+  STAGED_APP_DIR="/Applications"
+else
+  STAGED_APP_DIR="$HOME/Applications"
+fi
 STAGED_APP_BUNDLE="$STAGED_APP_DIR/$APP_NAME.app"
 LAUNCH_APP_BUNDLE="$STAGED_APP_BUNDLE"
 PROJECT_PATH="$ROOT_DIR/$PROJECT"

@@ -78,6 +78,14 @@ struct OnboardingView: View {
                         // at all, and the whole window renders blank.
                         .frame(maxWidth: .infinity, alignment: .leading)
 
+                    // The version belongs on the pane people are told to open
+                    // when something is wrong, next to the rclone version it
+                    // is going to be quoted alongside.
+                    LabeledContent(copy.appVersionLabel, value: AppMetadata.versionDisplay)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
                     Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 12, verticalSpacing: 8) {
                         ForEach(viewModel.statusRows(pairs: appModel.pairs, preferences: appModel.preferences, copy: copy), id: \.label) { row in
                             GridRow {
