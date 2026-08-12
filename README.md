@@ -172,7 +172,7 @@ This deletes your pairs, preferences and journal. Your synced files are untouche
 
 ## Contributing
 
-- **Found a bug?** [Open a bug report](https://github.com/orloffas/macyad/issues/new?template=bug_report.yml). The form asks for the rclone version, the macOS version and the journal entry — a sync report without those cannot be acted on.
+- **Found a bug?** [Open a bug report](https://github.com/orloffas/macyad/issues/new?template=bug_report.yml). The form asks for the rclone version, the macOS version and the journal entry — a sync report without those cannot be acted on. **Settings → About** has a button that copies all of them at once.
 - **Question, or not sure it is a bug?** [Discussions](https://github.com/orloffas/macyad/discussions).
 - **Security issue?** Not a public issue, please — [SECURITY.md](SECURITY.md) explains where it goes.
 - **Sending code?** [CONTRIBUTING.md](CONTRIBUTING.md) covers the setup, the tests, and the handful of changes this project will not take. `main` is pull-request-only and CI has to pass, maintainer included.

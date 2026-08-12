@@ -13,7 +13,7 @@
 | `MacyadApp.swift` | Macyad (app) | `@main` SwiftUI `App`; bootstrap, монтаж сцен `WindowGroup` + `Settings`, инициализация StatusBar и BackgroundSync |
 | `AppEnvironment.swift` | Macyad (app) | DI-контейнер (`ObservableObject`); `bootstrap()` собирает граф зависимостей, конструирует все репозитории и вьюмодели, предоставляет `makeBackgroundSyncController()` |
 | `AppRouter.swift` | Macyad (app) | `AppRoute` enum (`.onboarding`, `.overview`) и `SidebarSelection` enum (`.route`, `.pair(UUID)`) — значения навигации для sidebar |
-| `AppMetadata.swift` | Macyad (app) | Константы бандла: `bundleIdentifier`, `displayName`, `loggingSubsystem` |
+| `AppMetadata.swift` | Macyad (app) | Константы бандла: `bundleIdentifier`, `displayName`, `loggingSubsystem`; плюс `version` / `build` / `versionDisplay`, читаемые из `Info.plist` (источник — `MARKETING_VERSION` в `project.yml`, см. корневой `AGENTS.md`) |
 | `AppPaths.swift` | MacyadCore | `Sendable`-структура с URL всех файлов хранилища (`pairsFile`, `rcloneConfigFile`, `rcloneFiltersDirectory` и др.); `live()` создаёт директории на диске, `makeForTesting(rootURL:)` использует временную директорию |
 
 ## For AI Agents

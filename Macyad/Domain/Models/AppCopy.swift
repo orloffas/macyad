@@ -300,6 +300,47 @@ public struct AppCopy: Sendable {
         isRussian ? "Конфигурация" : "Configuration"
     }
 
+    public var aboutSectionTitle: String {
+        isRussian ? "О программе" : "About"
+    }
+
+    public var appVersionLabel: String {
+        isRussian ? "Версия" : "Version"
+    }
+
+    public var copyDiagnosticsButtonTitle: String {
+        isRussian ? "Скопировать для багрепорта" : "Copy for a bug report"
+    }
+
+    public var copyDiagnosticsHint: String {
+        isRussian
+            ? "Копирует версию приложения, версию macOS и данные rclone — то, что спрашивает форма багрепорта. Пути к вашим папкам и токены не копируются."
+            : "Copies the app version, the macOS version and the rclone details — what the bug report form asks for. Your folder paths and tokens are not included."
+    }
+
+    /// The block a user pastes into a bug report. Deliberately free of folder
+    /// paths, pair names and anything else that identifies their data — the
+    /// rclone binary path is the only path here, and it is a Homebrew one.
+    public func diagnosticsReport(
+        appVersion: String,
+        osVersion: String,
+        rcloneVersion: String?,
+        rcloneLocation: String?,
+        pairCount: Int
+    ) -> String {
+        let unknown = isRussian ? "не найден" : "not found"
+        let rclone = [rcloneVersion, rcloneLocation]
+            .compactMap { $0 }
+            .joined(separator: " — ")
+
+        return """
+        MacYaD: \(appVersion)
+        macOS: \(osVersion)
+        rclone: \(rclone.isEmpty ? unknown : rclone)
+        \(isRussian ? "Пар" : "Pairs"): \(pairCount)
+        """
+    }
+
     public var exportConfigurationButtonTitle: String {
         isRussian ? "Экспортировать…" : "Export…"
     }

@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      # The tag is the release, but the version people see in Settings comes
+      # from project.yml. If the two disagree, the download and the app claim
+      # different things — stop before that ships.
+      - name: Check the tag against MARKETING_VERSION
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PROJECT_VERSION="$(grep -m1 'MARKETING_VERSION:' project.yml | sed 's/.*"\(.*\)".*/\1/')"
+          echo "tag: $TAG_VERSION, project.yml: $PROJECT_VERSION"
+          if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match MARKETING_VERSION $PROJECT_VERSION in project.yml"
+            exit 1
+          fi
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Build
+        run: |
+          xcodegen generate
+          xcodebuild build \
+            -project Macyad.xcodeproj \
+            -scheme Macyad \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            -derivedDataPath .derived-data-release
+
+      # Signed ad-hoc: there is no Apple Developer account behind this project
+      # and no secret to sign with on a hosted runner. Gatekeeper will warn on
+      # first launch, which the README says up front.
+      - name: Package the DMG
+        run: |
+          APP=".derived-data-release/Build/Products/Release/MacYaD.app"
+          test -d "$APP" || { echo "::error::no app bundle at $APP"; exit 1; }
+
+          codesign --verify --strict "$APP"
+
+          STAGING="$(mktemp -d)/MacYaD"
+          mkdir -p "$STAGING"
+          ditto "$APP" "$STAGING/MacYaD.app"
+          ln -s /Applications "$STAGING/Applications"
+
+          hdiutil create \
+            -volname "MacYaD" \
+            -srcfolder "$STAGING" \
+            -ov -format UDZO \
+            "MacYaD-${GITHUB_REF_NAME}.dmg"
+
+          shasum -a 256 "MacYaD-${GITHUB_REF_NAME}.dmg" | tee checksum.txt
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "## Install"
+            echo
+            echo "Download the DMG, drag MacYaD to Applications, then **right-click the app → Open → Open**."
+            echo "The build is self-signed and not notarized, so the first launch needs that once."
+            echo
+            echo "\`rclone\` is required and not bundled: \`brew install rclone\`."
+            echo
+            echo "### SHA-256"
+            echo
+            echo '```'
+            cat checksum.txt
+            echo '```'
+          } > notes.md
+
+          gh release create "$GITHUB_REF_NAME" \
+            "MacYaD-${GITHUB_REF_NAME}.dmg" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            --generate-notes

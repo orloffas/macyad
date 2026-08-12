@@ -172,7 +172,7 @@ defaults delete me.orloff.macyad 2>/dev/null || true
 
 ## Участие в проекте
 
-- **Нашли баг?** [Заведите bug report](https://github.com/orloffas/macyad/issues/new?template=bug_report.yml). Форма просит версию rclone, версию macOS и запись журнала — без них сообщение о проблеме синхронизации разобрать невозможно.
+- **Нашли баг?** [Заведите bug report](https://github.com/orloffas/macyad/issues/new?template=bug_report.yml). Форма просит версию rclone, версию macOS и запись журнала — без них сообщение о проблеме синхронизации разобрать невозможно. В **Settings → О программе** есть кнопка, которая копирует всё это разом.
 - **Вопрос или не уверены, что это баг?** [Discussions](https://github.com/orloffas/macyad/discussions).
 - **Проблема с безопасностью?** Пожалуйста, не в публичный issue — куда именно, написано в [SECURITY.md](SECURITY.md).
 - **Присылаете код?** В [CONTRIBUTING.md](CONTRIBUTING.md) — сборка, тесты и короткий список того, что в этот проект не примут. Ветка `main` принимает только pull request'ы, и CI обязан быть зелёным, включая мейнтейнера.

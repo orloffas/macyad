@@ -151,6 +151,27 @@ struct SettingsView: View {
                 } footer: {
                     Text(copy.configurationExportHint)
                 }
+
+                Section {
+                    LabeledContent(copy.appVersionLabel, value: AppMetadata.versionDisplay)
+
+                    HStack {
+                        Button(copy.copyDiagnosticsButtonTitle) {
+                            viewModel.copyDiagnostics(
+                                appVersion: AppMetadata.versionDisplay,
+                                onboardingState: appModel.onboardingState,
+                                pairCount: appModel.pairs.count,
+                                copy: copy
+                            )
+                        }
+                        .accessibilityIdentifier("diagnostics.copy")
+                        Spacer()
+                    }
+                } header: {
+                    Text(copy.aboutSectionTitle)
+                } footer: {
+                    Text(copy.copyDiagnosticsHint)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 

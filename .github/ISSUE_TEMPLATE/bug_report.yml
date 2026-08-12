@@ -28,8 +28,10 @@ body:
     id: macyad-version
     attributes:
       label: MacYaD version
-      description: Settings shows it, or paste the commit you built from.
-      placeholder: "commit 85c122e"
+      description: |
+        Settings → About shows it. The button next to it copies this field, the macOS version
+        and the rclone details in one go — paste that block here and the next two fields are done.
+      placeholder: "0.1.0 (4)"
     validations:
       required: true
 

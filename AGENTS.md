@@ -105,3 +105,11 @@
 - `README.md` и `README.ru.md` должны совпадать по смыслу: правка одного без второго — незакрытая задача.
 - Внешние поверхности проекта — `README*`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, шаблоны в `.github/` — ведутся на английском (внутренние `AGENTS.md` остаются на русском).
 - Конфигурация GitHub описана файлами: `.github/ruleset-main.json`, `.github/workflows/`, `.github/dependabot.yml`. Меняешь настройку — меняй файл и прогоняй `./script/setup_github.sh`, а не кликай в веб-интерфейсе.
+
+## Версии и релизы
+
+Источник правды — `MARKETING_VERSION` в `project.yml` (semver, сейчас `0.1.0`). Приложение читает её через `AppMetadata.version` и показывает в `Settings → About` вместе с build-номером; там же кнопка, копирующая диагностику для багрепорта.
+
+Релиз выпускается тегом `v<MARKETING_VERSION>`: пуш тега запускает `.github/workflows/release.yml`, который проверяет совпадение тега с версией в `project.yml`, собирает Release-конфигурацию, пакует DMG и создаёт GitHub Release. Тег, не совпавший с версией в коде, останавливает workflow — сначала поднимай версию в `project.yml` отдельным PR, только потом тегируй `main`.
+
+Релизные сборки подписаны ad-hoc: на раннере нет сертификата, и это не ошибка, а следствие отсутствия Apple Developer account.
