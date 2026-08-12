@@ -15,6 +15,10 @@ script/dmg/background.png
 script/dmg/background@2x.png
 *.bak-disable-ai-memory-*
 
+# Codex CLI's per-repo environment config — a developer's tool setup, not part
+# of the product, in the same class as .vscode or .idea.
+.codex/
+
 # Agent tooling scratch space. Never tracked: these transcripts embed absolute
 # paths, process listings and prompts from the machine that produced them.
 .omc/
