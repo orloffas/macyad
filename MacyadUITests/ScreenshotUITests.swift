@@ -1,6 +1,6 @@
 import XCTest
 
-/// Produces the screenshots used by `README.md` and `README.ru.md`.
+/// Produces the screenshots used by both language halves of `README.md`.
 ///
 /// These run against `-UITEST_SEEDED_PAIRS`, which writes an invented
 /// configuration into a throwaway directory — no real account, no real folder,

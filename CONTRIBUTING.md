@@ -1,11 +1,13 @@
+**English** | [Русский](CONTRIBUTING.ru.md)
+
 # Contributing
 
 Thanks for looking. This is a small project with one maintainer, so the short version is: open an issue before writing anything large, and expect replies to take days rather than hours.
 
 ## Before you start
 
-- **Bugs** go through the [bug report form](https://github.com/orloffas/macyad/issues/new?template=bug_report.yml). It asks for the rclone version, the macOS version and the journal entry, because without those a sync report is unactionable.
-- **Questions and setup problems** belong in [Discussions](https://github.com/orloffas/macyad/discussions), not in issues.
+- **Bugs** go through the [bug report form](https://github.com/orloffas/macyad/issues/new?template=bug_report.yml). It asks for the rclone version, the macOS version and the journal entry, because without those a sync report is unactionable. **Settings → About** has a button that copies all of them.
+- **Questions and setup problems** go through the [question form](https://github.com/orloffas/macyad/issues/new?template=question.yml), which asks for a lot less than a bug report.
 - **Security problems** go through [private reporting](https://github.com/orloffas/macyad/security/advisories/new). See [SECURITY.md](SECURITY.md).
 - **Large changes** — ask first. A PR that rewrites the sync model will not be merged on its merit alone, because the model is the product.
 
@@ -56,6 +58,6 @@ Two things worth knowing before you send a PR:
 
 Keep a PR to one thing. Two unrelated fixes are two PRs — they get reviewed faster and revert cleanly.
 
-If your change alters behaviour, update `README.md` **and** `README.ru.md`. They are expected to say the same things; a change to one without the other is an unfinished change.
+If your change alters behaviour, update **both halves** of `README.md` — the English one and the Russian section below it. They are expected to say the same things; changing one without the other is an unfinished change.
 
 Final call on scope and design is the maintainer's. If a PR is declined, it is usually about fit rather than quality.

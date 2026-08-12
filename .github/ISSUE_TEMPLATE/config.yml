@@ -1,11 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Question about setup, rclone or Yandex Disk
-    url: https://github.com/orloffas/macyad/discussions
-    about: Anything that is not a reproducible defect — setup help, "is this supposed to work like that", ideas in progress.
   - name: Read the documentation first
     url: https://github.com/orloffas/macyad#readme
-    about: Installation, first run, where the app keeps its state, and what to check when sync stops working.
+    about: Installation, first run, where the app keeps its state, and what to check when sync stops working. Both English and Russian.
   - name: Report a security vulnerability
     url: https://github.com/orloffas/macyad/security/advisories/new
     about: Please do not open a public issue for anything security-related.

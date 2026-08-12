@@ -1,0 +1,41 @@
+name: Question
+description: Something is unclear, or you are not sure whether the app is behaving correctly
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two places answer most questions faster than a maintainer can:
+
+        - the **Onboarding** pane in the app — rclone version and path, the configured remote,
+          pair count, whether scheduling is running;
+        - the README, which covers installation, the sync model and troubleshooting.
+
+        Если удобнее по-русски — пишите по-русски.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before asking
+      options:
+        - label: I looked at the README and at the Onboarding pane in the app.
+          required: true
+        - label: This is a question, not a defect — a reproducible defect goes to the bug report form.
+          required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What would you like to know?
+      description: What you are trying to do, and where it stopped being obvious.
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions, if the question is about behaviour
+      description: "Settings → About has a button that copies them. Otherwise leave this empty."
+      placeholder: "MacYaD 0.1.0 (4), macOS 15.3, rclone v1.75.0"
+    validations:
+      required: false
