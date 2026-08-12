@@ -70,8 +70,9 @@ struct OnboardingView: View {
 
             case .complete:
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(copy.onboardingEnvironmentHint)
+                    Text("Everything syncing depends on is listed below. Come back here whenever something stops working, because this pane is the fastest way to tell whether the problem is rclone, the remote or the schedule.")
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                         // Wrapping comes from the width limit below, not from
                         // fixedSize: asking a long string for its ideal height
                         // at unbounded width leaves this pane unable to lay out
