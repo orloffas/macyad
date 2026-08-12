@@ -1,0 +1,71 @@
+# CodeRabbit review settings. Free for public repositories.
+#
+# Reviews are in English because pull requests are the project's public face;
+# switch `language` to ru-RU if that stops being true.
+language: en-US
+early_access: false
+
+reviews:
+  # Balanced rather than assertive: a one-maintainer project does not need a
+  # bot with an opinion about every line.
+  profile: chill
+  high_level_summary: true
+  review_status: true
+  # Neither of these says anything about the code.
+  poem: false
+  in_progress_fortune: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+
+  path_filters:
+    - "!docs/images/**"
+    - "!**/*.png"
+    - "!**/*.tiff"
+    - "!Macyad.xcodeproj/**"
+
+  path_instructions:
+    - path: "Macyad/Views/**/*.swift"
+      instructions: |
+        Views talk to business logic only through ViewModels or AppModel — flag any
+        direct call into Infrastructure (rclone, FileManager, Process) from a view.
+
+        Every user-facing string must come from AppCopy and exist in both English
+        and Russian. A literal in a view is a defect, and so is a Russian string
+        without its English pair.
+
+        Never accept `.fixedSize(horizontal: false, vertical: true)` on long text
+        inside the NavigationSplitView detail column: asking for ideal height at
+        unbounded width leaves the whole window unable to lay out, and it renders
+        blank with the accessibility tree intact. Width limits are the fix.
+
+        Operation names are fixed: "Push to Yandex", "Pull from Yandex",
+        "Check Yandex". Flag any competing wording.
+
+    - path: "Macyad/Domain/**/*.swift"
+      instructions: |
+        This is where the safety model lives. Be suspicious of anything that
+        transfers data without comparing against the baseline first, resolves a
+        conflict automatically, or makes a scheduled run destructive. Those are
+        product decisions, not oversights — see Macyad/Views/AGENTS.md.
+
+    - path: "MacyadUITests/**/*.swift"
+      instructions: |
+        Existence assertions are not enough: a pane that fails to lay out keeps a
+        complete accessibility tree, so waitForExistence passes on a window that
+        renders blank. Key screens must assert isHittable.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        Check that contexts are actually available where they are used — `secrets`
+        is not readable from a step's `if`, and a workflow file that fails to parse
+        produces a run named after the file rather than an error anyone notices.
+
+    - path: "script/**/*.sh"
+      instructions: |
+        Scripts run under `set -euo pipefail`. Watch for unquoted expansions, and
+        for array expansions that break under `set -u` when empty.
+
+chat:
+  auto_reply: true
