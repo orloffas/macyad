@@ -19,11 +19,22 @@
 
 ## What MacYaD is
 
-Yandex Disk has no first-class macOS client that a careful person can trust with a large folder. `rclone` does the job well, but it is a command line tool: you write the flags yourself, and one wrong direction quietly overwrites a year of work.
+Keeping a large folder on Yandex Disk from a Mac leaves you with two options, and neither is comfortable: the official client, on the terms described [below](#why-not-the-official-client), or `rclone` by hand — which does the job well, but is a command line tool where you write the flags yourself, and one wrong direction quietly overwrites a year of work.
 
 MacYaD is a native front end for that job. It keeps a list of **sync pairs** — a local folder, a Yandex account, a remote path — and runs `rclone` for you with a safety check in front of every destructive step. It lives in the menu bar, shows what happened and why, and stops rather than guessing whenever the two sides disagree.
 
 It does not implement its own sync engine, and it does not replace `rclone`. It decides *when it is safe to run it*.
+
+## Why not the official client
+
+Yandex ships a desktop client. These are the reasons this project exists instead — all of them from Yandex's own documents, not from anyone's opinion:
+
+- **Desktop sync is a paid feature.** In Yandex Disk 4.0, connecting a folder and syncing it requires a Yandex 360 subscription; without one, files move only through the web version and the mobile app. ([support page](https://yandex.ru/support/yandex-360/customers/disk/4/windows/ru/synchronization/status))
+- **The desktop licence covers more than files.** Yandex's [desktop software agreement](https://yandex.ru/legal/desktop_software_agreement/) — which names «Яндекс.Диск» in §1.1 — has the user agree to send Yandex their IP address and *data about the networks available to the computer, including wireless ones* (§5.11), plus OS type, program version and identifier, feature usage statistics and "other technical information", which Yandex "has the right to use in its other services and programs for any purpose" (§6.3).
+- **It updates itself silently.** The same agreement has the user consent to automatic download and installation of updates "without any additional notifications" (§7.1).
+- **On mobile it is an advertising surface too.** The App Store privacy labels for the Disk app declare tracking via contact info and identifiers, and a Device ID shared for third-party advertising.
+
+MacYaD replaces the client, not the storage — your files still live on Yandex Disk, under Yandex's terms, and nothing here changes what the service itself sees. What changes is the software on your Mac: the only process that touches the network is `rclone`, talking to the Disk API with a token you created; there is no telemetry, no silent updater, and the code is open. It also works through that API rather than through the desktop program, which is a different door than the one gated above.
 
 ## Before you install
 
