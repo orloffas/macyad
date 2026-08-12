@@ -113,6 +113,21 @@ try "private vulnerability reporting" \
   "private vulnerability reporting is not available yet (needs public)" \
   gh api -X PUT "repos/$REPO/private-vulnerability-reporting"
 
+# Dependabot watches the actions used by the workflows — the project has no
+# package manifests — and these two turn its findings into alerts and pull
+# requests rather than a page nobody opens.
+try "Dependabot alerts" \
+  "Dependabot alerts are not available yet (needs public)" \
+  gh api -X PUT "repos/$REPO/vulnerability-alerts"
+
+try "Dependabot security updates" \
+  "Dependabot security updates are not available yet (needs public)" \
+  gh api -X PUT "repos/$REPO/automated-security-fixes"
+
 say
-say "Code scanning runs from .github/workflows/codeql.yml and skips itself"
-say "while the repository is private."
+if [[ "$VISIBILITY" == "public" ]]; then
+  say "Code scanning runs from .github/workflows/codeql.yml on every push and PR."
+else
+  say "Code scanning runs from .github/workflows/codeql.yml and skips itself"
+  say "while the repository is private."
+fi
