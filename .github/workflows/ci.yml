@@ -14,6 +14,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A broken workflow file does not fail a run — it produces one that never
+  # starts, named after the file instead of the workflow. That is how an
+  # invalid `if:` expression in the release job survived review: nothing else
+  # here reads these files.
+  workflows:
+    name: Lint workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: actionlint
+        run: |
+          bash <(curl -sSf https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color
+
   unit-tests:
     name: Unit tests
     runs-on: macos-15

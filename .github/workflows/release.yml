@@ -22,6 +22,12 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
 
+    env:
+      # Whether the certificate is configured, not the certificate itself: the
+      # `secrets` context cannot be read from a step's `if`, and putting the
+      # key in job-level env would hand it to every step that follows.
+      HAS_CERTIFICATE: ${{ secrets.MACYAD_CERTIFICATE_P12 != '' }}
+
     steps:
       - uses: actions/checkout@v5
 
@@ -61,7 +67,7 @@ jobs:
       # Without the secrets — a fork, or before they are configured — the build
       # still succeeds and ships an ad-hoc signature.
       - name: Import the signing certificate
-        if: ${{ secrets.MACYAD_CERTIFICATE_P12 != '' }}
+        if: env.HAS_CERTIFICATE == 'true'
         env:
           CERTIFICATE_P12: ${{ secrets.MACYAD_CERTIFICATE_P12 }}
           CERTIFICATE_PASSWORD: ${{ secrets.MACYAD_CERTIFICATE_PASSWORD }}
