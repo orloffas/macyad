@@ -8,6 +8,7 @@
 
 **Нативное macOS-приложение в menu bar для безопасной односторонней синхронизации с Яндекс Диском на движке rclone.**
 
+[![CI](https://github.com/orloffas/macyad/actions/workflows/ci.yml/badge.svg)](https://github.com/orloffas/macyad/actions/workflows/ci.yml)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)
 ![Engine: rclone](https://img.shields.io/badge/engine-rclone-3F87C1)
@@ -171,7 +172,10 @@ defaults delete me.orloff.macyad 2>/dev/null || true
 
 ## Участие в проекте
 
-Issues и pull request'ы приветствуются. Перед отправкой прогоняйте `./script/test.sh unit`, а изменения в UI держите в рамках `DESIGN_PRINCIPLES.md`.
+- **Нашли баг?** [Заведите bug report](https://github.com/orloffas/macyad/issues/new?template=bug_report.yml). Форма просит версию rclone, версию macOS и запись журнала — без них сообщение о проблеме синхронизации разобрать невозможно.
+- **Вопрос или не уверены, что это баг?** [Discussions](https://github.com/orloffas/macyad/discussions).
+- **Проблема с безопасностью?** Пожалуйста, не в публичный issue — куда именно, написано в [SECURITY.md](SECURITY.md).
+- **Присылаете код?** В [CONTRIBUTING.md](CONTRIBUTING.md) — сборка, тесты и короткий список того, что в этот проект не примут. Ветка `main` принимает только pull request'ы, и CI обязан быть зелёным, включая мейнтейнера.
 
 ## Лицензия
 

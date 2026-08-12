@@ -8,6 +8,7 @@
 
 **A native macOS menu bar app for safe, one-way Yandex Disk sync — powered by rclone.**
 
+[![CI](https://github.com/orloffas/macyad/actions/workflows/ci.yml/badge.svg)](https://github.com/orloffas/macyad/actions/workflows/ci.yml)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)
 ![Engine: rclone](https://img.shields.io/badge/engine-rclone-3F87C1)
@@ -171,7 +172,10 @@ This deletes your pairs, preferences and journal. Your synced files are untouche
 
 ## Contributing
 
-Issues and pull requests are welcome. Please run `./script/test.sh unit` before opening one, and keep changes to the UI in line with `DESIGN_PRINCIPLES.md`.
+- **Found a bug?** [Open a bug report](https://github.com/orloffas/macyad/issues/new?template=bug_report.yml). The form asks for the rclone version, the macOS version and the journal entry — a sync report without those cannot be acted on.
+- **Question, or not sure it is a bug?** [Discussions](https://github.com/orloffas/macyad/discussions).
+- **Security issue?** Not a public issue, please — [SECURITY.md](SECURITY.md) explains where it goes.
+- **Sending code?** [CONTRIBUTING.md](CONTRIBUTING.md) covers the setup, the tests, and the handful of changes this project will not take. `main` is pull-request-only and CI has to pass, maintainer included.
 
 ## License
 

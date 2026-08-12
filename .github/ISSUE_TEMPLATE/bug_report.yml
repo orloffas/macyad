@@ -1,0 +1,118 @@
+name: Bug report
+description: Something in MacYaD behaves incorrectly and you can describe how to reproduce it
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most reports about "sync not working" turn out to be the environment rather than the app,
+        so the **Onboarding** pane is the first place to look: it shows the rclone path and version,
+        the configured remote, and whether scheduling is running.
+
+        A blocked run is not a bug — it is the app refusing to overwrite something. Open the pair's
+        latest journal entry: it names the side that changed and lists the files.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before reporting
+      options:
+        - label: I searched open and closed issues and this is not a duplicate.
+          required: true
+        - label: "`rclone version` works in Terminal and the Onboarding pane finds it."
+          required: true
+        - label: I removed tokens, real file names and home directory paths from anything I paste below.
+          required: true
+
+  - type: input
+    id: macyad-version
+    attributes:
+      label: MacYaD version
+      description: Settings shows it, or paste the commit you built from.
+      placeholder: "commit 85c122e"
+    validations:
+      required: true
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version and hardware
+      placeholder: "macOS 15.3, Apple Silicon"
+    validations:
+      required: true
+
+  - type: input
+    id: rclone-version
+    attributes:
+      label: rclone version
+      description: Output of `rclone version` (first line is enough).
+      placeholder: "rclone v1.75.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operation
+    attributes:
+      label: Where it happens
+      options:
+        - Push to Yandex
+        - Pull from Yandex
+        - Check Yandex
+        - Scheduled sync
+        - Conflict review
+        - Onboarding / environment check
+        - Settings, accounts or config import/export
+        - Menu bar or main window itself
+        - Somewhere else
+    validations:
+      required: true
+
+  - type: dropdown
+    id: auto-sync
+    attributes:
+      label: Auto-sync mode of the affected pair
+      options:
+        - "Off (manual only)"
+        - Auto-Push
+        - Auto-Pull
+        - Not related to a specific pair
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Select the pair "…"
+        2. Press "Pull from Yandex"
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Journal entry and rclone output
+      description: |
+        From Activity, open the event and copy its details. Redact paths and file names you would
+        rather not publish — the shape of the error matters more than the names.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots of the window, size of the folder, whether it worked before, VPN in the path.
+    validations:
+      required: false
