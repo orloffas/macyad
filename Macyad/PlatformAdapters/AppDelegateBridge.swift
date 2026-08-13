@@ -165,7 +165,10 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         mainWindow = window
         window.delegate = self
 
-        if hidesWindowOnAttach {
+        // Окно от SwiftUI при активном приложении означает пользовательский
+        // запуск, даже если активация опоздала к окну ожидания: автозапуск
+        // login item'ом приложение на передний план не выводит вообще.
+        if hidesWindowOnAttach, !NSApp.isActive {
             hidesWindowOnAttach = false
             hideMainWindow(window)
         } else {
