@@ -4,13 +4,14 @@
 # App
 
 ## Purpose
-Точка входа и корневая инфраструктура приложения: `@main`-структура SwiftUI, DI-контейнер, навигационный роутер, метаданные бандла и файловые пути. Пять файлов разделены между двумя таргетами: `AppPaths.swift` живёт в `MacyadCore` (тестируется без UI), остальные четыре — в таргете `Macyad` (app-only). Логика начального запуска (`BackgroundSyncController`, `StatusBarBridge`, связь `AppDelegateBridge` ↔ `AppModel`) сосредоточена в `MacyadApp.swift`.
+Точка входа и корневая инфраструктура приложения: `@main`-структура SwiftUI, координатор запуска, DI-контейнер, навигационный роутер, метаданные бандла и файловые пути. Шесть файлов разделены между двумя таргетами: `AppPaths.swift` живёт в `MacyadCore` (тестируется без UI), остальные пять — в таргете `Macyad` (app-only). Логика начального запуска (`BackgroundSyncController`, `StatusBarBridge`, связь `AppDelegateBridge` ↔ `AppModel`) живёт в `AppCoordinator.swift` и не зависит от окна.
 
 ## Key Files
 
 | File | Target | Description |
 |------|--------|-------------|
-| `MacyadApp.swift` | Macyad (app) | `@main` SwiftUI `App`; bootstrap, монтаж сцен `WindowGroup` + `Settings`, инициализация StatusBar и BackgroundSync |
+| `MacyadApp.swift` | Macyad (app) | `@main` SwiftUI `App`; только монтаж сцен `WindowGroup` + `Settings` и подписка на объекты координатора |
+| `AppCoordinator.swift` | Macyad (app) | Владелец `AppEnvironment` и `AppModel`; `start(delegate:)` из `applicationDidFinishLaunching` поднимает статус-бар, замыкания `AppModel` и фоновую синхронизацию — независимо от того, создано ли окно |
 | `AppEnvironment.swift` | Macyad (app) | DI-контейнер (`ObservableObject`); `bootstrap()` собирает граф зависимостей, конструирует все репозитории и вьюмодели, предоставляет `makeBackgroundSyncController()` |
 | `AppRouter.swift` | Macyad (app) | `AppRoute` enum (`.onboarding`, `.overview`) и `SidebarSelection` enum (`.route`, `.pair(UUID)`) — значения навигации для sidebar |
 | `AppMetadata.swift` | Macyad (app) | Константы бандла: `bundleIdentifier`, `displayName`, `loggingSubsystem`; плюс `version` / `build` / `versionDisplay`, читаемые из `Info.plist` (источник — `MARKETING_VERSION` в `project.yml`, см. корневой `AGENTS.md`) |
@@ -32,6 +33,7 @@
 ### Common Patterns
 - `AppEnvironment.bootstrap()` читает `ProcessInfo.processInfo.arguments` для определения `AppLaunchMode`; передавать аргументы явно нужно только в тестах.
 - Все ViewModels (`OnboardingViewModel`, `SettingsViewModel`, `PairDetailViewModel`) создаются внутри `AppEnvironment.init` — не в `MacyadApp`.
+- Ничего, что обязано работать при автозапуске, не вешать на `.onAppear` контента `WindowGroup`: при старте login item'ом SwiftUI не создаёт окно, и `.onAppear` не выполняется — так приложение однажды поднялось без иконки в меню-баре и без фоновой синхронизации. Место для такого кода — `AppCoordinator.start(delegate:)`.
 - `MacyadApp` передаёт `environment` и `appModel` через `@EnvironmentObject`; `settingsViewModel` и другие вложенные вьюмодели достаются из `environment` по необходимости.
 
 ## Dependencies

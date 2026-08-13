@@ -38,11 +38,30 @@ public enum AppLaunchMode: Sendable, Equatable {
         }
     }
 
+    /// Аргументы требуют показать окно независимо от того, как приложение
+    /// запустили. Обычный запуск (`.normal`) сюда не входит: по одним только
+    /// аргументам не отличить двойной клик от автозапуска на входе в систему.
     public var shouldForceForegroundWindow: Bool {
         switch self {
-        case .normal, .foreground, .uiTestOnboardingMissingRclone, .uiTestReadyState, .uiTestSeededPairs:
+        case .normal:
+            false
+        case .foreground, .uiTestOnboardingMissingRclone, .uiTestReadyState, .uiTestSeededPairs:
             true
         }
+    }
+
+    /// Показывать ли окно и иконку в Dock на старте.
+    ///
+    /// Аргументы дают только принудительный foreground; отличить двойной клик
+    /// от автозапуска login item'ом можно единственным измеренным признаком —
+    /// активацией. Пользовательский запуск LaunchServices выводит приложение
+    /// на передний план, автозапуск — нет.
+    ///
+    /// `NSApplication.launchIsDefaultUserInfoKey` для этой роли не годится:
+    /// замерено 2026-08-13 на подписанной сборке — ключ приходит `false` и при
+    /// `open -a`, и при `open -ga`.
+    public func presentsWindowOnLaunch(isUserActivated: Bool) -> Bool {
+        shouldForceForegroundWindow || isUserActivated
     }
 
     public var stubbedRcloneLocation: String? {

@@ -7,7 +7,22 @@ import UserNotifications
 final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate, UNUserNotificationCenterDelegate {
     private weak var mainWindow: NSWindow?
     private var statusBarBridge: StatusBarBridge?
-    private var didApplyInitialLaunchBehavior = false
+    /// Окно, созданное SwiftUI при автозапуске, надо спрятать: приложение
+    /// должно подняться только в меню-баре. Сбрасывается, как только окно
+    /// запросили явно — из меню-бара, из уведомления или кликом по Dock.
+    private var hidesWindowOnAttach = false
+    /// Идёт окно ожидания активации: решение «ручной запуск или автозапуск»
+    /// ещё не принято.
+    private var isWaitingForUserActivation = false
+    /// Окно измеряется кадрами, а не секундами: активация от LaunchServices
+    /// приходит сразу за `didFinishLaunching`, а вот клик по иконке в меню-баре
+    /// тоже активирует приложение — и при длинном окне открывал бы главное окно
+    /// вместо поповера. Столько времени человеку на клик не хватит.
+    private static let userActivationGrace: TimeInterval = 0.6
+    /// Запрос на создание окна отправлен и окно ещё не привязано. Без этого
+    /// два клика подряд дают два окна.
+    private var isMainWindowRequestPending = false
+    private static let mainWindowRequestTimeout: TimeInterval = 2
     var notificationRouteHandler: @MainActor (ActivityRouteToken?) -> Void = { _ in }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -17,7 +32,7 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         }
 
         runningApp.unhide()
-        runningApp.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+        runningApp.activate(options: [.activateAllWindows])
         // ponytail: exit(0), not NSApp.terminate — the duplicate must not bootstrap
         // AppEnvironment and race the running instance over Application Support state.
         exit(0)
@@ -25,13 +40,56 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let launchMode = AppLaunchMode(arguments: ProcessInfo.processInfo.arguments)
+        let presentsWindow = launchMode.presentsWindowOnLaunch(isUserActivated: NSApp.isActive)
+
         applyApplicationIcon()
-        NSApp.setActivationPolicy(launchMode.shouldForceForegroundWindow ? .regular : .accessory)
+        NSApp.setActivationPolicy(presentsWindow ? .regular : .accessory)
         UNUserNotificationCenter.current().delegate = self
-        openMainWindowIfLaunchDidNotCreateOne()
-        // Статус-бар создаётся из MacyadApp.onAppear с реальным MenuBarPopoverView:
-        // NSPopover фиксирует contentSize по первому контенту, и заготовка из
-        // EmptyView оставляет popover нулевого размера навсегда.
+        // Статус-бар и фоновая синхронизация поднимаются здесь, а не из onAppear
+        // окна: при автозапуске окна нет, а работать приложение обязано.
+        AppCoordinator.shared.start(delegate: self)
+
+        guard presentsWindow else {
+            hidesWindowOnAttach = true
+            waitForUserActivation()
+            return
+        }
+
+        // На старте окно ждём от SwiftUI: событие уходит, только если своего
+        // окна так и не появилось.
+        openMainWindowIfMissing(after: 0.5)
+    }
+
+    /// Ждёт, окажется ли приложение на переднем плане: пользовательский запуск
+    /// LaunchServices активирует, автозапуск login item'ом — нет.
+    ///
+    /// Решение принимается двумя путями, потому что ни один из них не полон:
+    /// нотификация может прийти раньше конца окна, а может не прийти вовсе,
+    /// если активация случилась ещё до `didFinishLaunching`. Поэтому на исходе
+    /// окна состояние читается напрямую.
+    private func waitForUserActivation() {
+        isWaitingForUserActivation = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.userActivationGrace) { [weak self] in
+            guard let self, self.isWaitingForUserActivation else { return }
+
+            self.isWaitingForUserActivation = false
+
+            guard NSApp.isActive else { return }
+
+            self.showMainWindow()
+        }
+    }
+
+    /// Приложение вывели на передний план. Внутри окна ожидания это значит, что
+    /// запуск был пользовательским. Позже — обычная активация, окно трогать
+    /// нельзя, иначе клик по иконке в меню-баре открывал бы главное окно.
+    func applicationDidBecomeActive(_ notification: Notification) {
+        guard isWaitingForUserActivation else {
+            return
+        }
+
+        isWaitingForUserActivation = false
+        showMainWindow()
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
@@ -50,45 +108,68 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         false
     }
 
-    /// SwiftUI creates the `WindowGroup` window in response to the
-    /// `kAEOpenApplication` event LaunchServices sends on a normal launch.
-    /// A process started directly — XCUITest spawns the binary rather than
-    /// going through LaunchServices — never receives it, so the app comes up
-    /// windowless: menu bar item present, nothing on screen, and every
-    /// accessibility query finds zero windows. Deliver the event to ourselves
-    /// when no window showed up on its own.
-    private func openMainWindowIfLaunchDidNotCreateOne() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            guard let self, self.mainWindow == nil else { return }
-
-            let event = NSAppleEventDescriptor.appleEvent(
-                withEventClass: AEEventClass(kCoreEventClass),
-                eventID: AEEventID(kAEOpenApplication),
-                targetDescriptor: NSAppleEventDescriptor(
-                    processIdentifier: ProcessInfo.processInfo.processIdentifier
-                ),
-                returnID: AEReturnID(kAutoGenerateReturnID),
-                transactionID: AETransactionID(kAnyTransactionID)
-            )
-            try? event.sendEvent(options: .noReply, timeout: 2)
-        }
-    }
-
-    func attachMainWindow(_ window: NSWindow, hideOnInitialLaunch: Bool) {
-        applyMainWindowSizePolicy(to: window)
-        applyApplicationIcon()
-
-        if mainWindow !== window {
-            mainWindow = window
-            window.delegate = self
-        }
-
-        guard !didApplyInitialLaunchBehavior else {
+    /// Просит SwiftUI материализовать окно `WindowGroup`, если его нет.
+    ///
+    /// Окно создаётся в ответ на `kAEOpenApplication`, который LaunchServices
+    /// шлёт при обычном запуске. Процесс, запущенный напрямую (так делает
+    /// XCUITest) или поднятый автозапуском, этого события не получает и
+    /// остаётся без окна, поэтому событие досылается себе. Отправка отложена:
+    /// SwiftUI мог создать окно сам, а второе событие при нулевом числе окон
+    /// дало бы второе окно.
+    private func openMainWindowIfMissing(after delay: TimeInterval) {
+        guard !isMainWindowRequestPending else {
             return
         }
 
-        didApplyInitialLaunchBehavior = true
-        if hideOnInitialLaunch {
+        isMainWindowRequestPending = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self else { return }
+
+            guard self.mainWindow == nil else {
+                self.isMainWindowRequestPending = false
+                return
+            }
+
+            self.sendOpenApplicationEventToSelf()
+            // Флаг снимает attachMainWindow(_:), когда окно появится. Здесь —
+            // страховка на случай, когда оно так и не появилось: иначе запрос
+            // заблокировал бы все следующие попытки навсегда.
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.mainWindowRequestTimeout) { [weak self] in
+                self?.isMainWindowRequestPending = false
+            }
+        }
+    }
+
+    private func sendOpenApplicationEventToSelf() {
+        let event = NSAppleEventDescriptor.appleEvent(
+            withEventClass: AEEventClass(kCoreEventClass),
+            eventID: AEEventID(kAEOpenApplication),
+            targetDescriptor: NSAppleEventDescriptor(
+                processIdentifier: ProcessInfo.processInfo.processIdentifier
+            ),
+            returnID: AEReturnID(kAutoGenerateReturnID),
+            transactionID: AETransactionID(kAnyTransactionID)
+        )
+        _ = try? event.sendEvent(options: .noReply, timeout: 2)
+    }
+
+    func attachMainWindow(_ window: NSWindow) {
+        applyMainWindowSizePolicy(to: window)
+        applyApplicationIcon()
+        isMainWindowRequestPending = false
+
+        guard mainWindow !== window else {
+            return
+        }
+
+        mainWindow = window
+        window.delegate = self
+
+        // Окно от SwiftUI при активном приложении означает пользовательский
+        // запуск, даже если активация опоздала к окну ожидания: автозапуск
+        // login item'ом приложение на передний план не выводит вообще.
+        if hidesWindowOnAttach, !NSApp.isActive {
+            hidesWindowOnAttach = false
             hideMainWindow(window)
         } else {
             showMainWindow()
@@ -96,17 +177,27 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
     }
 
     func showMainWindow() {
-        guard let mainWindow else { return }
-
         applyApplicationIcon()
+        // Политика меняется до вывода окна: приложению в .accessory Window
+        // Server не отдаёт key window, и окно осталось бы под чужими.
         NSApp.setActivationPolicy(.regular)
+        hidesWindowOnAttach = false
+        isWaitingForUserActivation = false
+
+        guard let mainWindow else {
+            // Окна нет вовсе — так поднимается автозапуск. Пусть SwiftUI создаст
+            // его: attachMainWindow(_:) доведёт показ до конца. Задержка здесь
+            // только чтобы схлопнуть повторные запросы, поэтому короткая.
+            openMainWindowIfMissing(after: 0.15)
+            return
+        }
 
         if mainWindow.isMiniaturized {
             mainWindow.deminiaturize(nil)
         }
 
         mainWindow.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
     }
 
     func configureStatusBar(rootView: AnyView) {
@@ -240,7 +331,7 @@ final class IssueReviewWindowBridge: NSObject, NSWindowDelegate {
         window.contentViewController = hostingController
         window.title = title
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
     }
 
     func close() {
