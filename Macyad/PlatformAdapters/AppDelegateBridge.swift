@@ -11,16 +11,18 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
     /// должно подняться только в меню-баре. Сбрасывается, как только окно
     /// запросили явно — из меню-бара, из уведомления или кликом по Dock.
     private var hidesWindowOnAttach = false
-    /// До какого момента активацию приложения считать признаком ручного запуска.
-    private var userActivationDeadline: Date?
+    /// Идёт окно ожидания активации: решение «ручной запуск или автозапуск»
+    /// ещё не принято.
+    private var isWaitingForUserActivation = false
     /// Окно измеряется кадрами, а не секундами: активация от LaunchServices
     /// приходит сразу за `didFinishLaunching`, а вот клик по иконке в меню-баре
     /// тоже активирует приложение — и при длинном окне открывал бы главное окно
     /// вместо поповера. Столько времени человеку на клик не хватит.
     private static let userActivationGrace: TimeInterval = 0.6
-    /// Событие на создание окна уже отправлено и ещё не отработало. Без этого
+    /// Запрос на создание окна отправлен и окно ещё не привязано. Без этого
     /// два клика подряд дают два окна.
     private var isMainWindowRequestPending = false
+    private static let mainWindowRequestTimeout: TimeInterval = 2
     var notificationRouteHandler: @MainActor (ActivityRouteToken?) -> Void = { _ in }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -49,10 +51,7 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
 
         guard presentsWindow else {
             hidesWindowOnAttach = true
-            // Активация на холодном старте может прийти на несколько кадров
-            // позже, чем didFinishLaunching. Короткое окно ожидания спасает
-            // ручной запуск от того, чтобы уехать в меню-бар молча.
-            userActivationDeadline = Date().addingTimeInterval(Self.userActivationGrace)
+            waitForUserActivation()
             return
         }
 
@@ -61,21 +60,35 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         openMainWindowIfMissing(after: 0.5)
     }
 
-    /// Приложение вывели на передний план. Сразу после старта это значит, что
-    /// запуск был пользовательским: автозапуск login item'ом приложение не
-    /// активирует. Позже — обычная активация, окно трогать нельзя (иначе клик
-    /// по иконке в меню-баре открывал бы главное окно).
+    /// Ждёт, окажется ли приложение на переднем плане: пользовательский запуск
+    /// LaunchServices активирует, автозапуск login item'ом — нет.
+    ///
+    /// Решение принимается двумя путями, потому что ни один из них не полон:
+    /// нотификация может прийти раньше конца окна, а может не прийти вовсе,
+    /// если активация случилась ещё до `didFinishLaunching`. Поэтому на исходе
+    /// окна состояние читается напрямую.
+    private func waitForUserActivation() {
+        isWaitingForUserActivation = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.userActivationGrace) { [weak self] in
+            guard let self, self.isWaitingForUserActivation else { return }
+
+            self.isWaitingForUserActivation = false
+
+            guard NSApp.isActive else { return }
+
+            self.showMainWindow()
+        }
+    }
+
+    /// Приложение вывели на передний план. Внутри окна ожидания это значит, что
+    /// запуск был пользовательским. Позже — обычная активация, окно трогать
+    /// нельзя, иначе клик по иконке в меню-баре открывал бы главное окно.
     func applicationDidBecomeActive(_ notification: Notification) {
-        guard let deadline = userActivationDeadline else {
+        guard isWaitingForUserActivation else {
             return
         }
 
-        userActivationDeadline = nil
-
-        guard Date() < deadline else {
-            return
-        }
-
+        isWaitingForUserActivation = false
         showMainWindow()
     }
 
@@ -112,11 +125,18 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self else { return }
 
-            self.isMainWindowRequestPending = false
-
-            guard self.mainWindow == nil else { return }
+            guard self.mainWindow == nil else {
+                self.isMainWindowRequestPending = false
+                return
+            }
 
             self.sendOpenApplicationEventToSelf()
+            // Флаг снимает attachMainWindow(_:), когда окно появится. Здесь —
+            // страховка на случай, когда оно так и не появилось: иначе запрос
+            // заблокировал бы все следующие попытки навсегда.
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.mainWindowRequestTimeout) { [weak self] in
+                self?.isMainWindowRequestPending = false
+            }
         }
     }
 
@@ -136,6 +156,7 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
     func attachMainWindow(_ window: NSWindow) {
         applyMainWindowSizePolicy(to: window)
         applyApplicationIcon()
+        isMainWindowRequestPending = false
 
         guard mainWindow !== window else {
             return
@@ -158,7 +179,7 @@ final class AppDelegateBridge: NSObject, NSApplicationDelegate, NSWindowDelegate
         // Server не отдаёт key window, и окно осталось бы под чужими.
         NSApp.setActivationPolicy(.regular)
         hidesWindowOnAttach = false
-        userActivationDeadline = nil
+        isWaitingForUserActivation = false
 
         guard let mainWindow else {
             // Окна нет вовсе — так поднимается автозапуск. Пусть SwiftUI создаст

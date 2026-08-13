@@ -7,7 +7,11 @@ struct MacyadApp: App {
     @NSApplicationDelegateAdaptor(AppDelegateBridge.self) private var appDelegate
     // Владелец состояния — AppCoordinator, а не сцена: при автозапуске окна
     // может не быть вовсе, а статус-бар и фоновая синхронизация нужны всё равно.
-    private let coordinator = AppCoordinator.shared
+    //
+    // Обращение к синглтону идёт только через autoclosure `@StateObject` и из
+    // замыканий: хранимое свойство подняло бы `AppEnvironment` ещё до
+    // `applicationWillFinishLaunching`, и дубликат процесса успел бы создать
+    // каталоги в Application Support прежде, чем завершиться.
     @StateObject private var environment = AppCoordinator.shared.environment
     @StateObject private var appModel = AppCoordinator.shared.appModel
 
@@ -24,7 +28,7 @@ struct MacyadApp: App {
                 .onAppear {
                     // Окно могли открыть спустя часы после старта: rclone за это
                     // время мог появиться или пропасть.
-                    coordinator.refreshOnboardingState()
+                    AppCoordinator.shared.refreshOnboardingState()
                 }
         }
         .defaultSize(width: 1180, height: 760)
