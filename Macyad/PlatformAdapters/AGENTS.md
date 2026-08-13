@@ -10,7 +10,7 @@
 
 | File | Description |
 |------|-------------|
-| `AppDelegateBridge.swift` | `NSApplicationDelegateAdaptor` + `NSWindowDelegate` + `UNUserNotificationCenterDelegate`; управляет видимостью главного окна, политикой активации (`NSApp.setActivationPolicy`), иконкой в Dock и роутингом уведомлений. Также содержит `IssueReviewWindowBridge` — управляет отдельным `NSWindow` для экрана разбора конфликтов | Содержит `openMainWindowIfLaunchDidNotCreateOne()`: SwiftUI создаёт окно `WindowGroup` в ответ на `kAEOpenApplication` от LaunchServices, а процесс, запущенный напрямую (так делает XCUITest), это событие не получает и остаётся без окна — поэтому событие досылается себе, если окно не появилось само.
+| `AppDelegateBridge.swift` | `NSApplicationDelegateAdaptor` + `NSWindowDelegate` + `UNUserNotificationCenterDelegate`; управляет видимостью главного окна, политикой активации (`NSApp.setActivationPolicy`), иконкой в Dock и роутингом уведомлений; на старте зовёт `AppCoordinator.start(delegate:)`. Также содержит `IssueReviewWindowBridge` — управляет отдельным `NSWindow` для экрана разбора конфликтов | Содержит `openMainWindowIfMissing(after:)`: SwiftUI создаёт окно `WindowGroup` в ответ на `kAEOpenApplication` от LaunchServices, а процесс, запущенный напрямую (так делает XCUITest) или поднятый автозапуском, это событие не получает и остаётся без окна — поэтому событие досылается себе, если окно не появилось само. Тем же путём окно создаётся по требованию из `showMainWindow()`.
 | `StatusBarBridge.swift` | Создаёт и управляет `NSStatusItem` в системном меню; хостит SwiftUI-поповер (`MenuBarPopoverView`) через `NSHostingController`; изображение кнопки — `MenuBarTemplate` (Template image) |
 | `FolderPickerBridge.swift` | Реализует протокол `FolderPicking` из `MacyadCore`; показывает `NSOpenPanel` и возвращает security-scoped bookmark + путь для отображения |
 | `PasteboardBridge.swift` | Реализует протокол `PasteboardWriting` из `MacyadCore`; записывает строку в `NSPasteboard.general` |
@@ -26,8 +26,9 @@
 ### Working In This Directory
 - Никаких полноценных экранов на AppKit. Если нужно создать новый экран — делай его на SwiftUI; используй `WindowAccessor` для получения `NSWindow`, если потребуется.
 - Протоколы `FolderPicking` и `PasteboardWriting` объявлены в `MacyadCore` (не здесь). `FolderPickerBridge` и `PasteboardBridge` — конкретные реализации для production; в тестах подставляются моки.
-- `AppDelegateBridge` получает `NSWindow` не из системного коллбэка, а через явный вызов `attachMainWindow(_:hideOnInitialLaunch:)` из `WindowAccessor` в `MacyadApp`.
-- `StatusBarBridge` создаётся один раз в `MacyadApp.configureStatusBar()`; обновление контента — через `update(rootView:)`, не пересоздавая объект.
+- `AppDelegateBridge` получает `NSWindow` не из системного коллбэка, а через явный вызов `attachMainWindow(_:)` из `WindowAccessor` в `MacyadApp`. Показать окно или спрятать, решает сам делегат: при автозапуске он выставляет `hidesWindowOnAttach`.
+- Ручной запуск от автозапуска отличается активацией: LaunchServices выводит приложение на передний план по действию пользователя, login item — нет. `NSApplication.launchIsDefaultUserInfoKey` для этого не годится, замерено 2026-08-13 — приходит `false` и при `open -a`, и при `open -ga`.
+- `StatusBarBridge` создаётся один раз в `AppCoordinator.configureStatusBar(delegate:)`; обновление контента — через `update(rootView:)`, не пересоздавая объект.
 - `ApplicationRelauncher.relaunch()` вызывается из `SettingsViewModel` после смены языка (требует полного перезапуска); гарантии вызова на `MainActor` обеспечены через `Task { @MainActor in }`.
 
 ### Testing Requirements

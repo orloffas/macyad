@@ -2,11 +2,33 @@ import XCTest
 @testable import MacyadCore
 
 final class AppLaunchModeTests: XCTestCase {
-    func testNormalLaunchShowsMainWindowByDefault() {
+    func testNormalLaunchDoesNotForceForegroundByArgumentsAlone() {
         let mode = AppLaunchMode(arguments: ["MacYaD"])
 
         XCTAssertEqual(mode, .normal)
-        XCTAssertTrue(mode.shouldForceForegroundWindow)
+        XCTAssertFalse(mode.shouldForceForegroundWindow)
+    }
+
+    // Пользовательский запуск выводит приложение на передний план — окно нужно.
+    // Автозапуск login item'ом приложение не активирует: только меню-бар.
+    func testManualLaunchPresentsWindowAndLoginItemLaunchDoesNot() {
+        let mode = AppLaunchMode(arguments: ["MacYaD"])
+
+        XCTAssertTrue(mode.presentsWindowOnLaunch(isUserActivated: true))
+        XCTAssertFalse(mode.presentsWindowOnLaunch(isUserActivated: false))
+    }
+
+    // UI-тесты и --force-foreground обязаны показать окно и без активации:
+    // XCUITest стартует бинарь напрямую, приложение при этом не фронтмост.
+    func testForcedForegroundModesPresentWindowWithoutActivation() {
+        XCTAssertTrue(
+            AppLaunchMode(arguments: ["MacYaD", "--force-foreground"])
+                .presentsWindowOnLaunch(isUserActivated: false)
+        )
+        XCTAssertTrue(
+            AppLaunchMode(arguments: ["MacYaD", "-UITEST_READY_STATE"])
+                .presentsWindowOnLaunch(isUserActivated: false)
+        )
     }
 
     func testForceForegroundArgumentEnablesForegroundLaunch() {

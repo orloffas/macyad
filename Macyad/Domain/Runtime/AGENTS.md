@@ -11,7 +11,7 @@ Enum-флаги, определяющие режим запуска прилож
 
 | File | Description |
 |------|-------------|
-| `AppLaunchMode.swift` | Enum с кейсами `normal`, `foreground`, `uiTestOnboardingMissingRclone`, `uiTestReadyState`; парсит `ProcessInfo.arguments` и `environment`; предоставляет вычисляемые свойства `shouldForceForegroundWindow`, `stubbedRcloneLocation`, `usesEphemeralPaths` |
+| `AppLaunchMode.swift` | Enum с кейсами `normal`, `foreground`, `uiTestOnboardingMissingRclone`, `uiTestReadyState`; парсит `ProcessInfo.arguments` и `environment`; предоставляет вычисляемые свойства `shouldForceForegroundWindow`, `stubbedRcloneLocation`, `usesEphemeralPaths` и `presentsWindowOnLaunch(isUserActivated:)` — решение «показывать окно и иконку в Dock» собирается из аргументов и признака активации, потому что по одним аргументам двойной клик от автозапуска не отличить |
 
 ## For AI Agents
 

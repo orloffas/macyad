@@ -40,6 +40,7 @@ targets:
     type: application
     platform: macOS
     sources:
+      - path: Macyad/App/AppCoordinator.swift
       - path: Macyad/App/AppEnvironment.swift
       - path: Macyad/App/AppMetadata.swift
       - path: Macyad/App/AppRouter.swift
