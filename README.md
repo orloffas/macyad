@@ -10,6 +10,7 @@
 
 [![Release](https://img.shields.io/github/v/release/orloffas/macyad?color=blue)](https://github.com/orloffas/macyad/releases/latest)
 [![CI](https://github.com/orloffas/macyad/actions/workflows/ci.yml/badge.svg)](https://github.com/orloffas/macyad/actions/workflows/ci.yml)
+[![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/orloffas/macyad?utm_source=oss&utm_medium=github&utm_campaign=orloffas%2Fmacyad&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)
 ![Engine: rclone](https://img.shields.io/badge/engine-rclone-3F87C1)
@@ -200,6 +201,7 @@ Built on [`rclone`](https://rclone.org), which does the actual work. MacYaD is n
 
 [![Release](https://img.shields.io/github/v/release/orloffas/macyad?color=blue)](https://github.com/orloffas/macyad/releases/latest)
 [![CI](https://github.com/orloffas/macyad/actions/workflows/ci.yml/badge.svg)](https://github.com/orloffas/macyad/actions/workflows/ci.yml)
+[![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/orloffas/macyad?utm_source=oss&utm_medium=github&utm_campaign=orloffas%2Fmacyad&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white)
 ![Swift 6](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)
 ![Engine: rclone](https://img.shields.io/badge/engine-rclone-3F87C1)
