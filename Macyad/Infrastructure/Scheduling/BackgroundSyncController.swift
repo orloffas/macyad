@@ -161,8 +161,12 @@ public actor BackgroundSyncController {
 
         return ScheduledSyncLifecycle(
             willStart: { [self] pair in
-                await recordScheduledSyncStart(for: pair)
+                await recordScheduledSyncQueued(for: pair)
                 return await base.willStart(pair)
+            },
+            didStart: { [self] pair in
+                await recordScheduledSyncRunning(for: pair)
+                await base.didStart(pair)
             },
             didFinish: { pair in
                 await base.didFinish(pair)
@@ -170,7 +174,7 @@ public actor BackgroundSyncController {
         )
     }
 
-    private func recordScheduledSyncStart(for pair: SyncPair) async {
+    private func recordScheduledSyncQueued(for pair: SyncPair) async {
         let copy = AppCopy.current
         let operationName = copy.scheduledSyncOperationName(pair.autoSyncMode)
         let eventID = UUID()
@@ -179,12 +183,38 @@ public actor BackgroundSyncController {
         let event = ActivityEvent(
             id: eventID,
             date: now(),
-            message: copy.operationStartedMessage(operationName),
+            message: copy.operationQueuedMessage(operationName),
             severity: .info,
             pairID: pair.id,
             inFlightOperation: operationName
         )
         try? await activityStore.append(event)
+        await refreshState()
+    }
+
+    /// Rewrites the entry recorded at queue time once the run reaches the front
+    /// of the serial queue. Keeping the same `id` and `date` means the journal
+    /// still holds one entry per operation.
+    private func recordScheduledSyncRunning(for pair: SyncPair) async {
+        guard let eventID = inFlightEventIDs[pair.id] else {
+            return
+        }
+
+        let copy = AppCopy.current
+        let operationName = copy.scheduledSyncOperationName(pair.autoSyncMode)
+        let queuedDate = (try? await activityStore.load())?
+            .first { $0.id == eventID }?
+            .date ?? now()
+
+        let event = ActivityEvent(
+            id: eventID,
+            date: queuedDate,
+            message: copy.operationStartedMessage(operationName),
+            severity: .info,
+            pairID: pair.id,
+            inFlightOperation: operationName
+        )
+        try? await activityStore.replace(event)
         await refreshState()
     }
 

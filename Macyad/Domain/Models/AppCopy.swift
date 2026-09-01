@@ -1178,6 +1178,14 @@ public struct AppCopy: Sendable {
         isRussian ? "Выполняется" : "Running"
     }
 
+    /// Written when the run is recorded, which happens before it reaches the
+    /// front of the serial queue. Saying "running" there once cost a whole day
+    /// of misdiagnosis: an operation that never started looked like a hung
+    /// rclone in the journal, while only the status badge said `Queued`.
+    public func operationQueuedMessage(_ operation: String) -> String {
+        isRussian ? "\(operation): в очереди…" : "\(operation): queued…"
+    }
+
     public func operationStartedMessage(_ operation: String) -> String {
         isRussian ? "\(operation): выполняется…" : "\(operation): running…"
     }
