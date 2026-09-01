@@ -73,10 +73,13 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         issueSet = try container.decodeIfPresent(ActivityIssueSet.self, forKey: .issueSet)
         routeToken = try container.decodeIfPresent(ActivityRouteToken.self, forKey: .routeToken)
         inFlightOperation = try container.decodeIfPresent(String.self, forKey: .inFlightOperation)
-        // Journals written before the phase existed carry no value. Decoding
-        // keeps that absence honest; `interrupted(using:at:)` is where a missing
-        // phase is read as "may have been running", which is the safe reading.
-        inFlightPhase = try container.decodeIfPresent(InFlightPhase.self, forKey: .inFlightPhase)
+        // Journals written before the phase existed carry no value, and one
+        // written by a later build could carry a value this build has no case
+        // for. Both decode to nil rather than throwing: callers load the
+        // journal with `try?`, so a single unreadable entry would take the
+        // whole history with it. `interrupted(using:at:)` reads a missing phase
+        // as "may have been running", which is the safe reading of an unknown.
+        inFlightPhase = (try? container.decodeIfPresent(InFlightPhase.self, forKey: .inFlightPhase)) ?? nil
     }
 
     /// First sentence of the details, for the journal row. The full text runs

@@ -194,6 +194,32 @@ final class ActivityEventTests: XCTestCase {
         XCTAssertEqual(recovered?.message, copy.operationInterruptedMessage("Push to Yandex"))
     }
 
+    /// A journal written by a later build can carry a phase this build has no
+    /// case for. Callers load the journal with `try?`, so throwing on one entry
+    /// would silently empty the user's whole history.
+    func testUnknownInFlightPhaseDoesNotBreakDecoding() throws {
+        let json = Data("""
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "date": 700000000,
+          "message": "m",
+          "severity": "info",
+          "inFlightOperation": "Push to Yandex",
+          "inFlightPhase": "paused"
+        }
+        """.utf8)
+
+        let decoded = try JSONDecoder().decode(ActivityEvent.self, from: json)
+
+        XCTAssertNil(decoded.inFlightPhase)
+        XCTAssertEqual(decoded.inFlightOperation, "Push to Yandex")
+        XCTAssertEqual(
+            decoded.interrupted(using: AppCopy(language: .english))?.severity,
+            .warning,
+            "an unreadable phase must fall back to the cautious reading, not the reassuring one"
+        )
+    }
+
     func testMarkingInterruptedRunsSparesRunsStartedByThisLaunch() {
         let copy = AppCopy(language: .english)
         let launchedAt = Date(timeIntervalSince1970: 1_716_580_800)
