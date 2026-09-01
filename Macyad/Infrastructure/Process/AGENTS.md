@@ -25,6 +25,8 @@
 ### Working In This Directory
 
 - Никогда не создавать `Foundation.Process()` напрямую за пределами `RcloneProcessClient` — все вызовы через `RcloneProcessRunning`.
+- **Не вызывать `Process.waitUntilExit()`.** Он крутит run loop того потока, который его позвал, а смерть дочернего процесса доставляется потоку, вызвавшему `run()`; под Swift Concurrency это разные потоки пула, и ожидание не возвращается никогда. Так операция pull простояла «running…» шесть дней при уже мёртвом rclone, а вместе с ней встала вся очередь `SerialOperationCoordinator`. Ждать завершения только через `ProcessExit` (обёртка над `terminationHandler`, ставится до `run()`).
+- Блокирующее чтение пайпов (`availableData`, `readDataToEndOfFile`) выполнять только на `pipeReadQueue`, а не в `Task`/`Task.detached`: в кооперативном пуле Swift Concurrency потоков ровно по числу ядер, и заблокированный там поток из пула не возвращается.
 - `RcloneCommandBuilder` — только pure static методы; не добавлять state или async.
 - Exclude-файлы материализуются в `AppPaths.rcloneFiltersDirectory` (`rclone/filters/`); `RcloneExcludeFileStore` управляет lifecycle этих файлов.
 - `RcloneExcludeMatcher` работает локально (без rclone), используется для preview и фильтрации до запуска синхронизации.

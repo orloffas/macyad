@@ -28,11 +28,17 @@ struct HoverTipModifier: ViewModifier {
                 }
             }
             .popover(isPresented: $isVisible, arrowEdge: .bottom) {
+                // A popover proposes its whole container to the content, and
+                // `maxWidth` accepts that proposal for the height — which is how
+                // a two-line tip grew into a window-tall empty panel. A fixed
+                // width plus `fixedSize` vertically asks for the wrapped text's
+                // own height instead.
                 Text(text)
                     .font(.caption)
+                    .multilineTextAlignment(.leading)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .frame(maxWidth: 360)
+                    .frame(width: 280, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
     }

@@ -98,36 +98,113 @@ public struct RcloneProcessClient: RcloneProcessRunning {
         process.standardError = stderrPipe
 
         let (stream, continuation) = AsyncStream.makeStream(of: String.self, bufferingPolicy: .bufferingNewest(1000))
+        let exit = ProcessExit(watching: process)
+
+        // Read both stdout and stderr concurrently, yielding lines from each
+        // into the shared stream (rclone writes most operational output to stderr,
+        // so the live monitor would stay empty if we only piped stdout).
+        let stdoutReader = readToEnd(stdoutPipe.fileHandleForReading, yieldingLinesTo: continuation)
+        let stderrReader = readToEnd(stderrPipe.fileHandleForReading, yieldingLinesTo: continuation)
 
         let completionTask = Task<(stdout: String, stderr: String, exitCode: Int32), Error> {
-            // Read both stdout and stderr concurrently, yielding lines from each
-            // into the shared stream (rclone writes most operational output to stderr,
-            // so the live monitor would stay empty if we only piped stdout).
-            let stdoutReader = Task.detached(priority: .utility) {
-                pumpLines(from: stdoutPipe.fileHandleForReading, into: continuation)
-            }
-            let stderrReader = Task.detached(priority: .utility) {
-                pumpLines(from: stderrPipe.fileHandleForReading, into: continuation)
-            }
-
             let stdoutData = await stdoutReader.value
             let stderrData = await stderrReader.value
             continuation.finish()
 
-            process.waitUntilExit()
-
             return (
                 stdout: String(decoding: stdoutData, as: UTF8.self),
                 stderr: String(decoding: stderrData, as: UTF8.self),
-                exitCode: process.terminationStatus
+                exitCode: try await exit.code()
             )
         }
 
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            // Nothing was spawned, so no child ever inherits the write ends and
+            // the readers would block on them forever. Close them here and let
+            // the exit signal finish so the completion task cannot outlive the
+            // failed launch.
+            exit.cancel()
+            try? stdoutPipe.fileHandleForWriting.close()
+            try? stderrPipe.fileHandleForWriting.close()
+            throw error
+        }
 
         return RcloneStreamingHandle(lines: stream, completion: completionTask)
     }
 }
+
+/// Awaits a child process without ever calling `Process.waitUntilExit()`.
+///
+/// `waitUntilExit()` drives the run loop of whichever thread calls it, while the
+/// child's death is delivered to the thread that called `run()`. Under Swift
+/// Concurrency those are two different pool threads as soon as the enclosing
+/// task hops, and the wait then never returns: a pull sat at "running…" for six
+/// days with no rclone process left alive, and because every manual and
+/// scheduled operation goes through `SerialOperationCoordinator`, the queue
+/// behind it never moved again. It also blocked a cooperative thread, which
+/// Swift Concurrency does not allow.
+///
+/// `terminationHandler` is installed in `init`, before `run()`, so a child that
+/// exits immediately cannot slip past it. The one-slot stream keeps the exit
+/// code until somebody asks for it.
+private struct ProcessExit: Sendable {
+    private let codes: AsyncStream<Int32>
+    private let continuation: AsyncStream<Int32>.Continuation
+
+    init(watching process: Process) {
+        (codes, continuation) = AsyncStream.makeStream(of: Int32.self, bufferingPolicy: .bufferingNewest(1))
+        let continuation = continuation
+        process.terminationHandler = { finished in
+            continuation.yield(finished.terminationStatus)
+            continuation.finish()
+        }
+    }
+
+    func code() async throws -> Int32 {
+        for await code in codes {
+            return code
+        }
+        // Never invent a number here: a synthetic exit code is indistinguishable
+        // from one rclone actually returned, and callers branch on it.
+        throw ProcessExitUnreported()
+    }
+
+    func cancel() {
+        continuation.finish()
+    }
+}
+
+/// The process never reported a status: it failed to launch, or its status was
+/// already consumed.
+private struct ProcessExitUnreported: Error {}
+
+/// Drains a pipe on a dedicated GCD queue. `FileHandle` reads block, and
+/// blocking a thread of the Swift Concurrency pool (which holds one thread per
+/// core) is what turns a single stuck read into an app-wide stall.
+private func readToEnd(
+    _ handle: FileHandle,
+    yieldingLinesTo lineContinuation: AsyncStream<String>.Continuation?
+) -> Task<Data, Never> {
+    Task {
+        await withCheckedContinuation { continuation in
+            pipeReadQueue.async {
+                guard let lineContinuation else {
+                    continuation.resume(returning: handle.readDataToEndOfFile())
+                    return
+                }
+                continuation.resume(returning: pumpLines(from: handle, into: lineContinuation))
+            }
+        }
+    }
+}
+
+private let pipeReadQueue = DispatchQueue(
+    label: "me.orloff.macyad.rclone-pipe-read",
+    qos: .utility,
+    attributes: .concurrent
+)
 
 private func pumpLines(
     from handle: FileHandle,
@@ -172,21 +249,24 @@ private func runProcess(
     process.standardOutput = stdoutPipe
     process.standardError = stderrPipe
 
-    let stdoutTask = Task.detached(priority: .utility) {
-        stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-    }
-    let stderrTask = Task.detached(priority: .utility) {
-        stderrPipe.fileHandleForReading.readDataToEndOfFile()
-    }
+    let exit = ProcessExit(watching: process)
+    let stdoutTask = readToEnd(stdoutPipe.fileHandleForReading, yieldingLinesTo: nil)
+    let stderrTask = readToEnd(stderrPipe.fileHandleForReading, yieldingLinesTo: nil)
 
-    try process.run()
-    process.waitUntilExit()
+    do {
+        try process.run()
+    } catch {
+        exit.cancel()
+        try? stdoutPipe.fileHandleForWriting.close()
+        try? stderrPipe.fileHandleForWriting.close()
+        throw error
+    }
 
     let stdout = await stdoutTask.value
     let stderr = await stderrTask.value
     return (
         stdout: String(decoding: stdout, as: UTF8.self),
         stderr: String(decoding: stderr, as: UTF8.self),
-        exitCode: process.terminationStatus
+        exitCode: try await exit.code()
     )
 }
