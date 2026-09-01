@@ -352,6 +352,14 @@ struct MainWindowView: View {
             return
         }
 
+        // The detail pane disables its buttons while a manual run is in flight,
+        // but the menu bar quick actions have no such state to bind to — three
+        // clicks used to enqueue three full runs of the same pair. The guard
+        // lives here because all three quick actions route through it.
+        guard !appModel.activeManualPairIDs.contains(activePair.id) else {
+            return
+        }
+
         Task {
             await run(operation, for: activePair)
         }
@@ -383,10 +391,11 @@ struct MainWindowView: View {
         let startedEvent = ActivityEvent(
             id: eventID,
             date: Date(),
-            message: AppCopy.current.operationStartedMessage(opTitle),
+            message: AppCopy.current.operationQueuedMessage(opTitle),
             severity: .info,
             pairID: pair.id,
-            inFlightOperation: opTitle
+            inFlightOperation: opTitle,
+            inFlightPhase: .queued
         )
         try? await environment.activityRepository.append(startedEvent)
 
@@ -406,7 +415,22 @@ struct MainWindowView: View {
         do {
             let syncService = try await makeSyncService()
             let outcome = try await environment.operationCoordinator.enqueue(pairID: pair.id, label: operation.queueLabel) {
+                // The journal entry above went in before this closure reached
+                // the front of the serial queue. Only now is the run actually
+                // starting, so only now may it say so.
+                let runningEvent = ActivityEvent(
+                    id: eventID,
+                    date: startedEvent.date,
+                    message: AppCopy.current.operationStartedMessage(opTitle),
+                    severity: .info,
+                    pairID: pair.id,
+                    inFlightOperation: opTitle,
+                    inFlightPhase: .running
+                )
+                try? await environment.activityRepository.replace(runningEvent)
+
                 await MainActor.run {
+                    appModel.replaceActivityEvent(runningEvent)
                     liveMonitorViewModel.appendLine(
                         "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : running, capturing snapshots before rclone (this can take a few seconds)…"
                     )

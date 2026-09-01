@@ -100,6 +100,74 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertTrue(events[0].message.contains("Scheduled Push to Yandex completed"))
     }
 
+    /// A run is journaled when it is queued, which can be long before it gets
+    /// to run. Saying "running" at that point once sent a whole day of
+    /// debugging after a hung queue: the journal claimed rclone was working
+    /// while it had never been launched.
+    func testJournalSaysQueuedUntilTheRunActuallyStarts() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Docs", lastSyncAt: now.addingTimeInterval(-4_000))
+        let activityStore = InMemoryActivityStore()
+        let atQueueTime = EventSnapshotBox()
+        let atStartTime = EventSnapshotBox()
+        let scheduler = SchedulerService(
+            policy: ScheduledSyncEligibilityPolicy(),
+            syncService: SyncService(
+                processClient: RecordingProcessClient(),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+                snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+                baselineRepository: InMemoryBaselineStore()
+            )
+        )
+        let controller = BackgroundSyncController(
+            scheduler: scheduler,
+            pairStore: InMemoryPairStore(pairs: [pair]),
+            preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
+            activityStore: activityStore,
+            notificationClient: RecordingNotificationClient(),
+            now: { now },
+            sleep: { _ in },
+            scheduledSyncLifecycle: ScheduledSyncLifecycle(
+                willStart: { _ in
+                    await atQueueTime.store((try? await activityStore.load()) ?? [])
+                    return nil
+                },
+                didStart: { _ in
+                    await atStartTime.store((try? await activityStore.load()) ?? [])
+                },
+                didFinish: { _ in }
+            )
+        )
+
+        await controller.runCycle()
+
+        let queued = await atQueueTime.events()
+        XCTAssertEqual(queued.count, 1)
+        XCTAssertTrue(
+            queued[0].message.contains("queued"),
+            "journal should not claim the run started while it is still queued: \(queued[0].message)"
+        )
+
+        let started = await atStartTime.events()
+        XCTAssertEqual(started.count, 1, "the queued entry is rewritten, not duplicated")
+        XCTAssertEqual(started[0].id, queued[0].id)
+        XCTAssertEqual(started[0].date, queued[0].date, "the entry keeps the time the run was requested")
+        XCTAssertTrue(
+            started[0].message.contains("running"),
+            "journal should say running once the run reached the front of the queue: \(started[0].message)"
+        )
+
+        // The result still replaces that same entry rather than adding one.
+        let events = try await activityStore.load()
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events[0].id, queued[0].id)
+        XCTAssertNil(events[0].inFlightOperation)
+    }
+
     func testFailingPairSaveStillClosesTheJournalEntry() async throws {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)

@@ -42,6 +42,10 @@ struct MenuBarPopoverView: View {
                         .help(copy.pullActionDescription)
                     }
                     .controlSize(.small)
+                    // Mirrors the detail pane, which disables its buttons for
+                    // the same reason. The action layer refuses a second run
+                    // regardless; this only makes the refusal visible.
+                    .disabled(appModel.activeManualPairIDs.contains(activePair.id))
                 }
             }
 

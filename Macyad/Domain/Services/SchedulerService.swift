@@ -173,10 +173,13 @@ public actor SchedulerService {
 
             let observer = await lifecycle.willStart(pair)
             let run: @Sendable () async -> SyncService.OperationOutcome = {
+                // Inside the closure, so it fires when the coordinator lets the
+                // run start rather than when it was queued.
+                await lifecycle.didStart(pair)
                 if isPull {
-                    await syncService.pull(pair, executionMode: .scheduled, observer: observer)
+                    return await syncService.pull(pair, executionMode: .scheduled, observer: observer)
                 } else {
-                    await syncService.push(pair, executionMode: .scheduled, observer: observer)
+                    return await syncService.push(pair, executionMode: .scheduled, observer: observer)
                 }
             }
 

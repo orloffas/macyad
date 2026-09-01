@@ -1178,8 +1178,36 @@ public struct AppCopy: Sendable {
         isRussian ? "Выполняется" : "Running"
     }
 
+    /// Written when the run is recorded, which happens before it reaches the
+    /// front of the serial queue. Saying "running" there once cost a whole day
+    /// of misdiagnosis: an operation that never started looked like a hung
+    /// rclone in the journal, while only the status badge said `Queued`.
+    public func operationQueuedMessage(_ operation: String) -> String {
+        isRussian ? "\(operation): в очереди…" : "\(operation): queued…"
+    }
+
     public func operationStartedMessage(_ operation: String) -> String {
         isRussian ? "\(operation): выполняется…" : "\(operation): running…"
+    }
+
+    /// A run that was quit before it ever left the queue. Deliberately not a
+    /// warning: rclone was never launched, so there is nothing to check and
+    /// nothing to undo — and telling the user files may have moved would send
+    /// them hunting for damage that cannot exist.
+    public func operationAbandonedInQueueMessage(_ operation: String) -> String {
+        if isRussian {
+            return "\(operation): отменено — приложение закрыто до начала выполнения"
+        }
+
+        return "\(operation): cancelled — the app was quit before it started"
+    }
+
+    public var operationAbandonedInQueueDetails: String {
+        if isRussian {
+            return "Операция ждала очереди и не запускалась. Файлы не изменялись."
+        }
+
+        return "The operation was waiting its turn and never ran. No files were touched."
     }
 
     public func operationInterruptedMessage(_ operation: String) -> String {
