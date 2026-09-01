@@ -4,8 +4,6 @@ Russian version: [CHANGELOG.ru.md](CHANGELOG.ru.md)
 
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
-
 ## 0.1.2 — 2026-09-01
 
 Every entry here is one bug. The first one froze the whole app, and the rest are
