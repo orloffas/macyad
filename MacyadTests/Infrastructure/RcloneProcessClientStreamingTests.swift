@@ -108,6 +108,37 @@ final class RcloneProcessClientStreamingTests: XCTestCase {
         }
     }
 
+    /// A pipe read cuts wherever the buffer ends, and decoding each chunk on its
+    /// own returned nil — dropping the whole chunk — whenever that cut landed
+    /// mid-character. The fragment is 13 bytes, so no power-of-two buffer
+    /// boundary can align with it, and the payload is built by doubling so it
+    /// reaches the pipe as one long write rather than one write per fragment
+    /// (per-fragment writes align by construction and hide the bug).
+    func testRunStreamingKeepsCyrillicLineSplitAcrossChunkBoundaries() async throws {
+        let fragment = "Схемы—"
+        let doublings = 14
+        let repeats = 1 << doublings
+        let client = RcloneProcessClient(executablePath: "/bin/sh")
+        let handle = try await client.runStreaming([
+            "-c",
+            "s='\(fragment)'; i=0; while [ $i -lt \(doublings) ]; do s=\"$s$s\"; i=$((i+1)); done; printf '%s\\n' \"$s\""
+        ])
+
+        var collectedLines: [String] = []
+        for await line in handle.lines {
+            collectedLines.append(line)
+        }
+
+        let result = try await handle.completion.value
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(collectedLines.count, 1)
+        XCTAssertEqual(collectedLines.first?.count, fragment.count * repeats)
+        XCTAssertFalse(
+            collectedLines.first?.contains("\u{FFFD}") ?? true,
+            "a replacement character means a chunk boundary corrupted the text"
+        )
+    }
+
     func testRunStreamingThrowsWithoutLeakingReadersWhenExecutableIsMissing() async throws {
         let client = RcloneProcessClient(executablePath: "/nonexistent/rclone")
 

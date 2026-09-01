@@ -211,27 +211,33 @@ private func pumpLines(
     into continuation: AsyncStream<String>.Continuation
 ) -> Data {
     var collected = Data()
-    var lineBuffer = ""
+    var lineBuffer = Data()
+    // Split on bytes and decode whole lines. `availableData` cuts wherever the
+    // pipe happens to be, so a chunk boundary lands mid-character often enough
+    // once paths are Cyrillic — and decoding per chunk dropped the entire chunk
+    // whenever it did.
+    let newline = UInt8(ascii: "\n")
+    // rclone's --stats-one-line overwrites its row with a carriage return, so a
+    // \r is a line break here too; otherwise progress accumulates into a single
+    // ever-growing line. A \r\n pair leaves an empty segment, which is skipped.
+    let carriageReturn = UInt8(ascii: "\r")
+
     while true {
         let chunk = handle.availableData
         if chunk.isEmpty { break }
         collected.append(chunk)
-        guard let text = String(data: chunk, encoding: .utf8) else { continue }
-        // Normalize so we yield each carriage-returned progress update
-        // (rclone's --stats-one-line uses \r to overwrite the same TTY row
-        // and would otherwise accumulate into a single ever-growing line).
-        let normalized = text
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-        lineBuffer += normalized
-        var lines = lineBuffer.components(separatedBy: "\n")
-        lineBuffer = lines.removeLast()
-        for line in lines where !line.isEmpty {
-            continuation.yield(line)
+        lineBuffer.append(chunk)
+
+        while let end = lineBuffer.firstIndex(where: { $0 == newline || $0 == carriageReturn }) {
+            let line = lineBuffer[lineBuffer.startIndex..<end]
+            if !line.isEmpty {
+                continuation.yield(String(decoding: line, as: UTF8.self))
+            }
+            lineBuffer = Data(lineBuffer[lineBuffer.index(after: end)...])
         }
     }
     if !lineBuffer.isEmpty {
-        continuation.yield(lineBuffer)
+        continuation.yield(String(decoding: lineBuffer, as: UTF8.self))
     }
     return collected
 }
