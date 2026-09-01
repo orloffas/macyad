@@ -121,7 +121,7 @@ jobs:
 
       # Downloadable from the run itself, which is the point of a rehearsal:
       # the DMG can be opened and looked at before anything is published.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: MacYaD-${{ env.RELEASE_NAME }}-dmg
           path: MacYaD-${{ env.RELEASE_NAME }}.dmg
