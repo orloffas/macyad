@@ -31,14 +31,14 @@ final class ActivityEventTests: XCTestCase {
             message: "Push to Yandex blocked",
             severity: .warning,
             pairID: UUID(),
-            details: "Local folder is empty. Run Pull From Yandex first."
+            details: "Local folder is empty. Run Pull from Yandex first."
         )
 
         let data = try JSONEncoder().encode(event)
         let decoded = try JSONDecoder().decode(ActivityEvent.self, from: data)
 
         XCTAssertEqual(decoded, event)
-        XCTAssertEqual(decoded.details, "Local folder is empty. Run Pull From Yandex first.")
+        XCTAssertEqual(decoded.details, "Local folder is empty. Run Pull from Yandex first.")
     }
 
     func testIssueSetAndRouteTokenRoundTrip() throws {

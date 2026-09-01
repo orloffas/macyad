@@ -1382,8 +1382,8 @@ public struct AppCopy: Sendable {
                 : "Runs Push to Yandex on schedule: local folder → Yandex."
         case .pull:
             isRussian
-                ? "По расписанию выполняется Pull From Yandex: Yandex → локальная папка."
-                : "Runs Pull From Yandex on schedule: Yandex → local folder."
+                ? "По расписанию выполняется Pull from Yandex: Yandex → локальная папка."
+                : "Runs Pull from Yandex on schedule: Yandex → local folder."
         }
     }
 
@@ -1434,7 +1434,7 @@ public struct AppCopy: Sendable {
     /// Name of the rclone-facing operation a scheduled run performs, used to
     /// build the scheduled-sync copy below for both directions.
     public func scheduledSyncOperationName(_ direction: AutoSyncMode) -> String {
-        direction == .pull ? "Pull From Yandex" : "Push to Yandex"
+        direction == .pull ? "Pull from Yandex" : "Push to Yandex"
     }
 
     public func scheduledSyncBootstrapFailure(_ direction: AutoSyncMode) -> String {
@@ -1485,8 +1485,8 @@ public struct AppCopy: Sendable {
 
     public var localFolderEmptyPushBlocked: String {
         isRussian
-            ? "Локальная папка пуста. Сначала выполните Pull From Yandex; Push to Yandex заблокирован, чтобы не очистить Yandex."
-            : "Local folder is empty. Run Pull From Yandex first; Push to Yandex was blocked to avoid clearing Yandex."
+            ? "Локальная папка пуста. Сначала выполните Pull from Yandex; Push to Yandex заблокирован, чтобы не очистить Yandex."
+            : "Local folder is empty. Run Pull from Yandex first; Push to Yandex was blocked to avoid clearing Yandex."
     }
 
     public var baselineMissingBlockedSummary: String {
@@ -1570,14 +1570,14 @@ public struct AppCopy: Sendable {
         let summary: String
         if isRussian {
             if let differenceCount {
-                summary = "Проверка Yandex обнаружила различия: \(differenceCount). Посмотрите подробный log ниже; если изменения на стороне remote нужны локально, выполните Pull From Yandex перед следующим Push to Yandex."
+                summary = "Проверка Yandex обнаружила различия: \(differenceCount). Посмотрите подробный log ниже; если изменения на стороне remote нужны локально, выполните Pull from Yandex перед следующим Push to Yandex."
             } else {
-                summary = "Проверка Yandex обнаружила изменения или drift на стороне remote. Перед следующим Push to Yandex проверьте состояние и при необходимости выполните Pull From Yandex."
+                summary = "Проверка Yandex обнаружила изменения или drift на стороне remote. Перед следующим Push to Yandex проверьте состояние и при необходимости выполните Pull from Yandex."
             }
         } else if let differenceCount {
-            summary = "Check Yandex found \(differenceCount) difference(s). Review the detailed rclone log below; if the remote changes should be brought local, run Pull From Yandex before the next Push to Yandex."
+            summary = "Check Yandex found \(differenceCount) difference(s). Review the detailed rclone log below; if the remote changes should be brought local, run Pull from Yandex before the next Push to Yandex."
         } else {
-            summary = "Check Yandex detected remote changes or drift. Review the state and run Pull From Yandex before the next Push to Yandex if needed."
+            summary = "Check Yandex detected remote changes or drift. Review the state and run Pull from Yandex before the next Push to Yandex if needed."
         }
 
         return "\(summary)\n\n\(logDescription)"
