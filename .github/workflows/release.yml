@@ -137,9 +137,11 @@ jobs:
           # says what changed for someone using the app. A missing section warns
           # rather than fails: thin notes beat a release that did not publish.
           VERSION="${RELEASE_NAME#v}"
+          # Field comparison rather than a regex: a version is full of dots, and
+          # dots in a regex match anything.
           awk -v version="$VERSION" '
-            $0 ~ "^## " version "( |$)" { collecting = 1; next }
-            collecting && /^## / { exit }
+            $1 == "##" && $2 == version { collecting = 1; next }
+            collecting && $1 == "##" { exit }
             collecting { print }
           ' CHANGELOG.md > changelog-section.md || true
 
