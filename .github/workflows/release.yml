@@ -117,6 +117,11 @@ jobs:
             ".derived-data-release/Build/Products/Release/MacYaD.app" \
             "MacYaD-${RELEASE_NAME}.dmg"
 
+          # Without pipefail the pipeline reports tee's status, so a failed
+          # shasum would leave an empty checksum.txt and the release would
+          # publish an empty SHA-256 block — the one thing people use to check
+          # they downloaded what we built.
+          set -o pipefail
           shasum -a 256 "MacYaD-${RELEASE_NAME}.dmg" | tee checksum.txt
 
       # Downloadable from the run itself, which is the point of a rehearsal:
@@ -127,12 +132,45 @@ jobs:
           path: MacYaD-${{ env.RELEASE_NAME }}.dmg
           retention-days: 7
 
-      - name: Publish the release
-        if: github.event_name == 'push' || inputs.publish
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # Deliberately outside the publish step: a rehearsal skips publishing, and
+      # notes built only at publish time would first be exercised by the tag that
+      # already went out. This way the rehearsal shows exactly what would ship.
+      - name: Build the release notes
         run: |
+          # The section CHANGELOG.md keeps for this version. The generated
+          # commit list added at publish time says what landed; this says what
+          # changed for someone using the app.
+          VERSION="${RELEASE_NAME#v}"
+          # Field comparison rather than a regex: a version is full of dots, and
+          # dots in a regex match anything.
+          awk -v version="$VERSION" '
+            $1 == "##" && $2 == version { collecting = 1; next }
+            collecting && $1 == "##" { exit }
+            collecting { print }
+          ' CHANGELOG.md > changelog-section.md || true
+
+          if [ ! -s changelog-section.md ]; then
+            # A rehearsal may legitimately run before the changelog is written.
+            # A tag may not: nobody is going to notice thin notes on a release
+            # that is already public.
+            if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+              echo "::error::CHANGELOG.md has no section for $VERSION"
+              exit 1
+            fi
+            echo "::warning::CHANGELOG.md has no section for $VERSION"
+          fi
+
+          if [ ! -s checksum.txt ]; then
+            echo "::error::checksum.txt is empty; refusing to build notes without a SHA-256"
+            exit 1
+          fi
+
           {
+            if [ -s changelog-section.md ]; then
+              echo "## What changed"
+              cat changelog-section.md
+            fi
+
             echo "## Install"
             echo
             echo "Open the DMG and drag MacYaD to Applications, then **right-click the app → Open → Open**."
@@ -147,6 +185,17 @@ jobs:
             echo '```'
           } > notes.md
 
+          {
+            echo "### Release notes for $RELEASE_NAME"
+            echo
+            cat notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the release
+        if: github.event_name == 'push' || inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
           gh release create "$RELEASE_NAME" \
             "MacYaD-${RELEASE_NAME}.dmg" \
             --title "$RELEASE_NAME" \

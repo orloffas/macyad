@@ -180,6 +180,7 @@ This deletes your pairs, preferences and journal. Your synced files are untouche
 - **Question, or not sure it is a bug?** [Ask here](https://github.com/orloffas/macyad/issues/new?template=question.yml) — the form is short.
 - **Security issue?** Not a public issue, please — [SECURITY.md](SECURITY.md) explains where it goes.
 - **Sending code?** [CONTRIBUTING.md](CONTRIBUTING.md) covers the setup, the tests, and the handful of changes this project will not take. `main` is pull-request-only and CI has to pass, maintainer included.
+- **What changed between versions?** [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
@@ -371,6 +372,7 @@ defaults delete me.orloff.macyad 2>/dev/null || true
 - **Вопрос или не уверены, что это баг?** [Спросите здесь](https://github.com/orloffas/macyad/issues/new?template=question.yml) — форма короткая, писать можно по-русски.
 - **Проблема с безопасностью?** Пожалуйста, не в публичный issue — куда именно, написано в [SECURITY.ru.md](SECURITY.ru.md).
 - **Присылаете код?** В [CONTRIBUTING.ru.md](CONTRIBUTING.ru.md) — сборка, тесты и короткий список того, что в этот проект не примут. Ветка `main` принимает только pull request'ы, и CI обязан быть зелёным, включая мейнтейнера.
+- **Что менялось между версиями?** [CHANGELOG.ru.md](CHANGELOG.ru.md).
 
 ## Лицензия
 
