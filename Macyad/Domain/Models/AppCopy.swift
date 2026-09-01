@@ -1190,6 +1190,26 @@ public struct AppCopy: Sendable {
         isRussian ? "\(operation): выполняется…" : "\(operation): running…"
     }
 
+    /// A run that was quit before it ever left the queue. Deliberately not a
+    /// warning: rclone was never launched, so there is nothing to check and
+    /// nothing to undo — and telling the user files may have moved would send
+    /// them hunting for damage that cannot exist.
+    public func operationAbandonedInQueueMessage(_ operation: String) -> String {
+        if isRussian {
+            return "\(operation): отменено — приложение закрыто до начала выполнения"
+        }
+
+        return "\(operation): cancelled — the app was quit before it started"
+    }
+
+    public var operationAbandonedInQueueDetails: String {
+        if isRussian {
+            return "Операция ждала очереди и не запускалась. Файлы не изменялись."
+        }
+
+        return "The operation was waiting its turn and never ran. No files were touched."
+    }
+
     public func operationInterruptedMessage(_ operation: String) -> String {
         if isRussian {
             return "\(operation): прервано — приложение было закрыто во время выполнения"

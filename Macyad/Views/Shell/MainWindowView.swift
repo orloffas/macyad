@@ -394,7 +394,8 @@ struct MainWindowView: View {
             message: AppCopy.current.operationQueuedMessage(opTitle),
             severity: .info,
             pairID: pair.id,
-            inFlightOperation: opTitle
+            inFlightOperation: opTitle,
+            inFlightPhase: .queued
         )
         try? await environment.activityRepository.append(startedEvent)
 
@@ -423,7 +424,8 @@ struct MainWindowView: View {
                     message: AppCopy.current.operationStartedMessage(opTitle),
                     severity: .info,
                     pairID: pair.id,
-                    inFlightOperation: opTitle
+                    inFlightOperation: opTitle,
+                    inFlightPhase: .running
                 )
                 try? await environment.activityRepository.replace(runningEvent)
 

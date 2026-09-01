@@ -186,7 +186,8 @@ public actor BackgroundSyncController {
             message: copy.operationQueuedMessage(operationName),
             severity: .info,
             pairID: pair.id,
-            inFlightOperation: operationName
+            inFlightOperation: operationName,
+            inFlightPhase: .queued
         )
         try? await activityStore.append(event)
         await refreshState()
@@ -212,7 +213,8 @@ public actor BackgroundSyncController {
             message: copy.operationStartedMessage(operationName),
             severity: .info,
             pairID: pair.id,
-            inFlightOperation: operationName
+            inFlightOperation: operationName,
+            inFlightPhase: .running
         )
         try? await activityStore.replace(event)
         await refreshState()

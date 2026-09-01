@@ -14,6 +14,16 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
     /// run even if the app never gets to write its result; on the next launch
     /// a still-in-flight event is turned into an "interrupted" record.
     public var inFlightOperation: String?
+    /// Whether that operation had actually begun, or was still waiting its turn
+    /// in the serial queue. The two need different interrupted records: a run
+    /// that never started moved no files, and telling the user otherwise sends
+    /// them checking for damage that cannot exist.
+    public var inFlightPhase: InFlightPhase?
+
+    public enum InFlightPhase: String, Codable, Equatable, Sendable {
+        case queued
+        case running
+    }
 
     public init(
         id: UUID,
@@ -24,7 +34,8 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         details: String? = nil,
         issueSet: ActivityIssueSet? = nil,
         routeToken: ActivityRouteToken? = nil,
-        inFlightOperation: String? = nil
+        inFlightOperation: String? = nil,
+        inFlightPhase: InFlightPhase? = nil
     ) {
         self.id = id
         self.date = date
@@ -35,6 +46,7 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         self.issueSet = issueSet
         self.routeToken = routeToken
         self.inFlightOperation = inFlightOperation
+        self.inFlightPhase = inFlightPhase
     }
 
     enum CodingKeys: String, CodingKey {
@@ -47,6 +59,7 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         case issueSet
         case routeToken
         case inFlightOperation
+        case inFlightPhase
     }
 
     public init(from decoder: Decoder) throws {
@@ -60,6 +73,10 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
         issueSet = try container.decodeIfPresent(ActivityIssueSet.self, forKey: .issueSet)
         routeToken = try container.decodeIfPresent(ActivityRouteToken.self, forKey: .routeToken)
         inFlightOperation = try container.decodeIfPresent(String.self, forKey: .inFlightOperation)
+        // Journals written before the phase existed carry no value. Decoding
+        // keeps that absence honest; `interrupted(using:at:)` is where a missing
+        // phase is read as "may have been running", which is the safe reading.
+        inFlightPhase = try container.decodeIfPresent(InFlightPhase.self, forKey: .inFlightPhase)
     }
 
     /// First sentence of the details, for the journal row. The full text runs
@@ -100,6 +117,17 @@ public struct ActivityEvent: Codable, Equatable, Identifiable, Sendable {
     public func interrupted(using copy: AppCopy, at date: Date = Date()) -> ActivityEvent? {
         guard let inFlightOperation else {
             return nil
+        }
+
+        if inFlightPhase == .queued {
+            return ActivityEvent(
+                id: id,
+                date: date,
+                message: copy.operationAbandonedInQueueMessage(inFlightOperation),
+                severity: .info,
+                pairID: pairID,
+                details: copy.operationAbandonedInQueueDetails
+            )
         }
 
         return ActivityEvent(

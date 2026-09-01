@@ -151,6 +151,49 @@ final class ActivityEventTests: XCTestCase {
         XCTAssertNil(interrupted?.inFlightOperation)
     }
 
+    /// A run that never left the queue moved nothing. The interrupted record
+    /// for a running one warns that files may have been transferred and tells
+    /// the user to compare the folders — advice that would send them hunting
+    /// for damage that cannot exist.
+    func testRunAbandonedInTheQueueIsNotReportedAsPossiblyHavingMovedFiles() {
+        let copy = AppCopy(language: .english)
+        let queued = ActivityEvent(
+            id: UUID(),
+            date: Date(timeIntervalSince1970: 1_716_580_800),
+            message: copy.operationQueuedMessage("Pull from Yandex"),
+            severity: .info,
+            pairID: UUID(),
+            inFlightOperation: "Pull from Yandex",
+            inFlightPhase: .queued
+        )
+
+        let recovered = queued.interrupted(using: copy, at: Date(timeIntervalSince1970: 1_716_584_400))
+
+        XCTAssertEqual(recovered?.severity, .info, "nothing ran, so nothing warrants a warning")
+        XCTAssertEqual(recovered?.message, copy.operationAbandonedInQueueMessage("Pull from Yandex"))
+        XCTAssertEqual(recovered?.details, copy.operationAbandonedInQueueDetails)
+        XCTAssertNil(recovered?.inFlightOperation)
+    }
+
+    /// Journals written before the phase existed carry no value, and a run that
+    /// may really have been mid-transfer must keep its warning.
+    func testInFlightEventWithoutAPhaseStillReportsAsInterrupted() {
+        let copy = AppCopy(language: .english)
+        let started = ActivityEvent(
+            id: UUID(),
+            date: Date(timeIntervalSince1970: 1_716_580_800),
+            message: copy.operationStartedMessage("Push to Yandex"),
+            severity: .info,
+            pairID: UUID(),
+            inFlightOperation: "Push to Yandex"
+        )
+
+        let recovered = started.interrupted(using: copy, at: Date(timeIntervalSince1970: 1_716_584_400))
+
+        XCTAssertEqual(recovered?.severity, .warning)
+        XCTAssertEqual(recovered?.message, copy.operationInterruptedMessage("Push to Yandex"))
+    }
+
     func testMarkingInterruptedRunsSparesRunsStartedByThisLaunch() {
         let copy = AppCopy(language: .english)
         let launchedAt = Date(timeIntervalSince1970: 1_716_580_800)
