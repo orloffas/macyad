@@ -91,4 +91,64 @@ final class RcloneProcessClientStreamingTests: XCTestCase {
         XCTAssertEqual(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "out-line")
         XCTAssertEqual(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines), "err-line")
     }
+
+    /// `Process.waitUntilExit()` used to be called from a task that could land
+    /// on a different thread than the one that called `run()`, and then it never
+    /// returned — one such hang left a pull queued for six days. The race needed
+    /// many spawns to surface, so this takes many. A regression shows up as this
+    /// test never finishing, not as an assertion failure.
+    func testRunStreamingCompletesForManyConsecutiveProcesses() async throws {
+        let client = RcloneProcessClient(executablePath: "/bin/sh")
+
+        for iteration in 0..<200 {
+            let handle = try await client.runStreaming(["-c", "printf 'run\\n'; exit 3"])
+            for await _ in handle.lines {}
+            let result = try await handle.completion.value
+            XCTAssertEqual(result.exitCode, 3, "wrong exit code on iteration \(iteration)")
+        }
+    }
+
+    /// A pipe read cuts wherever the buffer ends, and decoding each chunk on its
+    /// own returned nil — dropping the whole chunk — whenever that cut landed
+    /// mid-character. The fragment is 13 bytes, so no power-of-two buffer
+    /// boundary can align with it, and the payload is built by doubling so it
+    /// reaches the pipe as one long write rather than one write per fragment
+    /// (per-fragment writes align by construction and hide the bug).
+    func testRunStreamingKeepsCyrillicLineSplitAcrossChunkBoundaries() async throws {
+        let fragment = "Схемы—"
+        let doublings = 14
+        let repeats = 1 << doublings
+        let client = RcloneProcessClient(executablePath: "/bin/sh")
+        let handle = try await client.runStreaming([
+            "-c",
+            "s='\(fragment)'; i=0; while [ $i -lt \(doublings) ]; do s=\"$s$s\"; i=$((i+1)); done; printf '%s\\n' \"$s\""
+        ])
+
+        var collectedLines: [String] = []
+        for await line in handle.lines {
+            collectedLines.append(line)
+        }
+
+        let result = try await handle.completion.value
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(collectedLines.count, 1)
+        XCTAssertEqual(collectedLines.first?.count, fragment.count * repeats)
+        XCTAssertFalse(
+            collectedLines.first?.contains("\u{FFFD}") ?? true,
+            "a replacement character means a chunk boundary corrupted the text"
+        )
+    }
+
+    func testRunStreamingThrowsWithoutLeakingReadersWhenExecutableIsMissing() async throws {
+        let client = RcloneProcessClient(executablePath: "/nonexistent/rclone")
+
+        do {
+            _ = try await client.runStreaming([])
+            XCTFail("expected a launch failure for a missing executable")
+        } catch {
+            // The pipe readers must not be left blocked on write ends that no
+            // child ever inherited; if they were, this test would still pass but
+            // the pool would leak a thread per failed launch.
+        }
+    }
 }
