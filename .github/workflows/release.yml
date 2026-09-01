@@ -127,12 +127,32 @@ jobs:
           path: MacYaD-${{ env.RELEASE_NAME }}.dmg
           retention-days: 7
 
-      - name: Publish the release
-        if: github.event_name == 'push' || inputs.publish
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # Deliberately outside the publish step: a rehearsal skips publishing, and
+      # notes built only at publish time would first be exercised by the tag that
+      # already went out. This way the rehearsal shows exactly what would ship.
+      - name: Build the release notes
         run: |
+          # The section CHANGELOG.md keeps for this version, if it has one. The
+          # generated commit list added at publish time says what landed; this
+          # says what changed for someone using the app. A missing section warns
+          # rather than fails: thin notes beat a release that did not publish.
+          VERSION="${RELEASE_NAME#v}"
+          awk -v version="$VERSION" '
+            $0 ~ "^## " version "( |$)" { collecting = 1; next }
+            collecting && /^## / { exit }
+            collecting { print }
+          ' CHANGELOG.md > changelog-section.md || true
+
+          if [ ! -s changelog-section.md ]; then
+            echo "::warning::CHANGELOG.md has no section for $VERSION"
+          fi
+
           {
+            if [ -s changelog-section.md ]; then
+              echo "## What changed"
+              cat changelog-section.md
+            fi
+
             echo "## Install"
             echo
             echo "Open the DMG and drag MacYaD to Applications, then **right-click the app → Open → Open**."
@@ -147,6 +167,17 @@ jobs:
             echo '```'
           } > notes.md
 
+          {
+            echo "### Release notes for $RELEASE_NAME"
+            echo
+            cat notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the release
+        if: github.event_name == 'push' || inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
           gh release create "$RELEASE_NAME" \
             "MacYaD-${RELEASE_NAME}.dmg" \
             --title "$RELEASE_NAME" \

@@ -61,8 +61,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad
         PRODUCT_NAME: MacYaD
-        MARKETING_VERSION: "0.1.1"
-        CURRENT_PROJECT_VERSION: "5"
+        MARKETING_VERSION: "0.1.2"
+        CURRENT_PROJECT_VERSION: "6"
         INFOPLIST_KEY_CFBundleDisplayName: MacYaD
         INFOPLIST_KEY_CFBundleShortVersionString: "$(MARKETING_VERSION)"
         INFOPLIST_KEY_CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
