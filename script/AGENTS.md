@@ -66,7 +66,7 @@
 
 ### External
 
-- `xcodebuild` — сборка и тестирование (Xcode Command Line Tools).
+- `xcodebuild` — сборка и тестирование. Поставляется с `Xcode.app`, а не с Command Line Tools: если `xcode-select -p` указывает на CLT, голый вызов падает с `tool 'xcodebuild' requires Xcode`. `build_and_run.sh` и `test.sh` поэтому экспортируют `DEVELOPER_DIR` сами; ручные вызовы `xcodebuild` и `xcrun` вне скриптов нужно префиксовать той же переменной.
 - `xcodegen` (>=2.38.0) — генерация `Macyad.xcodeproj` из `project.yml`.
 - `codesign` — используется косвенно через `xcodebuild`.
 - `hdiutil` — создание DMG в режиме `package`.

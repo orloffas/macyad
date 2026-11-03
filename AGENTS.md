@@ -42,8 +42,16 @@
 - Полный прогон тестов:
   ```bash
   xcodegen generate
-  xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
+  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+    xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
   ```
+- **`xcodebuild` вызывать только с `DEVELOPER_DIR`.** Он есть лишь внутри
+  `Xcode.app`, и если `xcode-select -p` указывает на Command Line Tools, голый
+  вызов падает с `tool 'xcodebuild' requires Xcode`. Переменная перебивает выбор
+  `xcode-select` для одного процесса и ничего не меняет в системе, поэтому
+  безопасна и там, где активен сам Xcode. Скрипты в `script/` подставляют её
+  сами — через них префикс не нужен. То же относится к `xcrun xcresulttool`
+  в UI-тестах.
 - Для запуска вне sandbox или с отдельным `derivedDataPath`: `./script/test.sh unit`.
 - UI-фичи проверяются через `./script/build_and_run.sh` и реальное взаимодействие.
 
