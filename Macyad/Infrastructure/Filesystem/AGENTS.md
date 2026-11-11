@@ -25,7 +25,7 @@
 
 ### Testing Requirements
 
-Прямых тестовых файлов для этого подкаталога нет в `MacyadTests/Infrastructure/`. Логика `LocalConflictFileManager` покрывается интеграционными тестами через `PairConflictStateRepositoryTests.swift`. Запуск см. `../../AGENTS.md`.
+Прямых тестовых файлов для этого подкаталога нет в `MacyadTests/Infrastructure/`. Запуск см. `../../AGENTS.md`.
 
 ### Common Patterns
 

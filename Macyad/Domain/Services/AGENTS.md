@@ -40,7 +40,7 @@
 
 ### Testing Requirements
 
-Тесты в `MacyadTests/Domain/Services/`. Запуск: `./script/test.sh unit`. Для тестирования сервисов с I/O используются mock-реализации протоколов (`RcloneProcessRunning`, `PairSnapshotProviding` и т.д.).
+Тесты в `MacyadTests/Domain/`. Запуск: `./script/test.sh unit`. Для тестирования сервисов с I/O используются mock-реализации протоколов (`RcloneProcessRunning`, `PairSnapshotProviding` и т.д.).
 
 ### Common Patterns
 
