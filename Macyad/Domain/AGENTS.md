@@ -29,9 +29,8 @@
 
 Unit-тесты Domain находятся в `MacyadTests/Domain/`. Запуск:
 ```bash
-xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
+./script/test.sh unit
 ```
-или через `./script/test.sh unit`.
 
 ### Common Patterns
 

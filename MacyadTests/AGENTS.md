@@ -14,7 +14,8 @@ Unit-тесты framework `MacyadCore`. Покрывают domain-логику (
 | `App/` | Тесты app-lifecycle типов из `MacyadCore`: `AppLaunchMode`, `AppPaths` |
 | `Domain/` | Тесты domain-сервисов и value-типов: sync, scheduling, conflict planning, activity, локализация |
 | `Infrastructure/` | Тесты инфраструктурных компонентов: репозитории, rclone-утилиты, фоновый контроллер |
-| `ViewModels/` | Тесты ViewModel-классов из `MacyadCore`: `CreatePairViewModel`, `OnboardingViewModel` |
+| `PlatformAdapters/` | `LiveMonitorBridgeTests.swift`, `LiveMonitorPresentingMock.swift` |
+| `ViewModels/` | Тесты ViewModel-классов из `MacyadCore`: `CreatePairViewModel`, `LiveMonitorViewModel`, `OnboardingViewModel`, `OverviewViewModel`, `PairDetailViewModel`, `SettingsViewModel` |
 
 ## For AI Agents
 
@@ -30,10 +31,7 @@ Unit-тесты framework `MacyadCore`. Покрывают domain-логику (
 ### Testing Requirements
 
 ```bash
-# Полный прогон unit-тестов
-xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
-
-# Альтернатива с отдельным derivedDataPath (для запуска вне sandbox)
+# Полный прогон unit-тестов (отдельный derivedDataPath, для запуска вне sandbox)
 ./script/test.sh unit
 ```
 

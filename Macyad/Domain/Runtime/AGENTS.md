@@ -23,7 +23,7 @@ Enum-флаги, определяющие режим запуска прилож
 
 ### Testing Requirements
 
-Тесты в `MacyadTests/Domain/Runtime/` или `MacyadTests/`. Запуск: `./script/test.sh unit`. Тестировать `init(arguments:environment:)` на все распознаваемые аргументы.
+Тесты в `MacyadTests/App/` (`AppLaunchModeTests.swift`). Запуск: `./script/test.sh unit`. Тестировать `init(arguments:environment:)` на все распознаваемые аргументы.
 
 ### Common Patterns
 

@@ -4,15 +4,18 @@
 # Views
 
 ## Purpose
-SwiftUI-вьюхи приложения MacYaD, принадлежащие таргету `Macyad` (app). Каталог разбит на пять фичевых подкаталогов. Views обязаны общаться с бизнес-логикой только через ViewModels или `AppModel`; прямые вызовы Infrastructure-слоя (rclone, файловая система, процессы) из Views запрещены. Вся AppKit-интеграция проходит через `PlatformAdapters/`.
+SwiftUI-вьюхи приложения MacYaD, принадлежащие таргету `Macyad` (app). Каталог разбит на восемь подкаталогов. Views обязаны общаться с бизнес-логикой только через ViewModels или `AppModel`; прямые вызовы Infrastructure-слоя (rclone, файловая система, процессы) из Views запрещены. Вся AppKit-интеграция проходит через `PlatformAdapters/`.
 
 ## Subdirectories
 | Directory | Purpose |
 |-----------|---------|
 | Activity | Журнал операций синхронизации и UI ревью проблемных файлов |
+| LiveMonitor | — |
 | Onboarding | Пошаговый онбординг: установка rclone и настройка remote |
+| Overview | — |
 | Pairs | Список sync-пар, детали пары и создание/редактирование |
 | Settings | Настройки приложения: аккаунты Yandex, уведомления, язык, запуск при логине |
+| Shared | — |
 | Shell | Основная навигационная оболочка окна и компактный menu bar popover |
 
 ## For AI Agents

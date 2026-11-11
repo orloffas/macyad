@@ -27,6 +27,7 @@ UI-тесты приложения `Macyad` через `XCUIApplication`. Пок
 - Скриншоты README снимаются **только** на `-UITEST_SEEDED_PAIRS`: реальная установка пользователя в кадр попадать не должна. Флаг `-UITEST_LANG_RU` рядом с ним переключает seeded-состояние на русский. Пересъём:
 
   ```bash
+  export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
   xcodebuild test -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS' \
     -only-testing:MacyadUITests/ScreenshotUITests \
     -resultBundlePath shots.xcresult
@@ -46,7 +47,7 @@ UI-тесты приложения `Macyad` через `XCUIApplication`. Пок
 
 ```bash
 # UI-тесты входят в схему Macyad
-xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
+./script/test.sh ui
 
 # Только unit-тесты без UI:
 ./script/test.sh unit
