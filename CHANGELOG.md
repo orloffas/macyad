@@ -4,6 +4,18 @@ Russian version: [CHANGELOG.ru.md](CHANGELOG.ru.md)
 
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- **Sync stopped with `410 - GoneError`, and logging in again did not help.**
+  Since October 2026 Yandex refuses file operations from rclone's built-in OAuth
+  app, while still answering the disk-size request — so the remote looks
+  connected and only the runs fail. New `script/connect_yandex.py` connects the
+  remote through a Yandex OAuth app you register yourself, and rclone keeps
+  refreshing the token through that app. Step-by-step guide with screenshots:
+  [`docs/yandex-oauth-app.md`](docs/yandex-oauth-app.md).
+
 ## 0.1.2 — 2026-09-01
 
 Every entry here is one bug. The first one froze the whole app, and the rest are
