@@ -12,7 +12,7 @@ Since October 2026 Yandex no longer lets rclone's built-in OAuth app touch files
 ERROR : error listing: [410 - GoneError] Gone (Ресурс больше недоступен.)
 ```
 
-In MacYaD this shows up as `Push to Yandex blocked` / `Check Yandex` failures with `410 - GoneError` in the journal. Logging in again does not help: `rclone config reconnect` and the `rclone config create … yandex` command the app shows both go through the same blocked app. Yandex has not announced the change; it is tracked in [rclone issue #10067](https://github.com/rclone/rclone/issues/10067).
+In MacYaD this shows up as `Push to Yandex blocked` / `Check Yandex` failures with `410 - GoneError` in the journal. Logging in again with `rclone config reconnect` or `rclone config create … yandex` does not help: both go through the same blocked app. MacYaD versions before the fix also offered exactly these commands. Yandex has not announced the change; it is tracked in [rclone issue #10067](https://github.com/rclone/rclone/issues/10067).
 
 The fix is to register your own OAuth app in Yandex (free, under your own account) and give its credentials to rclone. rclone then gets and refreshes tokens through your app, not through the blocked one.
 
@@ -53,11 +53,13 @@ Further down are **ClientID** and **Client secret** — you will paste them in t
 
 ## 2. Connect the remote
 
-From a clone of this repository run:
+In MacYaD, copy the command from the onboarding step «Connect Yandex Disk through your own OAuth app» or from «Reconnect account» in Settings → Yandex accounts, and run it in Terminal. It looks like this:
 
 ```bash
-./script/connect_yandex.py
+python3 '/Applications/MacYaD.app/Contents/Resources/connect_yandex.py' --config '…/MacYaD/rclone/rclone.conf' --remote macyad-yandex
 ```
+
+From a clone of this repository the same script is `./script/connect_yandex.py`.
 
 The script:
 
@@ -79,7 +81,7 @@ You should see your top-level folders instead of `410 - GoneError`. Then run `Ch
 ## What next
 
 - **The token refreshes itself.** It is valid for about a year, and rclone renews it through your app before it expires. No need to refresh it by hand.
-- **Do not use «Reconnect account» in MacYaD Settings for this remote.** It copies `rclone config reconnect`, which waits for a browser redirect to `127.0.0.1` — this app type only redirects to `oauth.yandex.ru/verification_code`. If you need to log in again, run the script again.
+- **To log in again**, use «Reconnect account» in MacYaD Settings: it copies the same script command. Plain `rclone config reconnect` will not work — it waits for a browser redirect to `127.0.0.1`, and this app type only redirects to `oauth.yandex.ru/verification_code`.
 - **Several Yandex accounts** — create a separate app under each account and run the script with `--remote` for the matching remote.
 
 ## If something goes wrong

@@ -44,6 +44,11 @@ struct OnboardingView: View {
                 LabeledContent(copy.accountConfigPathLabel, value: viewModel.state.configPath)
                     .foregroundStyle(.secondary)
 
+                Text(copy.yandexOAuthGuideHint)
+                    .foregroundStyle(.secondary)
+
+                Link(copy.yandexOAuthGuideLinkTitle, destination: copy.yandexOAuthGuideURL)
+
                 CommandCopyRowView(
                     title: copy.createRemoteTitle,
                     command: viewModel.state.remoteCreateCommand,

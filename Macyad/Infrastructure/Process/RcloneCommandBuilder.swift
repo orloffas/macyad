@@ -1,12 +1,19 @@
 import Foundation
 
 public struct RcloneCommandBuilder {
-    public static func remoteCreateCommand(configPath: String, remoteName: String) -> String {
-        "rclone --config \(shellQuoted(configPath)) config create \(remoteName) yandex"
+    /// `script/connect_yandex.py`, copied into the app bundle by `project.yml`.
+    public static var connectScriptPath: String {
+        Bundle.main.path(forResource: "connect_yandex", ofType: "py") ?? "connect_yandex.py"
     }
 
-    public static func remoteReconnectCommand(configPath: String, remoteName: String) -> String {
-        "rclone --config \(shellQuoted(configPath)) config reconnect \(remoteName):"
+    // Yandex answers 410 GoneError to rclone's built-in OAuth client, so `rclone config create/reconnect`
+    // cannot produce a working remote; the script connects through the user's own Yandex OAuth app.
+    public static func remoteCreateCommand(configPath: String, remoteName: String, scriptPath: String = connectScriptPath) -> String {
+        "python3 \(shellQuoted(scriptPath)) --config \(shellQuoted(configPath)) --remote \(remoteName)"
+    }
+
+    public static func remoteReconnectCommand(configPath: String, remoteName: String, scriptPath: String = connectScriptPath) -> String {
+        remoteCreateCommand(configPath: configPath, remoteName: remoteName, scriptPath: scriptPath)
     }
 
     public static func remoteDeleteCommand(configPath: String, remoteName: String) -> String {

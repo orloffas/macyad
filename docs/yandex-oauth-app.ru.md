@@ -12,7 +12,7 @@
 ERROR : error listing: [410 - GoneError] Gone (Ресурс больше недоступен.)
 ```
 
-В MacYaD это видно как `Push to Yandex blocked` или сбой `Check Yandex` с `410 - GoneError` в журнале. Повторный вход не помогает: и `rclone config reconnect`, и команда `rclone config create … yandex`, которую показывает приложение, идут через то же заблокированное приложение. Яндекс об изменении не объявлял, проблема описана в [issue rclone #10067](https://github.com/rclone/rclone/issues/10067).
+В MacYaD это видно как `Push to Yandex blocked` или сбой `Check Yandex` с `410 - GoneError` в журнале. Повторный вход через `rclone config reconnect` или `rclone config create … yandex` не помогает: обе команды идут через то же заблокированное приложение. Версии MacYaD до исправления предлагали именно их. Яндекс об изменении не объявлял, проблема описана в [issue rclone #10067](https://github.com/rclone/rclone/issues/10067).
 
 Решение — зарегистрировать в Яндексе своё OAuth-приложение (бесплатно, в своём аккаунте) и передать его ключи rclone. Тогда rclone получает и продлевает токены через ваше приложение, а не через заблокированное.
 
@@ -53,11 +53,13 @@ ERROR : error listing: [410 - GoneError] Gone (Ресурс больше нед�
 
 ## 2. Подключите remote
 
-В клоне этого репозитория выполните:
+В MacYaD скопируйте команду из шага онбординга «Подключить Яндекс Диск через своё OAuth-приложение» или из «Reconnect account» в Settings → Yandex accounts и выполните её в Терминале. Она выглядит так:
 
 ```bash
-./script/connect_yandex.py
+python3 '/Applications/MacYaD.app/Contents/Resources/connect_yandex.py' --config '…/MacYaD/rclone/rclone.conf' --remote macyad-yandex
 ```
+
+В клоне репозитория тот же скрипт — `./script/connect_yandex.py`.
 
 Скрипт:
 
@@ -79,7 +81,7 @@ rclone --config "$HOME/Library/Application Support/MacYaD/rclone/rclone.conf" ls
 ## Что дальше
 
 - **Токен продлевается сам.** Он действует около года, и rclone обновляет его через ваше приложение. Обновлять его вручную не нужно.
-- **Не нажимайте «Reconnect account» в настройках MacYaD для этого remote.** Кнопка копирует `rclone config reconnect`. Эта команда ждёт возврата браузера на `127.0.0.1`, а приложение этого типа возвращает только на `oauth.yandex.ru/verification_code`. Чтобы войти заново, запустите скрипт ещё раз.
+- **Чтобы войти заново**, используйте «Reconnect account» в настройках MacYaD: кнопка копирует ту же команду скрипта. Обычный `rclone config reconnect` не сработает: он ждёт возврата браузера на `127.0.0.1`, а приложение этого типа возвращает только на `oauth.yandex.ru/verification_code`.
 - **Несколько аккаунтов Яндекса** — заведите отдельное приложение под каждым аккаунтом и запускайте скрипт с `--remote` для соответствующего remote.
 
 ## Если что-то пошло не так

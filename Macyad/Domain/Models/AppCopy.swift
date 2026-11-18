@@ -599,7 +599,23 @@ public struct AppCopy: Sendable {
     }
 
     public var createRemoteTitle: String {
-        isRussian ? "Создать remote yd в config MacYaD" : "Create the yd remote in MacYaD config"
+        isRussian ? "Подключить Яндекс Диск через своё OAuth-приложение" : "Connect Yandex Disk through your own OAuth app"
+    }
+
+    public var yandexOAuthGuideHint: String {
+        isRussian
+            ? "Встроенное приложение rclone Яндекс блокирует (ошибка 410). Сначала зарегистрируйте своё приложение на oauth.yandex.ru, затем выполните команду: она спросит ClientID, Client secret и код подтверждения."
+            : "Yandex blocks rclone's built-in app (error 410). Register your own app at oauth.yandex.ru first, then run the command: it asks for the ClientID, Client secret and confirmation code."
+    }
+
+    public var yandexOAuthGuideLinkTitle: String {
+        isRussian ? "Инструкция со скриншотами" : "Step-by-step guide"
+    }
+
+    public var yandexOAuthGuideURL: URL {
+        URL(string: isRussian
+            ? "https://github.com/orloffas/macyad/blob/main/docs/yandex-oauth-app.ru.md"
+            : "https://github.com/orloffas/macyad/blob/main/docs/yandex-oauth-app.md")!
     }
 
     public var onboardingAccountsHint: String {
