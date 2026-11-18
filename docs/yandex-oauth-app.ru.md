@@ -56,7 +56,7 @@ ERROR : error listing: [410 - GoneError] Gone (Ресурс больше нед�
 В MacYaD скопируйте команду из шага онбординга «Подключить Яндекс Диск через своё OAuth-приложение» или из «Reconnect account» в Settings → Yandex accounts и выполните её в Терминале. Она выглядит так:
 
 ```bash
-python3 '/Applications/MacYaD.app/Contents/Resources/connect_yandex.py' --config '…/MacYaD/rclone/rclone.conf' --remote macyad-yandex
+python3 '/Applications/MacYaD.app/Contents/Resources/connect_yandex.py' --config '…/MacYaD/rclone/rclone.conf' --remote 'macyad-yandex'
 ```
 
 В клоне репозитория тот же скрипт — `./script/connect_yandex.py`.

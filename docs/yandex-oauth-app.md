@@ -56,7 +56,7 @@ Further down are **ClientID** and **Client secret** — you will paste them in t
 In MacYaD, copy the command from the onboarding step «Connect Yandex Disk through your own OAuth app» or from «Reconnect account» in Settings → Yandex accounts, and run it in Terminal. It looks like this:
 
 ```bash
-python3 '/Applications/MacYaD.app/Contents/Resources/connect_yandex.py' --config '…/MacYaD/rclone/rclone.conf' --remote macyad-yandex
+python3 '/Applications/MacYaD.app/Contents/Resources/connect_yandex.py' --config '…/MacYaD/rclone/rclone.conf' --remote 'macyad-yandex'
 ```
 
 From a clone of this repository the same script is `./script/connect_yandex.py`.

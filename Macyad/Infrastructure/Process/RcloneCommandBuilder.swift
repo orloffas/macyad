@@ -9,7 +9,7 @@ public struct RcloneCommandBuilder {
     // Yandex answers 410 GoneError to rclone's built-in OAuth client, so `rclone config create/reconnect`
     // cannot produce a working remote; the script connects through the user's own Yandex OAuth app.
     public static func remoteCreateCommand(configPath: String, remoteName: String, scriptPath: String = connectScriptPath) -> String {
-        "python3 \(shellQuoted(scriptPath)) --config \(shellQuoted(configPath)) --remote \(remoteName)"
+        "python3 \(shellQuoted(scriptPath)) --config \(shellQuoted(configPath)) --remote \(shellQuoted(remoteName))"
     }
 
     public static func remoteReconnectCommand(configPath: String, remoteName: String, scriptPath: String = connectScriptPath) -> String {
@@ -17,7 +17,7 @@ public struct RcloneCommandBuilder {
     }
 
     public static func remoteDeleteCommand(configPath: String, remoteName: String) -> String {
-        "rclone --config \(shellQuoted(configPath)) config delete \(remoteName)"
+        "rclone --config \(shellQuoted(configPath)) config delete \(shellQuoted(remoteName))"
     }
 
     public static func syncArguments(for pair: SyncPair, configPath: String, excludeFilePath: String? = nil) -> [String] {

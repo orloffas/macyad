@@ -45,7 +45,7 @@ final class OnboardingServiceTests: XCTestCase {
         XCTAssertEqual(state.rcloneVersion, "rclone v1.68.2")
         XCTAssertTrue(state.remoteCreateCommand.hasPrefix("python3 "))
         XCTAssertTrue(state.remoteCreateCommand.contains("connect_yandex.py"))
-        XCTAssertTrue(state.remoteCreateCommand.hasSuffix(" --remote macyad-yandex"))
+        XCTAssertTrue(state.remoteCreateCommand.hasSuffix(" --remote 'macyad-yandex'"))
         XCTAssertTrue(state.remoteCreateCommand.contains(configURL.path))
         XCTAssertEqual(state.configPath, configURL.path)
     }

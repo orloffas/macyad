@@ -11,7 +11,7 @@ final class RcloneCommandBuilderTests: XCTestCase {
 
         XCTAssertEqual(
             command,
-            "python3 '/Applications/MacYaD.app/Contents/Resources/connect_yandex.py' --config '/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf' --remote yd"
+            "python3 '/Applications/MacYaD.app/Contents/Resources/connect_yandex.py' --config '/Users/test/Library/Application Support/MacYaD/rclone/rclone.conf' --remote 'yd'"
         )
     }
 
@@ -20,6 +20,14 @@ final class RcloneCommandBuilderTests: XCTestCase {
 
         XCTAssertEqual(reconnect, RcloneCommandBuilder.remoteCreateCommand(configPath: "/Users/test/rclone.conf", remoteName: "yd", scriptPath: "/s.py"))
         XCTAssertFalse(reconnect.contains("config reconnect"))
+    }
+
+    func testAccountCommandsQuoteRemoteNameSoSpacesStayOneArgument() {
+        let connect = RcloneCommandBuilder.remoteCreateCommand(configPath: "/Users/test/rclone.conf", remoteName: "team drive", scriptPath: "/s.py")
+        let delete = RcloneCommandBuilder.remoteDeleteCommand(configPath: "/Users/test/rclone.conf", remoteName: "team drive")
+
+        XCTAssertTrue(connect.hasSuffix(" --remote 'team drive'"))
+        XCTAssertTrue(delete.hasSuffix(" config delete 'team drive'"))
     }
 
     func testSyncArgumentsUseExplicitConfigPath() {
