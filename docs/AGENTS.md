@@ -12,12 +12,15 @@
 | File | Description |
 |------|-------------|
 | `todo.md` | Рабочий список текущих открытых задач и известных проблем |
+| `yandex-oauth-app.md`, `yandex-oauth-app.ru.md` | Публичная инструкция: своё OAuth-приложение Яндекса вместо заблокированного встроенного приложения rclone (`410 GoneError`) и `script/connect_yandex.py` |
+| `local-signing.md`, `local-signing.ru.md` | Стабильная self-signed подпись локальных сборок |
 
 ## Subdirectories
 
 | Directory | Purpose |
 |-----------|---------|
 | `images/` | Скриншоты для обеих языковых половин `README.md`; снимаются автоматически (см. `MacyadUITests/AGENTS.md`) |
+| `images/yandex-oauth/` | Снимки страниц oauth.yandex.ru для `yandex-oauth-app*.md`. Сняты вручную, не автоматически: перед заменой закрасить почту, ClientID и Client secret и снять метаданные (`magick … -strip`) |
 
 ## For AI Agents
 

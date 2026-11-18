@@ -20,6 +20,9 @@
 
 </div>
 
+> [!WARNING]
+> **Since October 2026 Yandex blocks rclone's built-in OAuth app.** A remote set up the usual way still connects, but every file operation fails with `410 - GoneError`, so sync stops. Logging in again does not help. Register your own free Yandex OAuth app and connect through it — five minutes, step by step with screenshots: [`docs/yandex-oauth-app.md`](docs/yandex-oauth-app.md).
+
 ## What MacYaD is
 
 Keeping a large folder on Yandex Disk from a Mac leaves you with two options, and neither is comfortable: the official client, on the terms described [below](#why-not-the-official-client), or `rclone` by hand — which does the job well, but is a command line tool where you write the flags yourself, and one wrong direction quietly overwrites a year of work.
@@ -43,7 +46,8 @@ MacYaD replaces the client, not the storage — your files still live on Yandex 
 
 Worth knowing up front, so nothing here is a surprise:
 
-- **`rclone` is required.** MacYaD does not bundle it. Install it with `brew install rclone` and configure a Yandex remote — the app shows you the exact commands to copy.
+- **`rclone` is required.** MacYaD does not bundle it. Install it with `brew install rclone`.
+- **You need your own Yandex OAuth app.** Yandex blocks rclone's built-in one, so the remote is connected through an app you register yourself — see [`docs/yandex-oauth-app.md`](docs/yandex-oauth-app.md).
 - **This is not two-way sync.** Each pair syncs in one direction, `Auto-Push` **or** `Auto-Pull`, never both. That is a deliberate design decision, not a missing feature — see [How syncing works](#how-syncing-works).
 - **`Push to Yandex` uses `rclone sync`.** It makes the remote match the local folder, which includes deleting remote files that are gone locally. Safety checks run first, but you should understand the direction before enabling a schedule.
 - **Builds are self-signed and not notarized.** There is no paid Apple Developer account behind this project, so macOS will warn you on first launch. [Installation](#installation) has the two-click way around it.
@@ -122,7 +126,7 @@ The script generates the Xcode project, builds the app, installs it to `/Applica
 The **Onboarding** pane walks through the three steps and checks each one:
 
 1. **Install `rclone`** — copy `brew install rclone`, run it, come back and press *Re-check environment*.
-2. **Configure a Yandex remote** — copy the `rclone config create … yandex` command the app shows. It opens a browser for Yandex to authorize; the token lands in the config file the app manages.
+2. **Configure a Yandex remote** — register your own Yandex OAuth app and run `./script/connect_yandex.py`, as described in [`docs/yandex-oauth-app.md`](docs/yandex-oauth-app.md). The token lands in the config file the app manages. The `rclone config create … yandex` command the app still shows goes through rclone's built-in app, which Yandex blocks.
 3. **Create your first pair** — pick a local folder, the account, the remote path, an interval and a direction.
 
 Once configured, the same pane becomes a permanent environment check: `rclone` version and path, the configured remote, the number of pairs, and whether scheduling is running. It is where to look first when sync stops working.
@@ -158,6 +162,8 @@ The screenshots in this README are produced by `MacyadUITests/ScreenshotUITests.
 ## Troubleshooting
 
 **`rclone` not found.** The app looks in the usual Homebrew locations. Check the Onboarding pane: it reports the exact path it resolved.
+
+**Every run fails with `410 - GoneError`.** Yandex blocks rclone's built-in OAuth app; the token is fine, it is the app behind it. Reconnect through your own app: [`docs/yandex-oauth-app.md`](docs/yandex-oauth-app.md).
 
 **A pair refuses to push or pull.** Open the pair's latest journal entry — a blocked run always says which side changed and lists the files. `Check Yandex` re-runs the comparison without touching anything.
 
@@ -212,6 +218,9 @@ Built on [`rclone`](https://rclone.org), which does the actual work. MacYaD is n
 
 </div>
 
+> [!WARNING]
+> **С октября 2026 года Яндекс блокирует встроенное OAuth-приложение rclone.** Remote, настроенный обычным способом, подключается, но любая операция с файлами падает с `410 - GoneError`, и синхронизация останавливается. Повторный вход не помогает. Зарегистрируйте своё бесплатное OAuth-приложение в Яндексе и подключитесь через него. Это займёт пять минут, инструкция по шагам со скриншотами: [`docs/yandex-oauth-app.ru.md`](docs/yandex-oauth-app.ru.md).
+
 ## Что такое MacYaD
 
 Держать большую папку на Яндекс Диске с Mac можно двумя способами, и оба неудобны: официальный клиент — на условиях, описанных [ниже](#почему-не-официальный-клиент), — или `rclone` руками. Второй делает работу отлично, но это CLI: флаги пишешь сам, и одно неверное направление молча затирает годовой архив.
@@ -235,7 +244,8 @@ MacYaD заменяет клиент, а не хранилище: файлы п�
 
 Чтобы ничего не оказалось неожиданностью:
 
-- **Нужен `rclone`.** MacYaD его не поставляет. Ставится через `brew install rclone`, дальше настраивается Яндекс-remote — приложение показывает готовые команды для копирования.
+- **Нужен `rclone`.** MacYaD его не поставляет. Ставится через `brew install rclone`.
+- **Нужно своё OAuth-приложение Яндекса.** Яндекс блокирует встроенное приложение rclone, поэтому remote подключают через приложение, которое вы регистрируете сами: [`docs/yandex-oauth-app.ru.md`](docs/yandex-oauth-app.ru.md).
 - **Это не двусторонняя синхронизация.** Каждая пара работает в одну сторону: `Auto-Push` **или** `Auto-Pull`, но не оба сразу. Это осознанное решение, а не недоделка — см. [Как работает синхронизация](#как-работает-синхронизация).
 - **`Push to Yandex` — это `rclone sync`.** Он приводит remote в соответствие с локальной папкой, включая удаление на Яндексе того, что удалено локально. Проверки безопасности выполняются заранее, но направление нужно понимать до включения расписания.
 - **Сборки подписаны self-signed сертификатом и не нотаризованы.** Платного Apple Developer account у проекта нет, поэтому при первом запуске macOS покажет предупреждение. Как его пройти в два клика — в разделе [Установка](#установка).
@@ -314,7 +324,7 @@ cd macyad
 Раздел **Подключение** проводит по трём шагам и проверяет каждый:
 
 1. **Установить `rclone`** — скопируйте `brew install rclone`, выполните, вернитесь и нажмите *Проверить окружение*.
-2. **Настроить Яндекс-remote** — скопируйте команду `rclone config create … yandex`, которую показывает приложение. Она откроет браузер для авторизации в Яндексе; токен попадёт в конфиг, которым управляет приложение.
+2. **Настроить Яндекс-remote** — зарегистрируйте своё OAuth-приложение Яндекса и запустите `./script/connect_yandex.py`, как описано в [`docs/yandex-oauth-app.ru.md`](docs/yandex-oauth-app.ru.md). Токен попадёт в конфиг, которым управляет приложение. Команда `rclone config create … yandex`, которую пока показывает приложение, использует встроенное приложение rclone, а оно заблокировано.
 3. **Создать первую пару** — выберите локальную папку, аккаунт, remote-путь, интервал и направление.
 
 После настройки этот же раздел становится постоянной панелью диагностики: версия и путь `rclone`, настроенный remote, число пар и состояние планировщика. Сюда смотрят в первую очередь, когда синхронизация перестала работать.
@@ -350,6 +360,8 @@ xcodegen generate                 # Macyad.xcodeproj генерируется, �
 ## Если что-то пошло не так
 
 **`rclone` не найден.** Приложение ищет его в стандартных путях Homebrew. Смотрите раздел «Подключение»: там показан конкретный путь, который удалось определить.
+
+**Любой запуск падает с `410 - GoneError`.** Яндекс блокирует встроенное OAuth-приложение rclone: токен исправен, проблема в приложении, через которое он выдан. Подключитесь через своё приложение: [`docs/yandex-oauth-app.ru.md`](docs/yandex-oauth-app.ru.md).
 
 **Пара отказывается делать push или pull.** Откройте последнюю запись журнала этой пары — у заблокированного запуска всегда написано, какая сторона изменилась, и приложен список файлов. `Check Yandex` перезапускает сравнение, ничего не трогая.
 
