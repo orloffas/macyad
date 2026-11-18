@@ -57,6 +57,8 @@ targets:
           - "**/*.md"
       - path: Macyad/Resources
         buildPhase: resources
+      - path: script/connect_yandex.py
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.orloff.macyad

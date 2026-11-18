@@ -126,7 +126,7 @@ The script generates the Xcode project, builds the app, installs it to `/Applica
 The **Onboarding** pane walks through the three steps and checks each one:
 
 1. **Install `rclone`** — copy `brew install rclone`, run it, come back and press *Re-check environment*.
-2. **Configure a Yandex remote** — register your own Yandex OAuth app and run `./script/connect_yandex.py`, as described in [`docs/yandex-oauth-app.md`](docs/yandex-oauth-app.md). The token lands in the config file the app manages. The `rclone config create … yandex` command the app still shows goes through rclone's built-in app, which Yandex blocks.
+2. **Configure a Yandex remote** — register your own Yandex OAuth app ([`docs/yandex-oauth-app.md`](docs/yandex-oauth-app.md) walks through it with screenshots), then copy and run the command the app shows. It asks for the app's ClientID and Client secret, opens Yandex in the browser and takes the confirmation code; the token lands in the config file the app manages. Yandex blocks rclone's built-in OAuth app, so `rclone config create … yandex` alone no longer works.
 3. **Create your first pair** — pick a local folder, the account, the remote path, an interval and a direction.
 
 Once configured, the same pane becomes a permanent environment check: `rclone` version and path, the configured remote, the number of pairs, and whether scheduling is running. It is where to look first when sync stops working.
@@ -324,7 +324,7 @@ cd macyad
 Раздел **Подключение** проводит по трём шагам и проверяет каждый:
 
 1. **Установить `rclone`** — скопируйте `brew install rclone`, выполните, вернитесь и нажмите *Проверить окружение*.
-2. **Настроить Яндекс-remote** — зарегистрируйте своё OAuth-приложение Яндекса и запустите `./script/connect_yandex.py`, как описано в [`docs/yandex-oauth-app.ru.md`](docs/yandex-oauth-app.ru.md). Токен попадёт в конфиг, которым управляет приложение. Команда `rclone config create … yandex`, которую пока показывает приложение, использует встроенное приложение rclone, а оно заблокировано.
+2. **Настроить Яндекс-remote** — зарегистрируйте своё OAuth-приложение Яндекса ([`docs/yandex-oauth-app.ru.md`](docs/yandex-oauth-app.ru.md) — по шагам со скриншотами), затем скопируйте и выполните команду, которую показывает приложение. Она спросит ClientID и Client secret приложения, откроет Яндекс в браузере и примет код подтверждения; токен попадёт в конфиг, которым управляет приложение. Встроенное OAuth-приложение rclone Яндекс блокирует, поэтому просто `rclone config create … yandex` больше не работает.
 3. **Создать первую пару** — выберите локальную папку, аккаунт, remote-путь, интервал и направление.
 
 После настройки этот же раздел становится постоянной панелью диагностики: версия и путь `rclone`, настроенный remote, число пар и состояние планировщика. Сюда смотрят в первую очередь, когда синхронизация перестала работать.
