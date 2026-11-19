@@ -12,6 +12,7 @@
 | File | Description |
 |------|-------------|
 | `LocalConflictFileManager.swift` | Реализует `LocalConflictFileManaging`: создание conflict-копий, перемещение и удаление канонических файлов пары |
+| `LocalFolderSystemAccess.swift` | `BookmarkFolderResolver` (резолвит bookmark пары, открывает security-scoped доступ на время проверки, при перемещении делает свежий bookmark) и `POSIXPathProber` (`stat`: только `ENOENT`/`ENOTDIR` значит «нет»; ошибка прав остаётся `unknown`). Bookmark'и приложения создаются как `.minimalBookmark`, не security-scoped, поэтому резолв идёт без `.withSecurityScope` |
 | `WorkspaceLayoutManager.swift` | Создаёт корневые каталоги `~/Library/Application Support/MacYaD/` и `Workspace/` если они отсутствуют |
 
 ## For AI Agents

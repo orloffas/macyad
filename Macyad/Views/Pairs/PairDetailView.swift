@@ -12,12 +12,14 @@ struct PairDetailView: View {
     var onCheckYandex: (() -> Void)? = nil
     var onPullFromYandex: (() -> Void)? = nil
     var onEditPair: (() -> Void)? = nil
+    var onUseMovedFolder: (() -> Void)? = nil
     var onDeletePair: (() -> Void)? = nil
     var canDeletePair = true
     var onApplyIssueReview: ((ActivityEvent, ActivityIssueSet) async -> ActivityReviewApplyResult)? = nil
     var onOpenLiveMonitor: ((LiveMonitorSlot) -> Void)? = nil
     @State private var selectedActivityEvent: ActivityEvent?
     @State private var autoOpenIssueReview = false
+    @State private var isPathNotFoundAlertPresented = false
 
     var body: some View {
         let copy = appModel.copy
@@ -41,17 +43,20 @@ struct PairDetailView: View {
                         GridRow {
                             Text(copy.localFolderTitle)
                                 .foregroundStyle(.secondary)
-                            HStack(spacing: 6) {
-                                Text(pair.localFolderDisplayPath)
-                                    .textSelection(.enabled)
-                                    .lineLimit(2)
-                                Button {
-                                    environment.folderOpener.openFolder(atPath: pair.localFolderDisplayPath)
-                                } label: {
-                                    Image(systemName: "folder")
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 6) {
+                                    Text(pair.localFolderDisplayPath)
+                                        .textSelection(.enabled)
+                                        .lineLimit(2)
+                                    Button {
+                                        Task { await openLocalFolder(of: pair) }
+                                    } label: {
+                                        Image(systemName: "folder")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help(copy.openInFinderTitle)
                                 }
-                                .buttonStyle(.borderless)
-                                .help(copy.openInFinderTitle)
+                                localFolderWarning(for: pair, copy: copy)
                             }
                         }
                         GridRow {
@@ -103,6 +108,12 @@ struct PairDetailView: View {
                         .frame(maxHeight: .infinity)
                 }
                 .padding(16)
+                .alert(copy.pathNotFoundAlertTitle, isPresented: $isPathNotFoundAlertPresented) {
+                    Button(copy.localFolderPickAgainButtonTitle) { onEditPair?() }
+                    Button(copy.cancelButtonTitle, role: .cancel) {}
+                } message: {
+                    Text(copy.localFolderMissingMessage(pair.localFolderDisplayPath))
+                }
                 .sheet(item: $selectedActivityEvent) { event in
                     ActivityDetailView(
                         event: event,
@@ -322,6 +333,50 @@ struct PairDetailView: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Looks again at click time rather than trusting the launch-time status:
+    /// the folder may have been moved back, or moved since.
+    /// Off the main actor: a stalled network volume must not freeze the window.
+    private func openLocalFolder(of pair: SyncPair) async {
+        let checker = environment.localFolderChecker
+        let status = await Task.detached { checker.status(of: pair) }.value
+        appModel.localFolderStatuses[pair.id] = status
+        if status.needsAttention {
+            isPathNotFoundAlertPresented = true
+        } else {
+            environment.folderOpener.openFolder(atPath: pair.localFolderDisplayPath)
+        }
+    }
+
+    @ViewBuilder
+    private func localFolderWarning(for pair: SyncPair, copy: AppCopy) -> some View {
+        switch appModel.localFolderStatuses[pair.id] {
+        case let .moved(path, _):
+            warningRow(copy.localFolderMovedMessage(path), copy: copy) {
+                Button(copy.localFolderUseNewPathButtonTitle) { onUseMovedFolder?() }
+                Button(copy.localFolderPickAgainButtonTitle) { onEditPair?() }
+            }
+        case .missing:
+            warningRow(copy.localFolderMissingMessage(pair.localFolderDisplayPath), copy: copy) {
+                Button(copy.localFolderPickAgainButtonTitle) { onEditPair?() }
+            }
+        default:
+            EmptyView()
+        }
+    }
+
+    private func warningRow(_ message: String, copy: AppCopy, @ViewBuilder actions: () -> some View) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .accessibilityLabel(copy.localFolderWarningAccessibilityLabel)
+            Text(message)
+                .font(.caption)
+                .textSelection(.enabled)
+            actions()
+                .controlSize(.small)
         }
     }
 

@@ -79,7 +79,8 @@ struct MainWindowView: View {
                         PairListRowView(
                             pair: pair,
                             severity: pair.lastKnownSeverity,
-                            accountLabel: appModel.accounts.first(where: { $0.id == pair.accountID })?.displayName
+                            accountLabel: appModel.accounts.first(where: { $0.id == pair.accountID })?.displayName,
+                            localFolderNeedsAttention: appModel.localFolderStatuses[pair.id]?.needsAttention ?? false
                         )
                             .tag(SidebarSelection.pair(pair.id))
                     }
@@ -136,6 +137,7 @@ struct MainWindowView: View {
             await loadPairsIfNeeded()
         }
         .task(id: appModel.selectedPairID) {
+            await refreshLocalFolderStatuses(for: appModel.selectedPair.map { [$0] } ?? [])
             await environment.pairDetailViewModel.load(for: appModel.selectedPair)
         }
         .onAppear {
@@ -166,6 +168,7 @@ struct MainWindowView: View {
                     onCheckYandex: { runActivePairAction(.checkYandex) },
                     onPullFromYandex: { runActivePairAction(.pullFromYandex) },
                     onEditPair: { presentEditPairSheet() },
+                    onUseMovedFolder: { Task { await adoptMovedFolder() } },
                     onDeletePair: { pairPendingDeletion = appModel.selectedPair },
                     canDeletePair: appModel.pairs.count > 1,
                     onApplyIssueReview: applyIssueReview,
@@ -259,6 +262,7 @@ struct MainWindowView: View {
                 appModel.applyInitialPairSelectionIfNeeded()
                 configureQuickActions()
             }
+            await refreshLocalFolderStatuses(for: reconciled.pairs)
         } catch {
             await MainActor.run {
                 didLoadPairs = false
@@ -296,6 +300,52 @@ struct MainWindowView: View {
         configureQuickActions()
         await environment.pairDetailViewModel.load(for: pair)
         appModel.refreshBackgroundState()
+        await refreshLocalFolderStatuses(for: [pair])
+    }
+
+    /// One check per pair, no polling: at launch for all pairs, then when a pair's
+    /// card opens and after the pair is saved. The bookmark work runs off the main
+    /// actor.
+    private func refreshLocalFolderStatuses(for pairs: [SyncPair]) async {
+        let checker = environment.localFolderChecker
+        let statuses = await Task.detached {
+            pairs.map { ($0.id, $0.localFolderDisplayPath, checker.status(of: $0)) }
+        }.value
+        await MainActor.run {
+            // Drop results for pairs edited while the check ran: they describe a path the pair no longer has.
+            let currentPaths = Dictionary(uniqueKeysWithValues: appModel.pairs.map { ($0.id, $0.localFolderDisplayPath) })
+            for (id, checkedPath, status) in statuses where currentPaths[id] == checkedPath {
+                appModel.localFolderStatuses[id] = status
+            }
+        }
+    }
+
+    /// The user accepted the folder's new location: store its path and the fresh
+    /// bookmark taken while access was open.
+    @MainActor
+    private func adoptMovedFolder() async {
+        guard var pair = appModel.selectedPair,
+              case let .moved(shownPath, _)? = appModel.localFolderStatuses[pair.id] else {
+            return
+        }
+        // Re-check now: a mirror push from the wrong folder deletes remote files, so never adopt a stale result.
+        let checker = environment.localFolderChecker
+        let checkedPair = pair
+        let fresh = await Task.detached { checker.status(of: checkedPair) }.value
+        guard case let .moved(path, bookmark) = fresh, path == shownPath else {
+            appModel.localFolderStatuses[pair.id] = fresh
+            return
+        }
+
+        pair.localFolderDisplayPath = path
+        pair.localFolderBookmark = bookmark
+        do {
+            try await replacePair(pair)
+            appModel.localFolderStatuses[pair.id] = .available
+            await environment.pairDetailViewModel.load(for: pair)
+        } catch {
+            environment.pairDetailViewModel.setError(error.localizedDescription)
+        }
     }
 
     @MainActor
@@ -708,7 +758,8 @@ struct MainWindowView: View {
             configPath: environment.paths.rcloneConfigFile.path,
             excludeFileStore: PersistentRcloneExcludeFileStore(paths: environment.paths),
             baselineRepository: environment.conflictStateRepository,
-            operationInspector: SystemRcloneOperationInspector()
+            operationInspector: SystemRcloneOperationInspector(),
+            localFolderChecker: environment.localFolderChecker
         )
     }
 
