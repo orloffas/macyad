@@ -73,8 +73,8 @@ public struct LocalFolderAvailabilityChecker: LocalFolderAvailabilityChecking {
                 if Self.samePath(resolvedPath, storedPath) {
                     return .available
                 }
-                // A bookmark follows a folder into the Trash; offering that as the new path would be wrong.
-                if resolvedPath.split(separator: "/").contains(".Trash") {
+                // A bookmark follows a folder into the Trash (~/.Trash, or .Trashes on other volumes); offering that as the new path would be wrong.
+                if resolvedPath.split(separator: "/").contains(where: { $0 == ".Trash" || $0 == ".Trashes" }) {
                     return .missing
                 }
                 // No bookmark to store means we cannot offer the move; the

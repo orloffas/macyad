@@ -49,7 +49,7 @@ struct PairDetailView: View {
                                         .textSelection(.enabled)
                                         .lineLimit(2)
                                     Button {
-                                        openLocalFolder(of: pair)
+                                        Task { await openLocalFolder(of: pair) }
                                     } label: {
                                         Image(systemName: "folder")
                                     }
@@ -338,8 +338,10 @@ struct PairDetailView: View {
 
     /// Looks again at click time rather than trusting the launch-time status:
     /// the folder may have been moved back, or moved since.
-    private func openLocalFolder(of pair: SyncPair) {
-        let status = environment.localFolderChecker.status(of: pair)
+    /// Off the main actor: a stalled network volume must not freeze the window.
+    private func openLocalFolder(of pair: SyncPair) async {
+        let checker = environment.localFolderChecker
+        let status = await Task.detached { checker.status(of: pair) }.value
         appModel.localFolderStatuses[pair.id] = status
         if status.needsAttention {
             isPathNotFoundAlertPresented = true

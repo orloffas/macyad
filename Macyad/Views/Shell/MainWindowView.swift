@@ -309,11 +309,12 @@ struct MainWindowView: View {
     private func refreshLocalFolderStatuses(for pairs: [SyncPair]) async {
         let checker = environment.localFolderChecker
         let statuses = await Task.detached {
-            pairs.map { ($0.id, checker.status(of: $0)) }
+            pairs.map { ($0.id, $0.localFolderDisplayPath, checker.status(of: $0)) }
         }.value
         await MainActor.run {
-            let knownIDs = Set(appModel.pairs.map(\.id))
-            for (id, status) in statuses where knownIDs.contains(id) {
+            // Drop results for pairs edited while the check ran: they describe a path the pair no longer has.
+            let currentPaths = Dictionary(uniqueKeysWithValues: appModel.pairs.map { ($0.id, $0.localFolderDisplayPath) })
+            for (id, checkedPath, status) in statuses where currentPaths[id] == checkedPath {
                 appModel.localFolderStatuses[id] = status
             }
         }
@@ -324,7 +325,15 @@ struct MainWindowView: View {
     @MainActor
     private func adoptMovedFolder() async {
         guard var pair = appModel.selectedPair,
-              case let .moved(path, bookmark)? = appModel.localFolderStatuses[pair.id] else {
+              case let .moved(shownPath, _)? = appModel.localFolderStatuses[pair.id] else {
+            return
+        }
+        // Re-check now: a mirror push from the wrong folder deletes remote files, so never adopt a stale result.
+        let checker = environment.localFolderChecker
+        let checkedPair = pair
+        let fresh = await Task.detached { checker.status(of: checkedPair) }.value
+        guard case let .moved(path, bookmark) = fresh, path == shownPath else {
+            appModel.localFolderStatuses[pair.id] = fresh
             return
         }
 
