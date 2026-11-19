@@ -127,6 +127,46 @@ final class PairConflictPlannerTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(analysis.pathResults.first).disposition, .bothChangedIdentical)
     }
 
+    func testRemoteWhoseHashVanishedStillCountsAsChanged() throws {
+        // Baseline knew the hash; the new listing has none. Same size and mtime must not read as "unchanged",
+        // or a local deletion would be pushed over a remote edit.
+        let planner = PairConflictPlanner()
+        let known = PairSnapshotEntry(path: "a.pdf", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: "b")
+        let baseline = PairConflictBaselineState(
+            pairID: UUID(),
+            localSnapshot: PairSnapshot(entries: [known]),
+            remoteSnapshot: PairSnapshot(entries: [known]),
+            updatedAt: Date()
+        )
+
+        let analysis = planner.analyze(
+            baseline: baseline,
+            localSnapshot: PairSnapshot(entries: []),
+            remoteSnapshot: PairSnapshot(entries: [PairSnapshotEntry(path: "a.pdf", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: nil)])
+        )
+
+        XCTAssertEqual(try XCTUnwrap(analysis.pathResults.first).disposition, .deleteVsModifyConflict)
+    }
+
+    func testHashOnOneSideOnlyIsNotTreatedAsIdentical() throws {
+        let planner = PairConflictPlanner()
+        let base = PairSnapshotEntry(path: "a.pdf", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: "b")
+        let baseline = PairConflictBaselineState(
+            pairID: UUID(),
+            localSnapshot: PairSnapshot(entries: [base]),
+            remoteSnapshot: PairSnapshot(entries: [base]),
+            updatedAt: Date()
+        )
+
+        let analysis = planner.analyze(
+            baseline: baseline,
+            localSnapshot: PairSnapshot(entries: [PairSnapshotEntry(path: "a.pdf", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: "x")]),
+            remoteSnapshot: PairSnapshot(entries: [PairSnapshotEntry(path: "a.pdf", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: nil)])
+        )
+
+        XCTAssertEqual(try XCTUnwrap(analysis.pathResults.first).disposition, .conflict)
+    }
+
     func testBootstrapCreatesBaselineOnlyWhenSnapshotsMatch() {
         let planner = PairConflictPlanner()
         let now = Date(timeIntervalSince1970: 1_000)

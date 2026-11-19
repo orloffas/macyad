@@ -552,6 +552,40 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertTrue(deleted.contains { $0.hasPrefix("yd:/Work Docs/act (MacYaD conflict local ") }, "the uploaded conflict copy is removed from Yandex")
     }
 
+    func testKeepBothRollbackNeverOverwritesAFileSavedMeanwhile() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let original = root.appendingPathComponent("act.pdf")
+        try Data("old".utf8).write(to: original)
+
+        var pair = makePair()
+        pair.localFolderDisplayPath = root.path
+        // An editor saves a new act.pdf while rclone runs, then the download fails.
+        let processClient = FailingDownloadProcessClient(beforeFailing: { try? Data("new save".utf8).write(to: original) })
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+            baselineRepository: InMemoryBaselineStore()
+        )
+        let issue = ActivityFileIssue(
+            relativePath: "act.pdf",
+            problemKind: .conflict,
+            differences: [.hashDiffers],
+            localSnapshot: PairSnapshotEntry(path: "act.pdf", size: 3, modTime: Date(timeIntervalSince1970: 1_000), md5: "local"),
+            remoteSnapshot: PairSnapshotEntry(path: "act.pdf", size: 6, modTime: Date(timeIntervalSince1970: 2_000), md5: "remote"),
+            baselineSnapshot: PairSnapshotEntry(path: "act.pdf", size: 4, modTime: Date(timeIntervalSince1970: 900), md5: "base"),
+            selectedDecision: .keepBoth
+        )
+
+        _ = await service.applyResolutions(ActivityIssueSet(issues: [issue]), for: pair)
+
+        XCTAssertEqual(try String(contentsOf: original, encoding: .utf8), "new save")
+        let names = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        XCTAssertTrue(names.contains { $0.hasPrefix("act (MacYaD conflict local ") }, "the old version survives as the conflict copy")
+    }
+
     func testCommandFailureDescriptionUsesSelectedLanguage() {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
@@ -642,11 +676,17 @@ private actor StubProcessClient: RcloneProcessRunning {
 
 private actor FailingDownloadProcessClient: RcloneProcessRunning {
     private var argumentsLog: [[String]] = []
+    private let beforeFailing: @Sendable () -> Void
+
+    init(beforeFailing: @escaping @Sendable () -> Void = {}) {
+        self.beforeFailing = beforeFailing
+    }
 
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
         argumentsLog.append(arguments)
         if let index = arguments.firstIndex(of: "copyto"), arguments[index + 1].hasPrefix("yd:"),
            arguments[index + 2].hasPrefix("yd:") == false {
+            beforeFailing()
             return ("", "ERROR : error reading source root directory: directory not found", 3)
         }
         return ("", "", 0)

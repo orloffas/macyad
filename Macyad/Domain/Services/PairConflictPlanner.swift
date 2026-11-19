@@ -141,7 +141,8 @@ public struct PairConflictPlanner: Sendable {
             )
 
             let disposition: PathDisposition
-            if localChanged || remoteChanged, localEntry?.md5 != nil, localEntry?.isEquivalent(to: remoteEntry) == true {
+            if localChanged || remoteChanged, let local = localEntry, let remote = remoteEntry,
+               let localMD5 = local.md5, localMD5 == remote.md5, local.size == remote.size {
                 // Same bytes on both sides (e.g. a re-upload only moved the remote mtime): nothing to resolve.
                 disposition = .bothChangedIdentical
             } else {
@@ -182,8 +183,14 @@ public struct PairConflictPlanner: Sendable {
         case (nil, nil):
             return false
         case let (.some(entry), .some(baselineEntry)):
-            // A known hash decides; mtime alone is noise when the bytes match.
-            return !entry.isEquivalent(to: baselineEntry)
+            // Both hashes known: they decide, and an mtime-only change is noise.
+            // Otherwise stay strict — a hash that appeared or vanished still counts as a change.
+            if let md5 = entry.md5, let baselineMD5 = baselineEntry.md5 {
+                return entry.size != baselineEntry.size || md5 != baselineMD5
+            }
+            return entry.size != baselineEntry.size
+                || entry.modTime != baselineEntry.modTime
+                || entry.md5 != baselineEntry.md5
         case (.some, nil), (nil, .some):
             return true
         }
@@ -194,6 +201,10 @@ public struct PairConflictPlanner: Sendable {
         case (nil, nil):
             return true
         case let (.some(lhs), .some(rhs)):
+            // A hash on one side only proves nothing about the other: don't call them identical.
+            if (lhs.md5 == nil) != (rhs.md5 == nil) {
+                return false
+            }
             return lhs.isEquivalent(to: rhs)
         case (.some, nil), (nil, .some):
             return false

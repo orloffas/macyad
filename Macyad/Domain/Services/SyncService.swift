@@ -639,8 +639,13 @@ public struct SyncService: Sendable {
                     relativePath: issue.relativePath,
                     to: localConflictRelativePath
                 )
-                undo.append { _ = try? self.localConflictFileManager.moveCanonicalLocalItem(
-                    for: pair, relativePath: localConflictRelativePath, to: issue.relativePath) }
+                undo.append {
+                    // Never overwrite a file saved under the original name while this ran.
+                    let original = self.localConflictFileManager.canonicalLocalURL(for: pair, relativePath: issue.relativePath)
+                    guard !FileManager.default.fileExists(atPath: original.path) else { return }
+                    _ = try? self.localConflictFileManager.moveCanonicalLocalItem(
+                        for: pair, relativePath: localConflictRelativePath, to: issue.relativePath)
+                }
                 logs.append("Moved local item to \(localConflictRelativePath)")
                 let uploadLog = try await runCommand(
                     RcloneCommandBuilder.copyToArguments(
@@ -677,19 +682,23 @@ public struct SyncService: Sendable {
                 )
                 logs.append(remoteCopyLog.detailedDescription)
                 undo.append(deleteRemote(remoteConflictRelativePath))
-
-                let remoteDeleteLog = try await runCommand(
-                    RcloneCommandBuilder.deleteFileArguments(
-                        path: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
-                        configPath: configPath
-                    ),
-                    observer: observer
-                )
-                logs.append(remoteDeleteLog.detailedDescription)
             }
         } catch {
             for step in undo.reversed() { await step() }
             throw error
+        }
+
+        // Outside the rollback: both copies exist by now, and a delete that fails after partly
+        // succeeding must not take the surviving conflict copy with it.
+        if issue.remoteSnapshot != nil {
+            let remoteDeleteLog = try await runCommand(
+                RcloneCommandBuilder.deleteFileArguments(
+                    path: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                    configPath: configPath
+                ),
+                observer: observer
+            )
+            logs.append(remoteDeleteLog.detailedDescription)
         }
 
         return logs
