@@ -84,17 +84,24 @@ public struct SyncService: Sendable {
             AppCopy.current.rcloneCommandFailed(command: command, exitCode: exitCode, stderr: stderr)
         }
 
-        public var summaryDescription: String {
-            AppCopy.current.rcloneCommandSummary(exitCode: exitCode, stderr: stderr)
+        public var explanation: RcloneErrorExplainer.Explanation? {
+            RcloneErrorExplainer.explain(stderr: stderr, command: command)
         }
 
+        public var summaryDescription: String {
+            explanation?.headline ?? AppCopy.current.rcloneCommandSummary(exitCode: exitCode, stderr: stderr)
+        }
+
+        /// Advice first, raw rclone output (kept for debugging) below a separator.
         public var detailedDescription: String {
-            AppCopy.current.rcloneCommandLog(
+            let raw = AppCopy.current.rcloneCommandLog(
                 command: command,
                 exitCode: exitCode,
                 stdout: stdout,
                 stderr: stderr
             )
+            guard let explanation else { return raw }
+            return AppCopy.current.rcloneErrorDetails(advice: explanation.advice, rawDetails: raw)
         }
     }
 
@@ -408,7 +415,30 @@ public struct SyncService: Sendable {
 
         do {
             for issue in issuesToApply {
-                logs.append(contentsOf: try await applyResolution(issue, for: pair, observer: observer))
+                do {
+                    logs.append(contentsOf: try await applyResolution(issue, for: pair, observer: observer))
+                } catch let error as CommandFailedError {
+                    // Name the file and the chosen action: the rclone text alone does not say which one failed.
+                    return OperationOutcome(
+                        severity: .alarm,
+                        summary: copy.issueResolutionFailed(
+                            path: issue.relativePath,
+                            action: decisionTitle(issue.selectedDecision, copy: copy),
+                            reason: error.summaryDescription
+                        ),
+                        details: error.detailedDescription
+                    )
+                } catch {
+                    return OperationOutcome(
+                        severity: .alarm,
+                        summary: copy.issueResolutionFailed(
+                            path: issue.relativePath,
+                            action: decisionTitle(issue.selectedDecision, copy: copy),
+                            reason: error.localizedDescription
+                        ),
+                        details: error.localizedDescription
+                    )
+                }
             }
 
             if remainingIssues.isEmpty {
@@ -581,6 +611,15 @@ public struct SyncService: Sendable {
         )
     }
 
+    private func decisionTitle(_ decision: FileResolutionDecision, copy: AppCopy) -> String {
+        switch decision {
+        case .later: copy.issueDecisionLaterTitle
+        case .keepLocal: copy.issueDecisionKeepLocalTitle
+        case .keepRemote: copy.issueDecisionKeepRemoteTitle
+        case .keepBoth: copy.issueDecisionKeepBothTitle
+        }
+    }
+
     private func applyResolution(_ issue: ActivityFileIssue, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> [String] {
         switch issue.selectedDecision {
         case .later:
@@ -655,47 +694,73 @@ public struct SyncService: Sendable {
         let localConflictRelativePath = renamedConflictRelativePath(issue.relativePath, source: "local", at: resolutionDate)
         let remoteConflictRelativePath = renamedConflictRelativePath(issue.relativePath, source: "remote", at: resolutionDate)
         var logs: [String] = []
-
-        if issue.localSnapshot != nil {
-            let localConflictURL = try localConflictFileManager.moveCanonicalLocalItem(
-                for: pair,
-                relativePath: issue.relativePath,
-                to: localConflictRelativePath
-            )
-            logs.append("Moved local item to \(localConflictRelativePath)")
-            let uploadLog = try await runCommand(
-                RcloneCommandBuilder.copyToArguments(
-                    sourcePath: localConflictURL.path,
-                    destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: localConflictRelativePath),
-                    configPath: configPath
-                ),
-                observer: observer
-            )
-            logs.append(uploadLog.detailedDescription)
+        // Undo steps for what already succeeded, run newest-first if a later step fails,
+        // so a failed keep-both never leaves the local file renamed with no second copy.
+        var undo: [() async -> Void] = []
+        let deleteRemote: (String) -> () async -> Void = { relativePath in
+            { _ = try? await self.runCommand(RcloneCommandBuilder.deleteFileArguments(
+                path: self.composeCanonicalRemotePath(pair: pair, relativePath: relativePath), configPath: self.configPath)) }
         }
 
+        do {
+            if issue.localSnapshot != nil {
+                let localConflictURL = try localConflictFileManager.moveCanonicalLocalItem(
+                    for: pair,
+                    relativePath: issue.relativePath,
+                    to: localConflictRelativePath
+                )
+                undo.append {
+                    // Never overwrite a file saved under the original name while this ran.
+                    let original = self.localConflictFileManager.canonicalLocalURL(for: pair, relativePath: issue.relativePath)
+                    guard !FileManager.default.fileExists(atPath: original.path) else { return }
+                    _ = try? self.localConflictFileManager.moveCanonicalLocalItem(
+                        for: pair, relativePath: localConflictRelativePath, to: issue.relativePath)
+                }
+                logs.append("Moved local item to \(localConflictRelativePath)")
+                let uploadLog = try await runCommand(
+                    RcloneCommandBuilder.copyToArguments(
+                        sourcePath: localConflictURL.path,
+                        destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: localConflictRelativePath),
+                        configPath: configPath
+                    ),
+                    observer: observer
+                )
+                logs.append(uploadLog.detailedDescription)
+                undo.append(deleteRemote(localConflictRelativePath))
+            }
+
+            if issue.remoteSnapshot != nil {
+                let localRemoteConflictURL = localConflictFileManager.canonicalLocalURL(for: pair, relativePath: remoteConflictRelativePath)
+                let downloadLog = try await runCommand(
+                    RcloneCommandBuilder.copyToArguments(
+                        sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                        destinationPath: localRemoteConflictURL.path,
+                        configPath: configPath
+                    ),
+                    observer: observer
+                )
+                logs.append(downloadLog.detailedDescription)
+                undo.append { try? self.localConflictFileManager.removeCanonicalLocalItem(for: pair, relativePath: remoteConflictRelativePath) }
+
+                let remoteCopyLog = try await runCommand(
+                    RcloneCommandBuilder.copyToArguments(
+                        sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                        destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: remoteConflictRelativePath),
+                        configPath: configPath
+                    ),
+                    observer: observer
+                )
+                logs.append(remoteCopyLog.detailedDescription)
+                undo.append(deleteRemote(remoteConflictRelativePath))
+            }
+        } catch {
+            for step in undo.reversed() { await step() }
+            throw error
+        }
+
+        // Outside the rollback: both copies exist by now, and a delete that fails after partly
+        // succeeding must not take the surviving conflict copy with it.
         if issue.remoteSnapshot != nil {
-            let localRemoteConflictURL = localConflictFileManager.canonicalLocalURL(for: pair, relativePath: remoteConflictRelativePath)
-            let downloadLog = try await runCommand(
-                RcloneCommandBuilder.copyToArguments(
-                    sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
-                    destinationPath: localRemoteConflictURL.path,
-                    configPath: configPath
-                ),
-                observer: observer
-            )
-            logs.append(downloadLog.detailedDescription)
-
-            let remoteCopyLog = try await runCommand(
-                RcloneCommandBuilder.copyToArguments(
-                    sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
-                    destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: remoteConflictRelativePath),
-                    configPath: configPath
-                ),
-                observer: observer
-            )
-            logs.append(remoteCopyLog.detailedDescription)
-
             let remoteDeleteLog = try await runCommand(
                 RcloneCommandBuilder.deleteFileArguments(
                     path: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
@@ -710,19 +775,20 @@ public struct SyncService: Sendable {
     }
 
     private func renamedConflictRelativePath(_ relativePath: String, source: String, at date: Date) -> String {
-        let url = URL(fileURLWithPath: relativePath)
+        // String path ops, not URL(fileURLWithPath:): a relative path would be resolved against the process cwd.
+        let path = relativePath as NSString
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyy-MM-dd HH-mm-ss"
         let stamp = formatter.string(from: date)
-        let baseName = url.deletingPathExtension().lastPathComponent
-        let ext = url.pathExtension
+        let baseName = (path.lastPathComponent as NSString).deletingPathExtension
+        let ext = path.pathExtension
         let renamed = ext.isEmpty
             ? "\(baseName) (MacYaD conflict \(source) \(stamp))"
             : "\(baseName) (MacYaD conflict \(source) \(stamp)).\(ext)"
-        let parent = url.deletingLastPathComponent().path
+        let parent = path.deletingLastPathComponent
         if parent == "/" || parent.isEmpty {
             return renamed
         }
