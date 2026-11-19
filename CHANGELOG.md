@@ -8,6 +8,20 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Push stayed blocked by dozens of "changed on Yandex" files that had not
+  changed.** A re-upload gives a file a new modification time on Yandex while
+  its bytes stay the same, and the conflict planner treated any mtime change as
+  an edit. When both sides report an MD5, the hash now decides; matching bytes
+  are no longer a conflict.
+- **"Keep both" could stop halfway and leave the local file renamed.** It
+  renames the local file, uploads it, then downloads the Yandex copy; when the
+  download failed, nothing was undone. A failed step now rolls back the ones
+  before it, and the conflict copy no longer lands in the wrong folder when the
+  app is started from a directory other than `/`.
+- **The review window's "Cancel" button did not cancel anything.** Decisions
+  already applied stay applied; the button only closes the window, so it is
+  now called "Close".
+
 - **Sync stopped with `410 - GoneError`, and logging in again did not help.**
   Since October 2026 Yandex refuses file operations from rclone's built-in OAuth
   app, while still answering the disk-size request — so the remote looks
