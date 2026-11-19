@@ -5,6 +5,7 @@ struct PairListRowView: View {
     let pair: SyncPair
     let severity: Severity
     let accountLabel: String?
+    var localFolderNeedsAttention = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -29,6 +30,12 @@ struct PairListRowView: View {
             }
 
             Spacer(minLength: 8)
+
+            if localFolderNeedsAttention {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel(AppCopy.current.localFolderWarningAccessibilityLabel)
+            }
 
             if let statusColor {
                 Circle()

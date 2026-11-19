@@ -292,6 +292,42 @@ public struct AppCopy: Sendable {
         return count == 1 ? "1 mismatched path" : "\(count) mismatched paths"
     }
 
+    public var pathNotFoundAlertTitle: String {
+        isRussian ? "Путь не найден" : "Path not found"
+    }
+
+    public func localFolderMissingMessage(_ path: String) -> String {
+        isRussian ? "Локальная папка не найдена: \(path)" : "Local folder not found: \(path)"
+    }
+
+    public func localFolderMovedMessage(_ path: String) -> String {
+        isRussian ? "Папка перемещена: \(path)" : "Folder was moved: \(path)"
+    }
+
+    public var localFolderUseNewPathButtonTitle: String {
+        isRussian ? "Использовать новый путь" : "Use new path"
+    }
+
+    public var localFolderPickAgainButtonTitle: String {
+        isRussian ? "Выбрать папку заново" : "Choose folder again"
+    }
+
+    public var localFolderWarningAccessibilityLabel: String {
+        isRussian ? "Локальная папка не найдена или перемещена" : "Local folder is missing or was moved"
+    }
+
+    public func localFolderMissingOperationSkipped(_ path: String) -> String {
+        isRussian
+            ? "Локальная папка не найдена: \(path). Операция пропущена — выберите папку заново в настройках пары."
+            : "Local folder not found: \(path). Operation skipped — choose the folder again in the pair settings."
+    }
+
+    public func localFolderMovedOperationSkipped(_ newPath: String) -> String {
+        isRussian
+            ? "Папка перемещена: \(newPath). Операция пропущена — подтвердите новый путь в карточке пары или выберите папку заново."
+            : "Folder was moved: \(newPath). Operation skipped — confirm the new path on the pair card or choose the folder again."
+    }
+
     public var openInFinderTitle: String {
         isRussian ? "Открыть в Finder" : "Open in Finder"
     }

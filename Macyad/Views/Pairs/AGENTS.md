@@ -9,8 +9,8 @@ SwiftUI-вьюхи управления sync-парами: список пар �
 ## Key Files
 | File | Description |
 |------|-------------|
-| PairListRowView.swift | Строка сайдбара для одной `SyncPair`: имя, remote path, аккаунт, цветовой индикатор severity |
-| PairDetailView.swift | Детальная панель пары: метаданные (local folder, remote path, account, schedule), кнопки действий (Push to Yandex, Pull from Yandex, Check Yandex), список активности и inspector для выбранного события |
+| PairListRowView.swift | Строка сайдбара для одной `SyncPair`: имя, remote path, аккаунт, цветовой индикатор severity, значок предупреждения, если локальная папка пары не найдена или перемещена (`localFolderNeedsAttention`) |
+| PairDetailView.swift | Детальная панель пары: метаданные (local folder, remote path, account, schedule), кнопки действий (Push to Yandex, Pull from Yandex, Check Yandex), список активности и inspector для выбранного события; под локальным путём — предупреждение «Локальная папка не найдена» / «Папка перемещена» с кнопками «Использовать новый путь» (`onUseMovedFolder`) и «Выбрать папку заново» (`onEditPair`); кнопка папки при пропавшем пути открывает alert «Путь не найден» вместо тихого ничего |
 | CreatePairSheetView.swift | Модальный лист создания и редактирования `SyncPair`: имя, выбор локальной папки через `FolderPickerBridge`, выбор аккаунта, remote subpath, расписание, политика удаления |
 
 ## For AI Agents

@@ -124,6 +124,7 @@ public struct SyncService: Sendable {
     public let planner: PairConflictPlanner
     public let localConflictFileManager: LocalConflictFileManaging
     public let operationInspector: RcloneOperationInspecting
+    public let localFolderChecker: LocalFolderAvailabilityChecking
     public let now: @Sendable () -> Date
 
     public init(
@@ -137,6 +138,7 @@ public struct SyncService: Sendable {
         planner: PairConflictPlanner = PairConflictPlanner(),
         localConflictFileManager: LocalConflictFileManaging = LocalConflictFileManager(),
         operationInspector: RcloneOperationInspecting = NoopRcloneOperationInspector(),
+        localFolderChecker: LocalFolderAvailabilityChecking = NoopLocalFolderAvailabilityChecker(),
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.processClient = processClient
@@ -153,11 +155,32 @@ public struct SyncService: Sendable {
         self.planner = planner
         self.localConflictFileManager = localConflictFileManager
         self.operationInspector = operationInspector
+        self.localFolderChecker = localFolderChecker
         self.now = now
+    }
+
+    /// Stops an operation before rclone runs into `directory not found` when the
+    /// pair's local folder is gone or moved. `.unknown` (no permission to tell)
+    /// never blocks.
+    private func localFolderBlockedOutcome(for pair: SyncPair, copy: AppCopy) -> OperationOutcome? {
+        let message: String
+        switch localFolderChecker.status(of: pair) {
+        case .available, .unknown:
+            return nil
+        case .missing:
+            message = copy.localFolderMissingOperationSkipped(pair.localFolderDisplayPath)
+        case let .moved(path, _):
+            message = copy.localFolderMovedOperationSkipped(path)
+        }
+        return OperationOutcome(severity: .warning, summary: message, details: message)
     }
 
     public func push(_ pair: SyncPair, executionMode: ExecutionMode = .manual, observer: RcloneOutputObserver? = nil) async -> OperationOutcome {
         let copy = AppCopy.current
+
+        if let blocked = localFolderBlockedOutcome(for: pair, copy: copy) {
+            return blocked
+        }
 
         do {
             let localSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .sync)
@@ -205,6 +228,10 @@ public struct SyncService: Sendable {
 
     public func check(_ pair: SyncPair, observer: RcloneOutputObserver? = nil) async -> OperationOutcome {
         let copy = AppCopy.current
+
+        if let blocked = localFolderBlockedOutcome(for: pair, copy: copy) {
+            return blocked
+        }
 
         do {
             let checkLocalSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .check)
@@ -290,6 +317,10 @@ public struct SyncService: Sendable {
 
     public func pull(_ pair: SyncPair, executionMode: ExecutionMode = .manual, observer: RcloneOutputObserver? = nil) async -> OperationOutcome {
         let copy = AppCopy.current
+
+        if let blocked = localFolderBlockedOutcome(for: pair, copy: copy) {
+            return blocked
+        }
 
         do {
             let baseline = try await baselineRepository.load(pairID: pair.id)

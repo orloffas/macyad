@@ -54,6 +54,7 @@ final class AppEnvironment: ObservableObject {
     let onboardingService: OnboardingServicing
     let onboardingViewModel: OnboardingViewModel
     let folderOpener: FolderOpening
+    let localFolderChecker: LocalFolderAvailabilityChecking
     let pairRepository: PairRepository
     let accountRepository: AccountRepository
     let conflictStateRepository: PairConflictStateRepository
@@ -97,6 +98,10 @@ final class AppEnvironment: ObservableObject {
             pasteboard: PasteboardBridge()
         )
         self.folderOpener = FinderFolderOpenerBridge()
+        // Seeded UI-test pairs point at invented paths; checking them would paint warnings into the screenshots.
+        self.localFolderChecker = launchMode.usesEphemeralPaths
+            ? NoopLocalFolderAvailabilityChecker()
+            : LocalFolderAvailabilityChecker(resolver: BookmarkFolderResolver(), prober: POSIXPathProber())
         self.settingsViewModel = SettingsViewModel(
             preferencesStore: preferencesStore,
             loginItemService: loginItemService,
@@ -178,7 +183,8 @@ final class AppEnvironment: ObservableObject {
                 configPath: paths.rcloneConfigFile.path,
                 excludeFileStore: PersistentRcloneExcludeFileStore(paths: paths),
                 baselineRepository: self.conflictStateRepository,
-                operationInspector: SystemRcloneOperationInspector()
+                operationInspector: SystemRcloneOperationInspector(),
+                localFolderChecker: self.localFolderChecker
             )
         }, operationCoordinator: operationCoordinator)
 

@@ -22,6 +22,8 @@
 - `ActivityReviewApplyResult` объявлен в `MainWindowView.swift` — при перемещении в Domain обновляй импорты во всех потребителях.
 - Ручная операция пишет событие журнала **дважды**: `run(_:for:)` сохраняет запись с `inFlightOperation` до старта работы и заменяет её (`activityRepository.replace`, тот же `id`) результатом или ошибкой. Не возвращай `append` в финальные ветки — иначе на одну операцию появится два события, а прерванный прогон снова не оставит следа. `loadPairsIfNeeded()` при старте прогоняет `recoverInterruptedEvents` и закрывает записи, оставшиеся «в полёте» от прошлого запуска.
 
+- Статус локальной папки пары (`appModel.localFolderStatuses`) проверяется один раз при загрузке пар (все пары), при выборе пары и после сохранения пары — без опроса по таймеру. `adoptMovedFolder()` записывает новый путь и свежий bookmark из `.moved`. Проверка идёт через `environment.localFolderChecker`; в UI-тестовых режимах это `Noop`, чтобы сид-пары с выдуманными путями не получали предупреждений.
+
 ### Testing Requirements
 Ручное тестирование через `./script/build_and_run.sh`. Проверять: открытие Settings, sidebar-навигация, запуск Push/Pull/Check, появление popover из menu bar. UI-тесты — `MacyadUITests/`.
 

@@ -8,6 +8,17 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The folder button next to a pair's local path did nothing after the folder
+  was moved, and the pair kept failing.** The pair only remembered the old
+  path, and the app never looked at the folder bookmark it stores. The app now
+  checks every pair's local folder when it starts, again when you open the
+  pair, and after you save it. A missing or moved folder gets a warning sign in
+  the pair list and on the pair card. If the folder moved, the card shows its
+  new location with «Use new path»; if it is gone, it offers «Choose folder
+  again». The folder button shows a «Path not found» alert instead of staying
+  silent. Push, Pull and Check — manual and scheduled — are skipped with a clear
+  journal entry rather than running rclone into `directory not found`. A folder
+  the app merely has no permission to read is never reported as missing.
 - **Sync stopped with `410 - GoneError`, and logging in again did not help.**
   Since October 2026 Yandex refuses file operations from rclone's built-in OAuth
   app, while still answering the disk-size request — so the remote looks

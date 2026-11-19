@@ -18,6 +18,7 @@
 | `AppCopyTests.swift` | Проверяет все строки `AppCopy` для `.english` и `.russian`: заголовки, кнопки, статусы, счётчики событий, сообщения об ошибках |
 | `AppPreferencesTests.swift` | Зеркало `AppPreferences`: дефолты первого запуска (`selectedLanguage`, `launchAtLoginEnabled`, `defaultScheduleMinutes`) |
 | `LocalFolderInspectorTests.swift` | `FileManagerLocalFolderInspector`: скрытые/excluded файлы не считаются user-visible content, глубокая вложенность с literal directory patterns, реальный диск в temp-каталоге |
+| `LocalFolderAvailabilityTests.swift` | `LocalFolderAvailabilityChecker` на fake-резолвере и fake-prober (тот же путь, перемещение, отсутствие, отказ доступа ≠ «не найдено», нет bookmark), блокировка push/pull/check в `SyncService`, реальный rename папки в temp-каталоге |
 | `OnboardingServiceTests.swift` | Зеркало `OnboardingService`: stub `RcloneLocating`, шаги `installRclone` → `configureRemote` → `createFirstPair`, чтение реального rclone.conf из temp-каталога |
 | `PairConflictPlannerTests.swift` | `PairConflictPlanner`: классификация `remoteOnlyChanged`, `conflict`, `deleteVsModifyConflict`, bootstrap-режим, safe initial push/pull, observedDifferences |
 | `PairServiceTests.swift` | Зеркало `PairService`: валидация пустых полей, сохранение identity при update, запрет удаления последней пары, локализация ошибок через `AppLanguageState` |
