@@ -71,7 +71,7 @@ final class PairConflictPlannerTests: XCTestCase {
         )
 
         let local = PairSnapshot(entries: [
-            PairSnapshotEntry(path: "Docs/file.txt", size: 12, modTime: Date(timeIntervalSince1970: 2_000), md5: "same")
+            PairSnapshotEntry(path: "Docs/file.txt", size: 12, modTime: Date(timeIntervalSince1970: 2_000), md5: "local")
         ])
         let remote = PairSnapshot(entries: [
             PairSnapshotEntry(path: "Docs/file.txt", size: 18, modTime: Date(timeIntervalSince1970: 3_000), md5: "remote")
@@ -84,6 +84,47 @@ final class PairConflictPlannerTests: XCTestCase {
         XCTAssertTrue(result.observedDifferences.contains(.mtimeDiffers))
         XCTAssertTrue(result.observedDifferences.contains(.sizeDiffers))
         XCTAssertTrue(result.observedDifferences.contains(.hashDiffers))
+    }
+
+    func testAnalyzeIgnoresMtimeOnlyChangeWhenHashesMatch() throws {
+        // A re-upload stamps a new remote mtime; the bytes are the same, so nothing should block a push.
+        let planner = PairConflictPlanner()
+        let file = { (mtime: Double) in
+            PairSnapshotEntry(path: "Docs/scan.pdf", size: 12, modTime: Date(timeIntervalSince1970: mtime), md5: "same")
+        }
+        let baseline = PairConflictBaselineState(
+            pairID: UUID(),
+            localSnapshot: PairSnapshot(entries: [file(1_000)]),
+            remoteSnapshot: PairSnapshot(entries: [file(1_000)]),
+            updatedAt: Date()
+        )
+
+        let analysis = planner.analyze(
+            baseline: baseline,
+            localSnapshot: PairSnapshot(entries: [file(1_000)]),
+            remoteSnapshot: PairSnapshot(entries: [file(5_000)])
+        )
+
+        XCTAssertTrue(analysis.isClean)
+        XCTAssertEqual(analysis.changeCountForPushBlock, 0)
+    }
+
+    func testAnalyzeTreatsMatchingHashesAsIdenticalEvenWithoutBaselineHash() throws {
+        let planner = PairConflictPlanner()
+        let baseline = PairConflictBaselineState(
+            pairID: UUID(),
+            localSnapshot: PairSnapshot(entries: [PairSnapshotEntry(path: "a.pdf", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: nil)]),
+            remoteSnapshot: PairSnapshot(entries: [PairSnapshotEntry(path: "a.pdf", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: nil)]),
+            updatedAt: Date()
+        )
+
+        let analysis = planner.analyze(
+            baseline: baseline,
+            localSnapshot: PairSnapshot(entries: [PairSnapshotEntry(path: "a.pdf", size: 12, modTime: Date(timeIntervalSince1970: 1_000), md5: "h")]),
+            remoteSnapshot: PairSnapshot(entries: [PairSnapshotEntry(path: "a.pdf", size: 12, modTime: Date(timeIntervalSince1970: 9_000), md5: "h")])
+        )
+
+        XCTAssertEqual(try XCTUnwrap(analysis.pathResults.first).disposition, .bothChangedIdentical)
     }
 
     func testBootstrapCreatesBaselineOnlyWhenSnapshotsMatch() {

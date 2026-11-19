@@ -141,20 +141,25 @@ public struct PairConflictPlanner: Sendable {
             )
 
             let disposition: PathDisposition
-            switch (localChanged, remoteChanged) {
-            case (false, false):
-                disposition = .unchanged
-            case (true, false):
-                disposition = .localOnlyChanged
-            case (false, true):
-                disposition = .remoteOnlyChanged
-            case (true, true):
-                if entriesEquivalent(localEntry, remoteEntry) {
-                    disposition = .bothChangedIdentical
-                } else if localEntry == nil || remoteEntry == nil {
-                    disposition = .deleteVsModifyConflict
-                } else {
-                    disposition = .conflict
+            if localChanged || remoteChanged, localEntry?.md5 != nil, localEntry?.isEquivalent(to: remoteEntry) == true {
+                // Same bytes on both sides (e.g. a re-upload only moved the remote mtime): nothing to resolve.
+                disposition = .bothChangedIdentical
+            } else {
+                switch (localChanged, remoteChanged) {
+                case (false, false):
+                    disposition = .unchanged
+                case (true, false):
+                    disposition = .localOnlyChanged
+                case (false, true):
+                    disposition = .remoteOnlyChanged
+                case (true, true):
+                    if entriesEquivalent(localEntry, remoteEntry) {
+                        disposition = .bothChangedIdentical
+                    } else if localEntry == nil || remoteEntry == nil {
+                        disposition = .deleteVsModifyConflict
+                    } else {
+                        disposition = .conflict
+                    }
                 }
             }
 
@@ -177,9 +182,8 @@ public struct PairConflictPlanner: Sendable {
         case (nil, nil):
             return false
         case let (.some(entry), .some(baselineEntry)):
-            return entry.size != baselineEntry.size
-                || entry.modTime != baselineEntry.modTime
-                || entry.md5 != baselineEntry.md5
+            // A known hash decides; mtime alone is noise when the bytes match.
+            return !entry.isEquivalent(to: baselineEntry)
         case (.some, nil), (nil, .some):
             return true
         }
