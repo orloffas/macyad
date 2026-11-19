@@ -61,7 +61,10 @@ public struct RcloneSnapshotProvider: PairSnapshotProviding, Sendable {
             )
         }
         return PairSnapshot(entries: entries.map {
-            PairSnapshotEntry(path: $0.path, size: $0.size, modTime: $0.modTime, md5: $0.hashes?["MD5"])
+            // rclone names hashes in lower case ("md5"); the old "MD5" lookup never matched,
+            // so no snapshot ever carried a hash and every mtime change looked like an edit.
+            PairSnapshotEntry(path: $0.path, size: $0.size, modTime: $0.modTime,
+                              md5: $0.hashes?.first { $0.key.lowercased() == "md5" }?.value)
         })
     }
 }

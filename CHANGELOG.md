@@ -7,6 +7,12 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## Unreleased
 
 ### Fixed
+
+- **MD5 hashes were never read, so any new modification time looked like an
+  edit.** rclone prints the hash key as `md5`; the app looked for `MD5`, found
+  nothing, and compared files by size and mtime only. A re-upload that left the
+  bytes intact could block push on every file it touched. Hashes are now read,
+  and matching content no longer counts as a change.
 - **The folder button next to a pair's local path did nothing after the folder
   was moved, and the pair kept failing.** The pair only remembered the old
   path, and the app never looked at the folder bookmark it stores. The app now
