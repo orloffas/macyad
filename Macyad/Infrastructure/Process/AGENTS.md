@@ -18,7 +18,7 @@
 | `RcloneExcludeMatcher.swift` | Локальный матчер exclude-паттернов (без запуска rclone): поддерживает glob, `/**`, literal-directory и path-паттерны |
 | `RcloneLocator.swift` | Реализует `RcloneLocating`; ищет rclone по фиксированному списку кандидатов (`/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`) |
 | `RcloneOutputParser.swift` | Статические методы парсинга stdout/stderr: `differenceCount(_:stderr:)` и `containsRemoteChanges(_:stderr:)` |
-| `RcloneSnapshotProvider.swift` | Реализует `PairSnapshotProviding`; запускает `rclone lsjson` и декодирует JSON-ответ в `PairSnapshot` |
+| `RcloneSnapshotProvider.swift` | Реализует `PairSnapshotProviding`; запускает `rclone lsjson` и декодирует JSON-ответ в `PairSnapshot`; если в листинге есть пути, равные после Unicode-нормализации, но разные по байтам (NFC/NFD), бросает `CommandFailedError` с пояснением вместо тихой синхронизации не в ту папку |
 
 ## For AI Agents
 

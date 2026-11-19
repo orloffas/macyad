@@ -84,17 +84,24 @@ public struct SyncService: Sendable {
             AppCopy.current.rcloneCommandFailed(command: command, exitCode: exitCode, stderr: stderr)
         }
 
-        public var summaryDescription: String {
-            AppCopy.current.rcloneCommandSummary(exitCode: exitCode, stderr: stderr)
+        public var explanation: RcloneErrorExplainer.Explanation? {
+            RcloneErrorExplainer.explain(stderr: stderr, command: command)
         }
 
+        public var summaryDescription: String {
+            explanation?.headline ?? AppCopy.current.rcloneCommandSummary(exitCode: exitCode, stderr: stderr)
+        }
+
+        /// Advice first, raw rclone output (kept for debugging) below a separator.
         public var detailedDescription: String {
-            AppCopy.current.rcloneCommandLog(
+            let raw = AppCopy.current.rcloneCommandLog(
                 command: command,
                 exitCode: exitCode,
                 stdout: stdout,
                 stderr: stderr
             )
+            guard let explanation else { return raw }
+            return AppCopy.current.rcloneErrorDetails(advice: explanation.advice, rawDetails: raw)
         }
     }
 
@@ -377,7 +384,30 @@ public struct SyncService: Sendable {
 
         do {
             for issue in issuesToApply {
-                logs.append(contentsOf: try await applyResolution(issue, for: pair, observer: observer))
+                do {
+                    logs.append(contentsOf: try await applyResolution(issue, for: pair, observer: observer))
+                } catch let error as CommandFailedError {
+                    // Name the file and the chosen action: the rclone text alone does not say which one failed.
+                    return OperationOutcome(
+                        severity: .alarm,
+                        summary: copy.issueResolutionFailed(
+                            path: issue.relativePath,
+                            action: decisionTitle(issue.selectedDecision, copy: copy),
+                            reason: error.summaryDescription
+                        ),
+                        details: error.detailedDescription
+                    )
+                } catch {
+                    return OperationOutcome(
+                        severity: .alarm,
+                        summary: copy.issueResolutionFailed(
+                            path: issue.relativePath,
+                            action: decisionTitle(issue.selectedDecision, copy: copy),
+                            reason: error.localizedDescription
+                        ),
+                        details: error.localizedDescription
+                    )
+                }
             }
 
             if remainingIssues.isEmpty {
@@ -548,6 +578,15 @@ public struct SyncService: Sendable {
             remoteSnapshot: filter(baseline.remoteSnapshot),
             updatedAt: baseline.updatedAt
         )
+    }
+
+    private func decisionTitle(_ decision: FileResolutionDecision, copy: AppCopy) -> String {
+        switch decision {
+        case .later: copy.issueDecisionLaterTitle
+        case .keepLocal: copy.issueDecisionKeepLocalTitle
+        case .keepRemote: copy.issueDecisionKeepRemoteTitle
+        case .keepBoth: copy.issueDecisionKeepBothTitle
+        }
     }
 
     private func applyResolution(_ issue: ActivityFileIssue, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> [String] {

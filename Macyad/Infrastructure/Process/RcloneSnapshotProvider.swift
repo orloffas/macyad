@@ -50,6 +50,16 @@ public struct RcloneSnapshotProvider: PairSnapshotProviding, Sendable {
         }
 
         let entries = try decoder.decode([ListingEntry].self, from: Data(result.stdout.utf8))
+        // rclone silently ignores one of two folders that differ only in Unicode normalization;
+        // stop here with an explanation instead of syncing into the wrong one.
+        let duplicates = RcloneErrorExplainer.normalizationDuplicates(in: entries.map(\.path))
+        if !duplicates.isEmpty {
+            throw SyncService.CommandFailedError(
+                command: arguments,
+                exitCode: 1,
+                stderr: RcloneErrorExplainer.duplicateStderr(for: duplicates)
+            )
+        }
         return PairSnapshot(entries: entries.map {
             PairSnapshotEntry(path: $0.path, size: $0.size, modTime: $0.modTime, md5: $0.hashes?["MD5"])
         })

@@ -1272,6 +1272,78 @@ public struct AppCopy: Sendable {
             : "The interval must be greater than zero."
     }
 
+    // MARK: Readable rclone failures (see RcloneErrorExplainer)
+
+    public var rcloneErrorWhatToDoTitle: String {
+        isRussian ? "Что делать" : "What to do"
+    }
+
+    public var rcloneErrorGoneHeadline: String {
+        isRussian
+            ? "Яндекс отклонил запрос (410 GoneError): встроенное OAuth-приложение rclone заблокировано"
+            : "Yandex rejected the request (410 GoneError): rclone's built-in OAuth app is blocked"
+    }
+
+    public var rcloneErrorGoneAdvice: String {
+        isRussian
+            ? "С октября 2026 года Яндекс не пускает встроенное OAuth-приложение rclone. Переподключите аккаунт через собственное OAuth-приложение: Настройки → Yandex accounts → «Reconnect account». Пошаговое руководство: \(yandexOAuthGuideURL.absoluteString)"
+            : "Since October 2026 Yandex blocks rclone's built-in OAuth app. Reconnect the account through your own OAuth app: Settings → Yandex accounts → \"Reconnect account\". Step-by-step guide: \(yandexOAuthGuideURL.absoluteString)"
+    }
+
+    public func rcloneErrorDuplicateHeadline(folder: String) -> String {
+        isRussian
+            ? "На Яндекс Диске две одинаково выглядящие папки «\(folder)»"
+            : "Yandex Disk has two folders that look identical: \"\(folder)\""
+    }
+
+    public var rcloneErrorDuplicateAdvice: String {
+        isRussian
+            ? "Имена отличаются только записью символов Unicode (macOS пишет имена в NFD, другие клиенты — в NFC), поэтому rclone игнорирует одну из папок, а файлы попадают в другую. Откройте папку на disk.yandex.ru, сравните две папки с одинаковым именем, перенесите содержимое в одну и удалите другую."
+            : "The names differ only in how Unicode characters are encoded (macOS writes names in NFD, other clients in NFC), so rclone ignores one folder and files land in the other. Open the folder on disk.yandex.ru, compare the two folders with the same name, move the content into one and delete the other."
+    }
+
+    public var rcloneErrorAuthHeadline: String {
+        isRussian ? "Токен Яндекса недействителен" : "The Yandex token is no longer valid"
+    }
+
+    public var rcloneErrorAuthAdvice: String {
+        isRussian
+            ? "Переподключите аккаунт: Настройки → Yandex accounts → «Reconnect account»."
+            : "Reconnect the account: Settings → Yandex accounts → \"Reconnect account\"."
+    }
+
+    public var rcloneErrorRemoteMissingHeadline: String {
+        isRussian
+            ? "Папка на Яндекс Диске не найдена или неоднозначна"
+            : "The folder on Yandex Disk is missing or ambiguous"
+    }
+
+    public var rcloneErrorRemoteMissingAdvice: String {
+        isRussian
+            ? "Проверьте на disk.yandex.ru, что папка существует и не переименована. Если там две папки с одинаковым именем, объедините их в одну."
+            : "Check on disk.yandex.ru that the folder exists and was not renamed. If there are two folders with the same name, merge them into one."
+    }
+
+    public var rcloneErrorLocalMissingHeadline: String {
+        isRussian ? "Локальная папка не найдена" : "The local folder was not found"
+    }
+
+    public var rcloneErrorLocalMissingAdvice: String {
+        isRussian
+            ? "Папку переместили или удалили. Выберите её заново в настройках пары."
+            : "The folder was moved or deleted. Select it again in the pair settings."
+    }
+
+    public func rcloneErrorDetails(advice: String, rawDetails: String) -> String {
+        "\(rcloneErrorWhatToDoTitle): \(advice)\n\n———\n\n\(rawDetails)"
+    }
+
+    public func issueResolutionFailed(path: String, action: String, reason: String) -> String {
+        isRussian
+            ? "Не удалось применить «\(action)» к \(path): \(reason)"
+            : "Could not apply \"\(action)\" to \(path): \(reason)"
+    }
+
     public func rcloneCommandFailed(command: [String], exitCode: Int32, stderr: String) -> String {
         let stderrSuffix = stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : ": \(stderr)"
 

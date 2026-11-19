@@ -21,7 +21,19 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The review window's "Cancel" button did not cancel anything.** Decisions
   already applied stay applied; the button only closes the window, so it is
   now called "Close".
-
+- **A failed run showed raw rclone output as its headline.** The journal said
+  things like `rclone exited with code 3: … directory not found`, or
+  `Scheduled Push to Yandex failed: … Duplicate directory found in destination -
+  ignoring`, and nothing told you what was wrong or what to do. The app now
+  recognises the known causes and writes one plain line plus a «What to do»
+  paragraph at the top of the details: a blocked rclone OAuth app (`410
+  GoneError`), an expired Yandex token, a missing local folder, a missing Yandex
+  folder, and two Yandex folders whose names look identical but differ in Unicode
+  normalization (macOS writes NFD, other clients NFC, and rclone ignores one of
+  them). That last case is also checked up front when the remote listing is
+  taken, so the run stops with the folder named instead of syncing into the wrong
+  one. The raw rclone output stays below the advice. A failed «apply decisions»
+  now names the file and the chosen action.
 - **Sync stopped with `410 - GoneError`, and logging in again did not help.**
   Since October 2026 Yandex refuses file operations from rclone's built-in OAuth
   app, while still answering the disk-size request — so the remote looks
