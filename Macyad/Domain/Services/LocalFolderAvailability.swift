@@ -73,6 +73,10 @@ public struct LocalFolderAvailabilityChecker: LocalFolderAvailabilityChecking {
                 if Self.samePath(resolvedPath, storedPath) {
                     return .available
                 }
+                // A bookmark follows a folder into the Trash; offering that as the new path would be wrong.
+                if resolvedPath.split(separator: "/").contains(".Trash") {
+                    return .missing
+                }
                 // No bookmark to store means we cannot offer the move; the
                 // folder is still not where the pair says it is.
                 guard let freshBookmark else { return .missing }

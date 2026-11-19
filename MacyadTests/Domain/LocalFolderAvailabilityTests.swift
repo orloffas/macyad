@@ -67,6 +67,14 @@ final class LocalFolderAvailabilityTests: XCTestCase {
         )
     }
 
+    func testFolderMovedToTrashIsMissingNotMoved() {
+        let trashed = "/Users/test/.Trash/Work Docs"
+        XCTAssertEqual(
+            status(resolution: .resolved(path: trashed, existence: .exists, freshBookmark: Data("fresh".utf8))),
+            .missing
+        )
+    }
+
     func testResolvedPathThatDoesNotExistIsMissing() {
         XCTAssertEqual(status(resolution: .resolved(path: storedPath, existence: .absent, freshBookmark: nil)), .missing)
     }
