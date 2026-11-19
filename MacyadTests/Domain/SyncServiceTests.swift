@@ -517,6 +517,41 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertEqual(outcome.issueSet?.issues.map { $0.relativePath }, ["later.txt"])
     }
 
+    func testKeepBothRollsBackWhenDownloadingTheRemoteCopyFails() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("local".utf8).write(to: root.appendingPathComponent("act.pdf"))
+
+        var pair = makePair()
+        pair.localFolderDisplayPath = root.path
+        // Uploads (local → yd:) succeed; the download from yd: fails, as it did on an ambiguous remote folder.
+        let processClient = FailingDownloadProcessClient()
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+            baselineRepository: InMemoryBaselineStore()
+        )
+        let issue = ActivityFileIssue(
+            relativePath: "act.pdf",
+            problemKind: .conflict,
+            differences: [.hashDiffers],
+            localSnapshot: PairSnapshotEntry(path: "act.pdf", size: 5, modTime: Date(timeIntervalSince1970: 1_000), md5: "local"),
+            remoteSnapshot: PairSnapshotEntry(path: "act.pdf", size: 6, modTime: Date(timeIntervalSince1970: 2_000), md5: "remote"),
+            baselineSnapshot: PairSnapshotEntry(path: "act.pdf", size: 4, modTime: Date(timeIntervalSince1970: 900), md5: "base"),
+            selectedDecision: .keepBoth
+        )
+
+        let outcome = await service.applyResolutions(ActivityIssueSet(issues: [issue]), for: pair)
+
+        let names = try FileManager.default.contentsOfDirectory(atPath: root.path)
+        XCTAssertEqual(names, ["act.pdf"], "the local file must be back under its own name, with no conflict copies left")
+        XCTAssertEqual(outcome.severity, .alarm)
+        let deleted = await processClient.recordedArguments().filter { $0.contains("deletefile") }.compactMap(\.last)
+        XCTAssertTrue(deleted.contains { $0.hasPrefix("yd:/Work Docs/act (MacYaD conflict local ") }, "the uploaded conflict copy is removed from Yandex")
+    }
+
     func testCommandFailureDescriptionUsesSelectedLanguage() {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
@@ -598,6 +633,30 @@ private actor StubProcessClient: RcloneProcessRunning {
             lines: stream,
             completion: Task { r }
         )
+    }
+
+    func recordedArguments() -> [[String]] {
+        argumentsLog
+    }
+}
+
+private actor FailingDownloadProcessClient: RcloneProcessRunning {
+    private var argumentsLog: [[String]] = []
+
+    func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
+        argumentsLog.append(arguments)
+        if let index = arguments.firstIndex(of: "copyto"), arguments[index + 1].hasPrefix("yd:"),
+           arguments[index + 2].hasPrefix("yd:") == false {
+            return ("", "ERROR : error reading source root directory: directory not found", 3)
+        }
+        return ("", "", 0)
+    }
+
+    func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle {
+        let r = try await run(arguments)
+        let (stream, continuation) = AsyncStream.makeStream(of: String.self)
+        continuation.finish()
+        return RcloneStreamingHandle(lines: stream, completion: Task { r })
     }
 
     func recordedArguments() -> [[String]] {
