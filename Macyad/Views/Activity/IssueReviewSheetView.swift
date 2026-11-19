@@ -162,7 +162,8 @@ struct IssueReviewSheetView: View {
 
             Spacer()
 
-            Button(copy.cancelButtonTitle) {
+            // Applied decisions are already done; this only dismisses the window.
+            Button(copy.closeButtonTitle) {
                 closeReviewSurface()
             }
 
