@@ -4,10 +4,18 @@ Russian version: [CHANGELOG.ru.md](CHANGELOG.ru.md)
 
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.1.3 — 2026-11-20
 
 ### Fixed
 
+- **Sync stopped with `410 - GoneError`, and logging in again did not help.**
+  Since October 2026 Yandex refuses file operations from rclone's built-in OAuth
+  app, while still answering the disk-size request — so the remote looks
+  connected and only the runs fail. The connect and «Reconnect account» commands
+  the app copies now run the bundled `connect_yandex.py`, which connects the
+  remote through a Yandex OAuth app you register yourself, and rclone keeps
+  refreshing the token through that app. Step-by-step guide with screenshots:
+  [`docs/yandex-oauth-app.md`](docs/yandex-oauth-app.md).
 - **MD5 hashes were never read, so any new modification time looked like an
   edit.** rclone prints the hash key as `md5`; the app looked for `MD5`, found
   nothing, and compared files by size and mtime only. A re-upload that left the
@@ -50,14 +58,6 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   taken, so the run stops with the folder named instead of syncing into the wrong
   one. The raw rclone output stays below the advice. A failed «apply decisions»
   now names the file and the chosen action.
-- **Sync stopped with `410 - GoneError`, and logging in again did not help.**
-  Since October 2026 Yandex refuses file operations from rclone's built-in OAuth
-  app, while still answering the disk-size request — so the remote looks
-  connected and only the runs fail. The connect and «Reconnect account» commands
-  the app copies now run the bundled `connect_yandex.py`, which connects the
-  remote through a Yandex OAuth app you register yourself, and rclone keeps
-  refreshing the token through that app. Step-by-step guide with screenshots:
-  [`docs/yandex-oauth-app.md`](docs/yandex-oauth-app.md).
 
 ## 0.1.2 — 2026-09-01
 
