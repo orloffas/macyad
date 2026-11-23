@@ -105,12 +105,21 @@ public actor BackgroundSyncController {
             return
         }
 
-        let updatedPairs = results.map(\.pair)
+        // Merge onto the pairs as they are now: the user may have edited, added or removed a pair
+        // while rclone ran, and the cycle's own copies would undo that.
+        // Only pairs that ran: a skipped pair's copy is just its state at the start of the cycle.
+        let runPairs = Dictionary(eventfulResults.map { ($0.pair.id, $0.pair) }, uniquingKeysWith: { _, last in last })
+        // If the pairs cannot be read back, saving nothing beats saving the cycle's stale copies.
+        let updatedPairs = (try? await pairStore.load())?.map { current in
+            runPairs[current.id].map(current.withRunResult(of:)) ?? current
+        }
 
         // A failed save must not skip the journal: rclone has already run, and
         // returning here would leave the entry written at start claiming to be
         // running until the next launch.
-        try? await pairStore.save(updatedPairs)
+        if let updatedPairs {
+            try? await pairStore.save(updatedPairs)
+        }
 
         for result in eventfulResults {
             let event = makeEvent(for: result, at: now(), eventID: inFlightEventIDs.removeValue(forKey: result.pair.id) ?? UUID())
