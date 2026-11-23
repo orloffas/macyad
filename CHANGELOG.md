@@ -6,6 +6,14 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Added
+
+- **Push All and Check All on the Overview.** With many pairs you no longer
+  open each one to run it. Both buttons queue every pair, and the pairs run one
+  at a time through the same queue as a single click, with the same journal
+  entries and safety checks. Push All skips Auto-Pull pairs, since Yandex is
+  their source, and pairs that are already running.
+
 ### Fixed
 
 - **"Keep local" in the issue review recreated a folder on Yandex that had just

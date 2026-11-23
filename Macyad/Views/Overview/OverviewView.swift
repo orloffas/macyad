@@ -7,15 +7,32 @@ struct OverviewView: View {
     @ObservedObject var viewModel: OverviewViewModel
     let onSelectPair: (UUID) -> Void
     let onChangeAutoSyncMode: (UUID, AutoSyncMode) -> Void
+    let onPushAll: () -> Void
+    let onCheckAll: () -> Void
     @State private var selectedPairID: UUID?
+
+    private func bulkCount(push: Bool) -> Int {
+        OverviewViewModel.bulkRunPairs(appModel.pairs, push: push, busy: appModel.activeManualPairIDs).count
+    }
 
     var body: some View {
         let copy = appModel.copy
 
         VStack(alignment: .leading, spacing: 14) {
-            Text(AppRoute.overview.title(using: copy))
-                .font(.title2)
-                .fontWeight(.semibold)
+            HStack {
+                Text(AppRoute.overview.title(using: copy))
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                Button(copy.overviewPushAllTitle, action: onPushAll)
+                    .help(copy.overviewPushAllHelp)
+                    .disabled(bulkCount(push: true) == 0)
+                Button(copy.overviewCheckAllTitle, action: onCheckAll)
+                    .help(copy.overviewCheckAllHelp)
+                    .disabled(bulkCount(push: false) == 0)
+            }
 
             LabeledContent(copy.overviewStatusLabel, value: appModel.statusSummary.title)
             LabeledContent(copy.overviewWorkspaceLabel) {

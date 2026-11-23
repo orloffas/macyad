@@ -26,6 +26,12 @@ public final class OverviewViewModel: ObservableObject {
 
     public init() {}
 
+    /// Pairs that "Push All" / "Check All" queue, in list order. A pair already running is left
+    /// alone; Push skips Auto-Pull pairs, whose source of truth is Yandex.
+    public static func bulkRunPairs(_ pairs: [SyncPair], push: Bool, busy: Set<UUID>) -> [SyncPair] {
+        pairs.filter { !busy.contains($0.id) && !(push && $0.autoSyncMode == .pull) }
+    }
+
     public func update(pairs: [SyncPair], events: [ActivityEvent], preferences: AppPreferences, copy: AppCopy) {
         rows = pairs.map { pair in
             let latestEvent = events

@@ -72,7 +72,7 @@ Worth knowing up front, so nothing here is a surprise:
 | | |
 |:---:|:---:|
 | <img src="docs/images/02-overview-en.png" alt="Overview"> | <img src="docs/images/04-conflict-review-en.png" alt="Conflict review"> |
-| **Overview** — every pair, its direction, state and last sync. | **Conflict review** — the blocked files, and what to do with each. |
+| **Overview** — every pair, its direction, state and last sync; *Push All* and *Check All* queue every pair at once. | **Conflict review** — the blocked files, and what to do with each. |
 | <img src="docs/images/05-create-pair-en.png" alt="Creating a pair"> | <img src="docs/images/06-onboarding-en.png" alt="Environment status"> |
 | **New pair** — folder, account, remote path, schedule, excludes. | **Environment status** — rclone, remote, pairs, scheduling, checked on demand. |
 
@@ -270,7 +270,7 @@ MacYaD заменяет клиент, а не хранилище: файлы п�
 | | |
 |:---:|:---:|
 | <img src="docs/images/02-overview-ru.png" alt="Обзор"> | <img src="docs/images/04-conflict-review-ru.png" alt="Разбор конфликтов"> |
-| **Обзор** — все пары, направление, состояние и время последней синхронизации. | **Разбор конфликтов** — заблокированные файлы и решение по каждому. |
+| **Обзор** — все пары, направление, состояние и время последней синхронизации; *Push All* и *Проверить все* ставят в очередь все пары разом. | **Разбор конфликтов** — заблокированные файлы и решение по каждому. |
 | <img src="docs/images/05-create-pair-ru.png" alt="Создание пары"> | <img src="docs/images/06-onboarding-ru.png" alt="Состояние окружения"> |
 | **Новая пара** — папка, аккаунт, remote-путь, расписание, excludes. | **Состояние окружения** — rclone, remote, пары, планировщик; проверка по кнопке. |
 
