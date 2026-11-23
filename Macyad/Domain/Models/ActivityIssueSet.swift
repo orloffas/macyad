@@ -54,6 +54,11 @@ public struct ActivityFileIssue: Codable, Equatable, Hashable, Identifiable, Sen
         self.selectedDecision = selectedDecision
     }
 
+    /// "Keep remote" for a file Yandex no longer has removes the local copy, bypassing the Trash.
+    public var deletesLocalCopy: Bool {
+        selectedDecision == .keepRemote && remoteSnapshot == nil && localSnapshot != nil
+    }
+
     public var directoryPath: String {
         let normalizedPath = relativePath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard !normalizedPath.isEmpty else {

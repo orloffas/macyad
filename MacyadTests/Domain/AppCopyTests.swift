@@ -2,6 +2,18 @@ import XCTest
 @testable import MacyadCore
 
 final class AppCopyTests: XCTestCase {
+    func testLocalDeletionConfirmationCountsFiles() {
+        let english = AppCopy(language: .english)
+        XCTAssertEqual(english.issueReviewDeleteLocalConfirm(count: 1), "Delete 1 File")
+        XCTAssertTrue(english.issueReviewDeleteLocalMessage(count: 3).hasPrefix("Keep remote will delete 3 local files"))
+
+        let russian = AppCopy(language: .russian)
+        XCTAssertEqual(russian.issueReviewDeleteLocalConfirm(count: 21), "Удалить файлы: 21")
+        XCTAssertTrue(russian.issueReviewDeleteLocalMessage(count: 1).contains("удалит 1 локальный файл:"))
+        XCTAssertTrue(russian.issueReviewDeleteLocalMessage(count: 3).contains("удалит 3 локальных файла:"))
+        XCTAssertTrue(russian.issueReviewDeleteLocalMessage(count: 12).contains("удалит 12 локальных файлов:"))
+    }
+
     func testEnglishCopyUsesEnglishLabels() {
         let copy = AppCopy(language: .english)
 

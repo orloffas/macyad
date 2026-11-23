@@ -26,6 +26,11 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and the schedule tries again at the pair's normal interval. You get one
   notification per outage instead of one per attempt. Other failures, like an
   expired token or duplicate folders, still wait for you.
+- **"Keep remote" deleted local files without asking.** For a file that is gone
+  from Yandex, "Keep remote" means "delete it here too", and the app did that
+  straight away, bypassing the Trash. When a folder was removed on Yandex,
+  dozens of local files could go in one click. "Apply decisions" now asks
+  first and says how many local files will be deleted.
 
 ## 0.1.3 — 2026-11-20
 

@@ -281,4 +281,25 @@ final class ActivityEventTests: XCTestCase {
         XCTAssertEqual(decoded, event)
         XCTAssertEqual(decoded.inFlightOperation, "Pull from Yandex")
     }
+
+    func testOnlyKeepRemoteForAFileGoneFromYandexDeletesTheLocalCopy() {
+        let entry = PairSnapshotEntry(path: "act.pdf", size: 1, modTime: nil, md5: nil)
+        func issue(local: Bool, remote: Bool, _ decision: FileResolutionDecision) -> ActivityFileIssue {
+            ActivityFileIssue(
+                relativePath: "act.pdf",
+                problemKind: .deleteVsModifyConflict,
+                differences: [],
+                localSnapshot: local ? entry : nil,
+                remoteSnapshot: remote ? entry : nil,
+                baselineSnapshot: entry,
+                selectedDecision: decision
+            )
+        }
+
+        XCTAssertTrue(issue(local: true, remote: false, .keepRemote).deletesLocalCopy)
+        XCTAssertFalse(issue(local: true, remote: true, .keepRemote).deletesLocalCopy)
+        XCTAssertFalse(issue(local: false, remote: true, .keepRemote).deletesLocalCopy)
+        XCTAssertFalse(issue(local: true, remote: false, .keepLocal).deletesLocalCopy)
+        XCTAssertFalse(issue(local: true, remote: false, .later).deletesLocalCopy)
+    }
 }

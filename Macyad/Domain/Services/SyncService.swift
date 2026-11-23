@@ -727,7 +727,7 @@ public struct SyncService: Sendable {
             return [log.detailedDescription]
         }
 
-        if issue.localSnapshot != nil {
+        if issue.deletesLocalCopy {
             try localConflictFileManager.removeCanonicalLocalItem(for: pair, relativePath: localPath(issue))
             return ["Removed local item \(issue.relativePath)"]
         }

@@ -936,6 +936,23 @@ public struct AppCopy: Sendable {
         isRussian ? "Оставить local" : "Keep local"
     }
 
+    public var issueReviewDeleteLocalTitle: String {
+        isRussian ? "Удалить локальные файлы?" : "Delete local files?"
+    }
+
+    public func issueReviewDeleteLocalMessage(count: Int) -> String {
+        if isRussian {
+            let files = russianPlural(count, one: "локальный файл", few: "локальных файла", many: "локальных файлов")
+            return "«\(issueDecisionKeepRemoteTitle)» удалит \(count) \(files): на Яндексе их больше нет. Файлы удаляются насовсем, не в Корзину."
+        }
+        let files = count == 1 ? "local file" : "local files"
+        return "\(issueDecisionKeepRemoteTitle) will delete \(count) \(files) that Yandex no longer has. They are deleted for good, not moved to the Trash."
+    }
+
+    public func issueReviewDeleteLocalConfirm(count: Int) -> String {
+        isRussian ? "Удалить файлы: \(count)" : "Delete \(count) \(count == 1 ? "File" : "Files")"
+    }
+
     public var issueDecisionKeepRemoteTitle: String {
         isRussian ? "Оставить remote" : "Keep remote"
     }
