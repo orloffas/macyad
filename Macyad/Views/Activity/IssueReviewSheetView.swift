@@ -33,6 +33,7 @@ struct IssueReviewSheetView: View {
     @State private var filter: IssueFilter = .all
     @State private var isApplying = false
     @State private var isRawComparisonExpanded = false
+    @State private var isConfirmingLocalLoss = false
 
     init(
         issueSet: ActivityIssueSet,
@@ -94,6 +95,14 @@ struct IssueReviewSheetView: View {
 
     private var selectedIssues: [ActivityFileIssue] {
         issues.filter { selectedIssueIDs.contains($0.id) }
+    }
+
+    private var localDeletionCount: Int {
+        issues.filter(\.deletesLocalCopy).count
+    }
+
+    private var localEditLossCount: Int {
+        issues.filter(\.discardsLocalEdits).count
     }
 
     private var singleSelectedIssue: ActivityFileIssue? {
@@ -168,10 +177,26 @@ struct IssueReviewSheetView: View {
             }
 
             Button(copy.issueReviewApplyButtonTitle) {
-                Task { await applyDecisions() }
+                if localDeletionCount + localEditLossCount > 0 {
+                    isConfirmingLocalLoss = true
+                } else {
+                    Task { await applyDecisions() }
+                }
             }
             .keyboardShortcut(.defaultAction)
             .disabled(isApplying || issues.allSatisfy { $0.selectedDecision == .later })
+            .confirmationDialog(
+                copy.issueReviewLoseLocalTitle,
+                isPresented: $isConfirmingLocalLoss,
+                titleVisibility: .visible
+            ) {
+                Button(copy.issueReviewLoseLocalConfirm, role: .destructive) {
+                    Task { await applyDecisions() }
+                }
+                Button(copy.cancelButtonTitle, role: .cancel) {}
+            } message: {
+                Text(copy.issueReviewLoseLocalMessage(deleteCount: localDeletionCount, editCount: localEditLossCount))
+            }
         }
     }
 
