@@ -71,6 +71,8 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
     public var scheduleMinutes: Int
     public var deletePolicy: DeletePolicy
     public var lastKnownSeverity: Severity
+    /// The alarm came from a network outage, so scheduled sync keeps retrying.
+    public var lastFailureIsTransient: Bool = false
     public var lastSyncAt: Date?
     public var lastScheduledSyncAttemptAt: Date?
     public var syncExcludes: [String]
@@ -122,6 +124,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         case scheduleMinutes
         case deletePolicy
         case lastKnownSeverity
+        case lastFailureIsTransient
         case lastSyncAt
         case lastScheduledSyncAttemptAt
         case syncExcludes
@@ -145,6 +148,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         scheduleMinutes = try container.decode(Int.self, forKey: .scheduleMinutes)
         deletePolicy = try container.decode(DeletePolicy.self, forKey: .deletePolicy)
         lastKnownSeverity = try container.decode(Severity.self, forKey: .lastKnownSeverity)
+        lastFailureIsTransient = try container.decodeIfPresent(Bool.self, forKey: .lastFailureIsTransient) ?? false
         lastSyncAt = try container.decodeIfPresent(Date.self, forKey: .lastSyncAt)
         lastScheduledSyncAttemptAt = try container.decodeIfPresent(Date.self, forKey: .lastScheduledSyncAttemptAt)
             ?? container.decodeIfPresent(Date.self, forKey: .lastScheduledPushAttemptAt)
@@ -170,6 +174,7 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         try container.encode(scheduleMinutes, forKey: .scheduleMinutes)
         try container.encode(deletePolicy, forKey: .deletePolicy)
         try container.encode(lastKnownSeverity, forKey: .lastKnownSeverity)
+        try container.encode(lastFailureIsTransient, forKey: .lastFailureIsTransient)
         try container.encodeIfPresent(lastSyncAt, forKey: .lastSyncAt)
         try container.encodeIfPresent(lastScheduledSyncAttemptAt, forKey: .lastScheduledSyncAttemptAt)
         try container.encode(syncExcludes, forKey: .syncExcludes)

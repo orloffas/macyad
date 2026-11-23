@@ -16,6 +16,22 @@ public enum RcloneErrorExplainer {
         "couldn't fetch token", "failed to refresh token"
     ]
 
+    // Failures of the network path, not of the request: the same run succeeds once the
+    // connection is back (seen: DNS gone for every pair at once, 22.11.2026).
+    private static let transientNetworkMarkers = [
+        "dial tcp", "no such host", "connection refused", "connection reset",
+        "network is unreachable", "no route to host", "i/o timeout",
+        "tls handshake timeout", "context deadline exceeded",
+    ]
+
+    /// True when rclone failed only because the network was unavailable — worth retrying on schedule.
+    /// A known lasting cause anywhere in the output (410, token, duplicate folders) wins over a
+    /// network line about another item: that run must still wait for a person.
+    public static func isTransientNetworkFailure(stderr: String) -> Bool {
+        let lowered = stderr.lowercased()
+        return transientNetworkMarkers.contains(where: lowered.contains) && explain(stderr: stderr) == nil
+    }
+
     /// Returns nil when stderr matches no known cause (callers keep the generic headline).
     public static func explain(
         stderr: String,

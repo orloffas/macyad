@@ -126,7 +126,8 @@ public actor BackgroundSyncController {
                     body: "\(result.pair.name): \(summary)",
                     routeToken: event.routeToken
                 )
-            } else if case let .failed(summary, _, _) = result.disposition {
+            } else if case let .failed(summary, _, _) = result.disposition,
+                      !isRepeatedNetworkFailure(result.pair, before: pairs) {
                 try? await notificationClient.send(
                     title: copy.scheduledSyncNotificationTitle(direction),
                     body: "\(result.pair.name): \(summary)",
@@ -136,6 +137,11 @@ public actor BackgroundSyncController {
         }
 
         await refreshState()
+    }
+
+    /// While the network stays down every retry fails again; one notification per outage is enough.
+    private func isRepeatedNetworkFailure(_ pair: SyncPair, before pairs: [SyncPair]) -> Bool {
+        pair.lastFailureIsTransient && pairs.first { $0.id == pair.id }?.lastFailureIsTransient == true
     }
 
     public func refreshState() async {

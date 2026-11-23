@@ -528,6 +528,7 @@ struct MainWindowView: View {
 
             var failedPair = pair
             failedPair.lastKnownSeverity = .alarm
+            failedPair.lastFailureIsTransient = false
             try? await replacePair(failedPair)
             let event = ActivityEvent(
                 id: eventID,
@@ -588,6 +589,7 @@ struct MainWindowView: View {
         case .syncNow:
             let outcome = await syncService.push(pair, observer: observer)
             updatedPair.lastKnownSeverity = outcome.severity
+            updatedPair.lastFailureIsTransient = outcome.isTransientFailure
             if outcome.shouldUpdateLastSync {
                 updatedPair.lastSyncAt = Date()
             }
@@ -600,6 +602,7 @@ struct MainWindowView: View {
         case .checkYandex:
             let outcome = await syncService.check(pair, observer: observer)
             updatedPair.lastKnownSeverity = outcome.severity
+            updatedPair.lastFailureIsTransient = outcome.isTransientFailure
             return PairOperationOutcome(
                 pair: updatedPair,
                 message: eventMessage(for: operation, outcome: outcome),
@@ -609,6 +612,7 @@ struct MainWindowView: View {
         case .pullFromYandex:
             let outcome = await syncService.pull(pair, observer: observer)
             updatedPair.lastKnownSeverity = outcome.severity
+            updatedPair.lastFailureIsTransient = outcome.isTransientFailure
             if outcome.shouldUpdateLastSync {
                 // Without this a successful manual pull leaves lastSyncAt
                 // untouched, so the next background cycle considers the pair
@@ -645,6 +649,7 @@ struct MainWindowView: View {
 
             var updatedPair = pair
             updatedPair.lastKnownSeverity = outcome.severity
+            updatedPair.lastFailureIsTransient = outcome.isTransientFailure
             if outcome.updatedBaseline {
                 updatedPair.lastSyncAt = Date()
             }

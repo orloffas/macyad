@@ -64,6 +64,7 @@ public struct ConfigurationTransferService: Sendable {
                 exported.lastSyncAt = nil
                 exported.lastScheduledSyncAttemptAt = nil
                 exported.lastKnownSeverity = .healthy
+                exported.lastFailureIsTransient = false
                 return exported
             }
         )
@@ -121,6 +122,7 @@ public struct ConfigurationTransferService: Sendable {
             imported.lastSyncAt = nil
             imported.lastScheduledSyncAttemptAt = nil
             imported.lastKnownSeverity = .healthy
+            imported.lastFailureIsTransient = false
             imported.localFolderBookmark = Data()
 
             if folderExists(pair.localFolderDisplayPath) {
