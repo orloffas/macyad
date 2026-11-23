@@ -414,9 +414,13 @@ public struct SyncService: Sendable {
         let remainingIssues = issueSet.issues.filter { $0.selectedDecision == .later }
 
         do {
+            var onRemote: RemoteSpelling = { $0 }
+            if !issuesToApply.isEmpty {
+                onRemote = try await remoteSpelling(for: pair)
+            }
             for issue in issuesToApply {
                 do {
-                    logs.append(contentsOf: try await applyResolution(issue, for: pair, observer: observer))
+                    logs.append(contentsOf: try await applyResolution(issue, for: pair, onRemote: onRemote, observer: observer))
                 } catch let error as CommandFailedError {
                     // Name the file and the chosen action: the rclone text alone does not say which one failed.
                     return OperationOutcome(
@@ -620,16 +624,45 @@ public struct SyncService: Sendable {
         }
     }
 
-    private func applyResolution(_ issue: ActivityFileIssue, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> [String] {
+    private func applyResolution(_ issue: ActivityFileIssue, for pair: SyncPair, onRemote: RemoteSpelling, observer: RcloneOutputObserver? = nil) async throws -> [String] {
         switch issue.selectedDecision {
         case .later:
             return []
         case .keepLocal:
-            return try await applyKeepLocal(issue, for: pair, observer: observer)
+            return try await applyKeepLocal(issue, for: pair, onRemote: onRemote, observer: observer)
         case .keepRemote:
-            return try await applyKeepRemote(issue, for: pair, observer: observer)
+            return try await applyKeepRemote(issue, for: pair, onRemote: onRemote, observer: observer)
         case .keepBoth:
-            return try await applyKeepBoth(issue, for: pair, observer: observer)
+            return try await applyKeepBoth(issue, for: pair, onRemote: onRemote, observer: observer)
+        }
+    }
+
+    /// Rewrites a relative path so every prefix already on Yandex keeps Yandex's own spelling.
+    typealias RemoteSpelling = @Sendable (String) -> String
+
+    // Swift treats NFC and NFD as one string, so `issue.relativePath` may carry a stale
+    // baseline's spelling; Yandex does not, and a path spelled the other way becomes a sibling
+    // folder. rclone sync matches names normalized, so existing remote folders keep their
+    // spelling — resolutions follow the same rule, from a fresh listing. String-keyed
+    // dictionaries hash by canonical equivalence, which is exactly the lookup needed here.
+    private func remoteSpelling(for pair: SyncPair) async throws -> RemoteSpelling {
+        let remote = try await snapshotProvider.snapshot(for: pair, path: pair.remotePath, mode: .sync)
+        var existing: [String: String] = [:]
+        for entry in remote.entries {
+            var prefix = ""
+            for component in entry.path.split(separator: "/") {
+                prefix = prefix.isEmpty ? String(component) : "\(prefix)/\(component)"
+                if existing[prefix] == nil { existing[prefix] = prefix }
+            }
+        }
+        let names = existing
+        return { path in
+            var spelled = ""
+            for component in path.split(separator: "/") {
+                let candidate = spelled.isEmpty ? String(component) : "\(spelled)/\(component)"
+                spelled = names[candidate] ?? candidate
+            }
+            return spelled
         }
     }
 
@@ -641,12 +674,17 @@ public struct SyncService: Sendable {
         return SyncPair.composeRemotePath(remoteName: remoteName, remoteSubpath: remoteSubpath)
     }
 
-    private func applyKeepLocal(_ issue: ActivityFileIssue, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> [String] {
+    /// The name on disk where there is one: what a sync would upload for a path Yandex lacks.
+    private func localPath(_ issue: ActivityFileIssue) -> String {
+        issue.localSnapshot?.path ?? issue.remoteSnapshot?.path ?? issue.relativePath
+    }
+
+    private func applyKeepLocal(_ issue: ActivityFileIssue, for pair: SyncPair, onRemote: RemoteSpelling, observer: RcloneOutputObserver? = nil) async throws -> [String] {
         if issue.localSnapshot != nil {
             let log = try await runCommand(
                 RcloneCommandBuilder.copyToArguments(
-                    sourcePath: localConflictFileManager.canonicalLocalURL(for: pair, relativePath: issue.relativePath).path,
-                    destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                    sourcePath: localConflictFileManager.canonicalLocalURL(for: pair, relativePath: localPath(issue)).path,
+                    destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: onRemote(localPath(issue))),
                     configPath: configPath
                 ),
                 observer: observer
@@ -657,7 +695,7 @@ public struct SyncService: Sendable {
         if issue.remoteSnapshot != nil {
             let log = try await runCommand(
                 RcloneCommandBuilder.deleteFileArguments(
-                    path: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                    path: composeCanonicalRemotePath(pair: pair, relativePath: onRemote(localPath(issue))),
                     configPath: configPath
                 ),
                 observer: observer
@@ -668,12 +706,12 @@ public struct SyncService: Sendable {
         return []
     }
 
-    private func applyKeepRemote(_ issue: ActivityFileIssue, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> [String] {
+    private func applyKeepRemote(_ issue: ActivityFileIssue, for pair: SyncPair, onRemote: RemoteSpelling, observer: RcloneOutputObserver? = nil) async throws -> [String] {
         if issue.remoteSnapshot != nil {
             let log = try await runCommand(
                 RcloneCommandBuilder.copyToArguments(
-                    sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
-                    destinationPath: localConflictFileManager.canonicalLocalURL(for: pair, relativePath: issue.relativePath).path,
+                    sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: onRemote(localPath(issue))),
+                    destinationPath: localConflictFileManager.canonicalLocalURL(for: pair, relativePath: localPath(issue)).path,
                     configPath: configPath
                 ),
                 observer: observer
@@ -682,17 +720,20 @@ public struct SyncService: Sendable {
         }
 
         if issue.localSnapshot != nil {
-            try localConflictFileManager.removeCanonicalLocalItem(for: pair, relativePath: issue.relativePath)
+            try localConflictFileManager.removeCanonicalLocalItem(for: pair, relativePath: localPath(issue))
             return ["Removed local item \(issue.relativePath)"]
         }
 
         return []
     }
 
-    private func applyKeepBoth(_ issue: ActivityFileIssue, for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> [String] {
+    private func applyKeepBoth(_ issue: ActivityFileIssue, for pair: SyncPair, onRemote: RemoteSpelling, observer: RcloneOutputObserver? = nil) async throws -> [String] {
         let resolutionDate = now()
-        let localConflictRelativePath = renamedConflictRelativePath(issue.relativePath, source: "local", at: resolutionDate)
-        let remoteConflictRelativePath = renamedConflictRelativePath(issue.relativePath, source: "remote", at: resolutionDate)
+        let localRelativePath = localPath(issue)
+        let remoteRelativePath = onRemote(localRelativePath)
+        // Both conflict copies go into the folder Yandex already has, spelled its way.
+        let localConflictRelativePath = onRemote(renamedConflictRelativePath(localRelativePath, source: "local", at: resolutionDate))
+        let remoteConflictRelativePath = onRemote(renamedConflictRelativePath(remoteRelativePath, source: "remote", at: resolutionDate))
         var logs: [String] = []
         // Undo steps for what already succeeded, run newest-first if a later step fails,
         // so a failed keep-both never leaves the local file renamed with no second copy.
@@ -706,15 +747,15 @@ public struct SyncService: Sendable {
             if issue.localSnapshot != nil {
                 let localConflictURL = try localConflictFileManager.moveCanonicalLocalItem(
                     for: pair,
-                    relativePath: issue.relativePath,
+                    relativePath: localRelativePath,
                     to: localConflictRelativePath
                 )
                 undo.append {
                     // Never overwrite a file saved under the original name while this ran.
-                    let original = self.localConflictFileManager.canonicalLocalURL(for: pair, relativePath: issue.relativePath)
+                    let original = self.localConflictFileManager.canonicalLocalURL(for: pair, relativePath: localRelativePath)
                     guard !FileManager.default.fileExists(atPath: original.path) else { return }
                     _ = try? self.localConflictFileManager.moveCanonicalLocalItem(
-                        for: pair, relativePath: localConflictRelativePath, to: issue.relativePath)
+                        for: pair, relativePath: localConflictRelativePath, to: localRelativePath)
                 }
                 logs.append("Moved local item to \(localConflictRelativePath)")
                 let uploadLog = try await runCommand(
@@ -733,7 +774,7 @@ public struct SyncService: Sendable {
                 let localRemoteConflictURL = localConflictFileManager.canonicalLocalURL(for: pair, relativePath: remoteConflictRelativePath)
                 let downloadLog = try await runCommand(
                     RcloneCommandBuilder.copyToArguments(
-                        sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                        sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: remoteRelativePath),
                         destinationPath: localRemoteConflictURL.path,
                         configPath: configPath
                     ),
@@ -744,7 +785,7 @@ public struct SyncService: Sendable {
 
                 let remoteCopyLog = try await runCommand(
                     RcloneCommandBuilder.copyToArguments(
-                        sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                        sourcePath: composeCanonicalRemotePath(pair: pair, relativePath: remoteRelativePath),
                         destinationPath: composeCanonicalRemotePath(pair: pair, relativePath: remoteConflictRelativePath),
                         configPath: configPath
                     ),
@@ -763,7 +804,7 @@ public struct SyncService: Sendable {
         if issue.remoteSnapshot != nil {
             let remoteDeleteLog = try await runCommand(
                 RcloneCommandBuilder.deleteFileArguments(
-                    path: composeCanonicalRemotePath(pair: pair, relativePath: issue.relativePath),
+                    path: composeCanonicalRemotePath(pair: pair, relativePath: remoteRelativePath),
                     configPath: configPath
                 ),
                 observer: observer

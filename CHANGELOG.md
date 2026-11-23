@@ -4,6 +4,20 @@ Russian version: [CHANGELOG.ru.md](CHANGELOG.ru.md)
 
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- **"Keep local" in the issue review recreated a folder on Yandex that had just
+  been deleted.** A folder name with letters like «й» can be stored in two Unicode
+  forms that look identical. Swift treats them as the same name and Yandex does
+  not. The review took its paths from the stored snapshot of the last sync, so
+  after a duplicate folder was removed on Yandex, «Keep local» uploaded straight
+  back into it. Decisions now follow the same rule as sync. A folder that already
+  exists on Yandex is written under its Yandex spelling. A file Yandex does not
+  have gets the name it has on disk. This covers «Keep local», «Keep remote» and
+  «Keep both».
+
 ## 0.1.3 — 2026-11-20
 
 ### Fixed

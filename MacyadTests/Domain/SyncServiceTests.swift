@@ -517,6 +517,66 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertEqual(outcome.issueSet?.issues.map { $0.relativePath }, ["later.txt"])
     }
 
+    func testResolutionsWriteIntoTheFolderSpellingYandexAlreadyHas() async throws {
+        // "й" precomposed (NFC, as on Yandex) vs decomposed (NFD, as on disk and in a stale
+        // baseline): equal as Swift strings, two different folders on Yandex.
+        let folderNFC = "Сиреневый Парк".precomposedStringWithCanonicalMapping
+        let folderNFD = folderNFC.decomposedStringWithCanonicalMapping
+        XCTAssertNotEqual(Array(folderNFC.unicodeScalars), Array(folderNFD.unicodeScalars))
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let localFolder = root.appendingPathComponent(folderNFD, isDirectory: true)
+        try FileManager.default.createDirectory(at: localFolder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("both".utf8).write(to: localFolder.appendingPathComponent("both.pdf"))
+
+        var pair = makePair()
+        pair.localFolderDisplayPath = root.path
+        let remoteEntry = { (name: String) in
+            PairSnapshotEntry(path: "\(folderNFC)/\(name)", size: 6, modTime: Date(timeIntervalSince1970: 2_000), md5: "remote")
+        }
+        let localEntry = { (name: String) in
+            PairSnapshotEntry(path: "\(folderNFD)/\(name)", size: 4, modTime: Date(timeIntervalSince1970: 1_000), md5: "local")
+        }
+        let processClient = StubProcessClient(result: ("", "", 0))
+        let service = SyncService(
+            processClient: processClient,
+            configPath: "/tmp/macyad-rclone.conf",
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: [
+                pair.localFolderDisplayPath: PairSnapshot(entries: [localEntry("act.pdf"), localEntry("both.pdf")]),
+                pair.remotePath: PairSnapshot(entries: [remoteEntry("other.pdf"), remoteEntry("old.pdf"), remoteEntry("both.pdf")]),
+            ]),
+            baselineRepository: InMemoryBaselineStore()
+        )
+        func issue(_ name: String, local: Bool, remote: Bool, _ decision: FileResolutionDecision) -> ActivityFileIssue {
+            ActivityFileIssue(
+                relativePath: "\(folderNFD)/\(name)",
+                problemKind: .conflict,
+                differences: [.hashDiffers],
+                localSnapshot: local ? localEntry(name) : nil,
+                remoteSnapshot: remote ? remoteEntry(name) : nil,
+                baselineSnapshot: localEntry(name),
+                selectedDecision: decision
+            )
+        }
+
+        _ = await service.applyResolutions(ActivityIssueSet(issues: [
+            issue("act.pdf", local: true, remote: false, .keepLocal),   // gone from Yandex: upload
+            issue("old.pdf", local: false, remote: true, .keepLocal),   // gone from disk: delete on Yandex
+            issue("both.pdf", local: true, remote: true, .keepBoth),
+        ]), for: pair)
+
+        let remoteArguments = await processClient.recordedArguments().flatMap { $0 }.filter { $0.hasPrefix("yd:") }
+        let folderPrefix = Array("yd:/Work Docs/\(folderNFC)/".unicodeScalars)
+        XCTAssertTrue(remoteArguments.contains("yd:/Work Docs/\(folderNFC)/act.pdf"))
+        XCTAssertTrue(remoteArguments.contains("yd:/Work Docs/\(folderNFC)/old.pdf"))
+        XCTAssertTrue(remoteArguments.contains { $0.contains("both (MacYaD conflict local ") })
+        XCTAssertTrue(remoteArguments.contains { $0.contains("both (MacYaD conflict remote ") })
+        for argument in remoteArguments {
+            XCTAssertTrue(argument.unicodeScalars.starts(with: folderPrefix), "\(argument) must stay in Yandex's NFC folder")
+        }
+    }
+
     func testKeepBothRollsBackWhenDownloadingTheRemoteCopyFails() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
