@@ -177,11 +177,12 @@ public actor SchedulerService {
                 // Inside the closure, so it fires when the coordinator lets the
                 // run start rather than when it was queued.
                 await lifecycle.didStart(pair)
-                if isPull {
-                    return await syncService.pull(pair, executionMode: .scheduled, observer: observer)
-                } else {
-                    return await syncService.push(pair, executionMode: .scheduled, observer: observer)
-                }
+                operationLog.notice("pair \(pair.id.uuidString, privacy: .public): scheduled-\(direction.rawValue, privacy: .public) started")
+                let outcome = isPull
+                    ? await syncService.pull(pair, executionMode: .scheduled, observer: observer)
+                    : await syncService.push(pair, executionMode: .scheduled, observer: observer)
+                operationLog.notice("pair \(pair.id.uuidString, privacy: .public): scheduled-\(direction.rawValue, privacy: .public) work done")
+                return outcome
             }
 
             let outcome: SyncService.OperationOutcome

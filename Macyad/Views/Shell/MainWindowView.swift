@@ -480,9 +480,12 @@ struct MainWindowView: View {
             environment.pairDetailViewModel.setError(nil)
         }
 
+        let stageID = pair.id.uuidString
+        operationLog.notice("pair \(stageID, privacy: .public): \(operation.queueLabel, privacy: .public) queued")
         do {
             let syncService = try await makeSyncService()
             let outcome = try await environment.operationCoordinator.enqueue(pairID: pair.id, label: operation.queueLabel) {
+                operationLog.notice("pair \(stageID, privacy: .public): \(operation.queueLabel, privacy: .public) started")
                 // The journal entry above went in before this closure reached
                 // the front of the serial queue. Only now is the run actually
                 // starting, so only now may it say so.
@@ -504,8 +507,11 @@ struct MainWindowView: View {
                     )
                     environment.pairDetailViewModel.setOperationPhase(.running, kind: .manual)
                 }
-                return await perform(operation, with: syncService, for: pair, observer: observer)
+                let result = await perform(operation, with: syncService, for: pair, observer: observer)
+                operationLog.notice("pair \(stageID, privacy: .public): \(operation.queueLabel, privacy: .public) work done")
+                return result
             }
+            operationLog.notice("pair \(stageID, privacy: .public): \(operation.queueLabel, privacy: .public) left the queue")
             let updatedPair = outcome.pair
             try await recordRunResult(updatedPair)
             let routeToken = outcome.issueSet.map { _ in
@@ -569,6 +575,7 @@ struct MainWindowView: View {
         await MainActor.run {
             environment.pairDetailViewModel.setOperationPhase(.idle)
             appModel.activeManualPairIDs.remove(pair.id)
+            operationLog.notice("pair \(stageID, privacy: .public): \(operation.queueLabel, privacy: .public) finished")
             // Promote the just-completed run to the archived slot so the
             // "Show last log" affordance lights up. A future run on this
             // pair will overwrite this archive with its own output.

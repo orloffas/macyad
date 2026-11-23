@@ -2,6 +2,12 @@ import XCTest
 @testable import MacyadCore
 
 final class RcloneProcessClientTests: XCTestCase {
+    func testStageLogNamesTheSubcommandAndNeverAPath() {
+        XCTAssertEqual(rcloneSubcommand(["--config", "/Users/test/rclone.conf", "copyto", "/Users/test/a", "yd:/a"]), "copyto")
+        XCTAssertEqual(rcloneSubcommand(["sync", "/Users/test/Docs", "yd:/Docs", "--config", "/Users/test/rclone.conf"]), "sync")
+        XCTAssertEqual(rcloneSubcommand(["/Users/test/Docs", "--fast-list"]), "other")
+    }
+
     func testRunCapturesLargeStdoutWithoutDeadlock() async throws {
         let client = RcloneProcessClient(executablePath: "/bin/sh")
 
