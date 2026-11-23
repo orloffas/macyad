@@ -105,4 +105,37 @@ final class SyncPairTests: XCTestCase {
         """
         return try JSONDecoder().decode(SyncPair.self, from: Data(json.utf8))
     }
+
+    func testRunResultLandsOnTheCurrentPairAndKeepsLaterDates() {
+        let early = Date(timeIntervalSince1970: 1_000)
+        let late = Date(timeIntervalSince1970: 2_000)
+        let started = SyncPair(
+            id: UUID(),
+            name: "Docs",
+            localFolderBookmark: Data(),
+            localFolderDisplayPath: "/Users/test/Docs",
+            remotePath: "yd:/Docs",
+            scheduleMinutes: 15,
+            deletePolicy: .mirrorToYandex,
+            lastKnownSeverity: .healthy,
+            lastSyncAt: early
+        )
+        var run = started
+        run.lastKnownSeverity = .alarm
+        run.lastFailureIsTransient = true
+        run.lastScheduledSyncAttemptAt = early
+        var current = started
+        current.localFolderDisplayPath = "/Users/test/Moved Docs"
+        current.autoSyncMode = .pull
+        current.lastSyncAt = late  // another run finished in between
+
+        let merged = current.withRunResult(of: run)
+
+        XCTAssertEqual(merged.localFolderDisplayPath, "/Users/test/Moved Docs")
+        XCTAssertEqual(merged.autoSyncMode, .pull)
+        XCTAssertEqual(merged.lastKnownSeverity, .alarm)
+        XCTAssertTrue(merged.lastFailureIsTransient)
+        XCTAssertEqual(merged.lastSyncAt, late)
+        XCTAssertEqual(merged.lastScheduledSyncAttemptAt, early)
+    }
 }

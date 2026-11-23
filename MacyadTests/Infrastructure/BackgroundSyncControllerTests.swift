@@ -46,6 +46,72 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertTrue(sentNotifications.isEmpty)
     }
 
+    func testEditMadeWhileTheRunWasGoingSurvivesItsResult() async throws {
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Docs", lastSyncAt: now.addingTimeInterval(-4_000))
+        let pairStore = InMemoryPairStore(pairs: [pair])
+        var edited = pair
+        edited.localFolderDisplayPath = "/Users/test/Moved Docs"
+        edited.scheduleMinutes = 120
+        let scheduler = SchedulerService(
+            policy: ScheduledSyncEligibilityPolicy(),
+            syncService: SyncService(
+                // The user saves the pair while rclone is still running.
+                processClient: RecordingProcessClient(onRun: { [edited] in try? await pairStore.save([edited]) }),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+                snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+                baselineRepository: InMemoryBaselineStore()
+            )
+        )
+        let controller = BackgroundSyncController(
+            scheduler: scheduler,
+            pairStore: pairStore,
+            preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
+            activityStore: InMemoryActivityStore(),
+            notificationClient: RecordingNotificationClient(),
+            now: { now },
+            sleep: { _ in }
+        )
+
+        await controller.runCycle()
+
+        let saved = try await pairStore.load()
+        XCTAssertEqual(saved.count, 1)
+        XCTAssertEqual(saved[0].localFolderDisplayPath, "/Users/test/Moved Docs")
+        XCTAssertEqual(saved[0].scheduleMinutes, 120)
+        XCTAssertEqual(saved[0].lastSyncAt, now, "the run's result is still recorded")
+        XCTAssertEqual(saved[0].lastKnownSeverity, .healthy)
+    }
+
+    func testUnreadablePairsAreNotOverwrittenWithTheCycleCopies() async throws {
+        let now = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Docs", lastSyncAt: now.addingTimeInterval(-4_000))
+        let pairStore = ReadOnceThenFailPairStore(pairs: [pair])
+        let scheduler = SchedulerService(
+            policy: ScheduledSyncEligibilityPolicy(),
+            syncService: SyncService(
+                processClient: RecordingProcessClient(),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+                snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+                baselineRepository: InMemoryBaselineStore()
+            )
+        )
+        let controller = BackgroundSyncController(
+            scheduler: scheduler,
+            pairStore: pairStore,
+            preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
+            activityStore: InMemoryActivityStore(),
+            notificationClient: RecordingNotificationClient(),
+            now: { now },
+            sleep: { _ in }
+        )
+
+        await controller.runCycle()
+
+        let saves = await pairStore.saveCount()
+        XCTAssertEqual(saves, 0)
+    }
+
     func testScheduledRunIsJournaledBeforeItStartsAndReplacedByItsResult() async throws {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
@@ -461,6 +527,31 @@ final class BackgroundSyncControllerTests: XCTestCase {
     }
 }
 
+/// Serves the cycle's first read, then fails every read, as a flaky disk would.
+private actor ReadOnceThenFailPairStore: PairStoreControlling {
+    private let pairs: [SyncPair]
+    private var reads = 0
+    private var saves = 0
+
+    init(pairs: [SyncPair]) {
+        self.pairs = pairs
+    }
+
+    func load() async throws -> [SyncPair] {
+        reads += 1
+        guard reads == 1 else { throw CocoaError(.fileReadUnknown) }
+        return pairs
+    }
+
+    func save(_ pairs: [SyncPair]) async throws {
+        saves += 1
+    }
+
+    func saveCount() -> Int {
+        saves
+    }
+}
+
 private actor InMemoryPairStore: PairStoreControlling {
     private struct SaveFailure: Error {}
 
@@ -530,8 +621,15 @@ private actor RecordingNotificationClient: UserNotificationSending {
 }
 
 private actor RecordingProcessClient: RcloneProcessRunning {
+    private let onRun: @Sendable () async -> Void
+
+    init(onRun: @escaping @Sendable () async -> Void = {}) {
+        self.onRun = onRun
+    }
+
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
-        ("", "", 0)
+        await onRun()
+        return ("", "", 0)
     }
 
     func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle {

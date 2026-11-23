@@ -507,7 +507,7 @@ struct MainWindowView: View {
                 return await perform(operation, with: syncService, for: pair, observer: observer)
             }
             let updatedPair = outcome.pair
-            try await replacePair(updatedPair)
+            try await recordRunResult(updatedPair)
             let routeToken = outcome.issueSet.map { _ in
                 ActivityRouteToken(pairID: updatedPair.id, eventID: eventID, openIssueTable: true)
             }
@@ -547,7 +547,7 @@ struct MainWindowView: View {
             var failedPair = pair
             failedPair.lastKnownSeverity = .alarm
             failedPair.lastFailureIsTransient = false
-            try? await replacePair(failedPair)
+            try? await recordRunResult(failedPair)
             let event = ActivityEvent(
                 id: eventID,
                 date: Date(),
@@ -671,7 +671,7 @@ struct MainWindowView: View {
             if outcome.updatedBaseline {
                 updatedPair.lastSyncAt = Date()
             }
-            try await replacePair(updatedPair)
+            try await recordRunResult(updatedPair)
 
             if let remainingIssueSet = outcome.issueSet {
                 let replacementEvent = ActivityEvent(
@@ -754,6 +754,21 @@ struct MainWindowView: View {
 
     private func detailedMessage(for error: Error, copy: AppCopy) -> String {
         localizedMessage(for: error, copy: copy)
+    }
+
+    /// Writes a finished run's result onto the pair as it is now, not onto the copy the run
+    /// started with: the pair may have been edited while the run waited in the queue.
+    private func recordRunResult(_ runPair: SyncPair) async throws {
+        // Merge and assign in one main-actor step, then save that array: assigning a copy taken
+        // before the await would undo an edit made while the save was in flight.
+        let updatedPairs: [SyncPair]? = await MainActor.run {
+            guard appModel.pairs.contains(where: { $0.id == runPair.id }) else { return nil }
+            appModel.pairs = appModel.pairs.map { $0.id == runPair.id ? $0.withRunResult(of: runPair) : $0 }
+            appModel.refreshStatusSummary(using: environment.statusService)
+            return appModel.pairs
+        }
+        guard let updatedPairs else { return }
+        try await environment.pairRepository.save(updatedPairs)
     }
 
     private func replacePair(_ pair: SyncPair) async throws {

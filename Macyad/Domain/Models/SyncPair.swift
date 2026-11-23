@@ -205,6 +205,19 @@ public struct SyncPair: Codable, Equatable, Identifiable, Sendable {
         [lastSyncAt, lastScheduledSyncAttemptAt].compactMap { $0 }.max()
     }
 
+    /// The pair as it is now, with what a finished run decided. A run works on the pair as it
+    /// was at the click or at the start of the cycle; writing that copy back would undo any edit
+    /// made meanwhile (path, schedule, mode). Dates keep the later value, so an older run never
+    /// rolls back one that finished in between.
+    public func withRunResult(of run: SyncPair) -> SyncPair {
+        var merged = self
+        merged.lastKnownSeverity = run.lastKnownSeverity
+        merged.lastFailureIsTransient = run.lastFailureIsTransient
+        merged.lastSyncAt = [lastSyncAt, run.lastSyncAt].compactMap { $0 }.max()
+        merged.lastScheduledSyncAttemptAt = [lastScheduledSyncAttemptAt, run.lastScheduledSyncAttemptAt].compactMap { $0 }.max()
+        return merged
+    }
+
     public var hasAssignedAccount: Bool {
         accountID != Self.unassignedAccountID
     }

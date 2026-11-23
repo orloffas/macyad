@@ -41,6 +41,12 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   first and says how many local files will be deleted, and how many files lose
   local edits to the Yandex version. Just taking a newer version from Yandex,
   with no local edits, still applies without a prompt.
+- **Editing a pair while it synced could be undone when the run finished.** A
+  run kept the copy of the pair it started with and saved that copy at the end.
+  If you changed the local folder, the interval or the direction while the run
+  waited in the queue or was still going, the change was silently reverted.
+  This affected both manual and scheduled runs. A finished run now records only
+  its own result: status, last sync time and last attempt. Your edits stay.
 
 ## 0.1.3 — 2026-11-20
 
