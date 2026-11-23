@@ -936,6 +936,26 @@ public struct AppCopy: Sendable {
         isRussian ? "Оставить local" : "Keep local"
     }
 
+    public var overviewPushAllTitle: String {
+        "Push All"
+    }
+
+    public var overviewPushAllHelp: String {
+        isRussian
+            ? "Поставить Push to Yandex в очередь для всех пар, кроме пар с Auto-Pull. Пары выполняются по одной."
+            : "Queue Push to Yandex for every pair except Auto-Pull pairs. Pairs run one at a time."
+    }
+
+    public var overviewCheckAllTitle: String {
+        isRussian ? "Проверить все" : "Check All"
+    }
+
+    public var overviewCheckAllHelp: String {
+        isRussian
+            ? "Поставить проверку Yandex в очередь для всех пар. Пары выполняются по одной."
+            : "Queue Check Yandex for every pair. Pairs run one at a time."
+    }
+
     public var issueReviewLoseLocalTitle: String {
         isRussian ? "Потерять локальные изменения?" : "Lose local changes?"
     }

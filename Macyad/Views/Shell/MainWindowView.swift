@@ -156,7 +156,9 @@ struct MainWindowView: View {
                     onSelectPair: { id in appModel.sidebarSelection = .pair(id) },
                     onChangeAutoSyncMode: { id, mode in
                         Task { await changeAutoSyncMode(pairID: id, to: mode) }
-                    }
+                    },
+                    onPushAll: { runForAllPairs(.syncNow) },
+                    onCheckAll: { runForAllPairs(.checkYandex) }
                 )
             case .pair:
                 PairDetailView(
@@ -412,6 +414,22 @@ struct MainWindowView: View {
 
         Task {
             await run(operation, for: activePair)
+        }
+    }
+
+    @MainActor
+    private func runForAllPairs(_ operation: PairOperationKind) {
+        let pairs = OverviewViewModel.bulkRunPairs(
+            appModel.pairs,
+            push: operation == .syncNow,
+            busy: appModel.activeManualPairIDs
+        )
+        // Marked here: run() marks a pair only after its journal write, so a quick second
+        // click would otherwise queue every pair twice.
+        appModel.activeManualPairIDs.formUnion(pairs.map(\.id))
+        // Each run joins the same serial queue as a single click, so they execute one by one.
+        for pair in pairs {
+            Task { await run(operation, for: pair) }
         }
     }
 
