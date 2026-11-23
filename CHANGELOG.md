@@ -47,6 +47,13 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   waited in the queue or was still going, the change was silently reverted.
   This affected both manual and scheduled runs. A finished run now records only
   its own result: status, last sync time and last attempt. Your edits stay.
+- **A run stuck at "running…" left no trace of where it stopped.** Such a run
+  waits for a step that never finishes, so no thread is busy and a process
+  sample shows nothing. MacYaD now writes a short stage log to the system log
+  for every run: queued, started, each rclone process (start, pipes closed,
+  exit code), baseline refresh, result recorded. It contains pair IDs,
+  subcommands and process IDs only, no file names or paths. Troubleshooting in
+  the README shows how to save it before restarting the app.
 
 ## 0.1.3 — 2026-11-20
 

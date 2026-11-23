@@ -1,4 +1,10 @@
 import Foundation
+import os
+
+/// Stage journal for one operation, from the queue to the result. A run stuck at "running…"
+/// waits on a continuation, which leaves no thread for `sample` to show; the last stage logged
+/// says where it stopped. `log show --predicate 'subsystem == "me.orloff.macyad"' --last 2h`
+public let operationLog = Logger(subsystem: "me.orloff.macyad", category: "operation")
 
 public struct SyncService: Sendable {
     public enum ExecutionMode: Sendable {
@@ -508,8 +514,11 @@ public struct SyncService: Sendable {
 
     private func refreshBaseline(for pair: SyncPair, observer: RcloneOutputObserver? = nil) async throws -> Bool {
         await emitPostRcloneMarker(observer: observer)
+        operationLog.notice("pair \(pair.id.uuidString, privacy: .public): baseline refresh, listing local")
         let localSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.localFolderDisplayPath, mode: .sync)
+        operationLog.notice("pair \(pair.id.uuidString, privacy: .public): baseline refresh, listing remote")
         let remoteSnapshot = try await snapshotProvider.snapshot(for: pair, path: pair.remotePath, mode: .sync)
+        operationLog.notice("pair \(pair.id.uuidString, privacy: .public): baseline refresh, saving")
         let state = PairConflictBaselineState(
             pairID: pair.id,
             localSnapshot: localSnapshot,
@@ -908,6 +917,8 @@ public struct SyncService: Sendable {
             await observer.onLine("\(startTimestamp) macyad : ——— starting rclone (\(arguments.first ?? "?")) ———")
             await observer.onLine("\(startTimestamp) macyad : command: rclone \(augmented.joined(separator: " "))")
 
+            let subcommand = rcloneSubcommand(arguments)
+            operationLog.notice("rclone \(subcommand, privacy: .public): starting (streaming)")
             let handle = try await processClient.runStreaming(augmented)
             let consumeTask = Task {
                 for await line in handle.lines {
@@ -915,12 +926,16 @@ public struct SyncService: Sendable {
                 }
             }
             result = try await handle.completion.value
+            operationLog.notice("rclone \(subcommand, privacy: .public): completed, exit \(result.exitCode)")
             await consumeTask.value
+            operationLog.notice("rclone \(subcommand, privacy: .public): live monitor drained")
 
             let endTimestamp = Self.liveMonitorTimestamp(for: Date())
             await observer.onLine("\(endTimestamp) macyad : ——— rclone exited with code \(result.exitCode) ———")
         } else {
+            operationLog.notice("rclone \(rcloneSubcommand(arguments), privacy: .public): starting")
             result = try await processClient.run(arguments)
+            operationLog.notice("rclone \(rcloneSubcommand(arguments), privacy: .public): completed, exit \(result.exitCode)")
         }
         let log = RcloneCommandLog(
             command: arguments,

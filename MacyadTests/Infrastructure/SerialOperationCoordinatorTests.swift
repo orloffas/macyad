@@ -41,6 +41,31 @@ final class SerialOperationCoordinatorTests: XCTestCase {
         XCTAssertEqual(events, ["first-start", "first-end", "second-start", "second-end"])
     }
 
+    func testConcurrentEnqueuesNeverOverlap() async throws {
+        // Push All enqueues every pair at once from separate tasks. A suspension inside
+        // `enqueue` before the queue tail is taken lets two callers chain onto the same
+        // tail and run side by side — two rclone runs where one was promised.
+        let coordinator = SerialOperationCoordinator()
+        let overlap = OverlapMeter()
+
+        await withTaskGroup(of: Void.self) { group in
+            for index in 0..<100 {
+                group.addTask {
+                    _ = try? await coordinator.enqueue(pairID: nil, label: "op-\(index)") {
+                        await overlap.enter()
+                        try? await Task.sleep(for: .milliseconds(2))
+                        await overlap.leave()
+                    }
+                }
+            }
+        }
+
+        let peak = await overlap.peak
+        let finished = await overlap.finished
+        XCTAssertEqual(finished, 100)
+        XCTAssertEqual(peak, 1, "operations ran side by side")
+    }
+
     func testStatesExposeQueuedAndRunningOperations() async throws {
         let coordinator = SerialOperationCoordinator()
         let gate = Gate()
@@ -65,6 +90,22 @@ final class SerialOperationCoordinatorTests: XCTestCase {
         XCTAssertEqual(states.first?.phase, .running)
         XCTAssertEqual(states.dropFirst().first?.phase, .queued)
         XCTAssertEqual(states.map(\.label), ["blocked", "queued"])
+    }
+}
+
+private actor OverlapMeter {
+    private var active = 0
+    private(set) var peak = 0
+    private(set) var finished = 0
+
+    func enter() {
+        active += 1
+        peak = max(peak, active)
+    }
+
+    func leave() {
+        active -= 1
+        finished += 1
     }
 }
 

@@ -1,4 +1,14 @@
 import Foundation
+import os
+
+private let processLog = Logger(subsystem: "me.orloff.macyad", category: "process")
+
+/// The rclone subcommand for the stage log. Picked from a fixed list: arguments carry paths
+/// (`--config <path>` can even come first), and the log must not.
+func rcloneSubcommand(_ arguments: [String]) -> String {
+    let known: Set<String> = ["sync", "check", "copy", "copyto", "lsjson", "deletefile", "version", "config", "about"]
+    return arguments.first(where: known.contains) ?? "other"
+}
 
 public struct RcloneStreamingHandle: Sendable {
     public let lines: AsyncStream<String>
@@ -107,14 +117,20 @@ public struct RcloneProcessClient: RcloneProcessRunning {
         let stderrReader = readToEnd(stderrPipe.fileHandleForReading, yieldingLinesTo: continuation)
 
         let completionTask = Task<(stdout: String, stderr: String, exitCode: Int32), Error> {
+            // Reading the pid here also keeps `process` alive until the run is over.
+            let pid = process.processIdentifier
             let stdoutData = await stdoutReader.value
+            processLog.notice("pid \(pid): stdout closed")
             let stderrData = await stderrReader.value
+            processLog.notice("pid \(pid): stderr closed")
             continuation.finish()
+            let code = try await exit.code()
+            processLog.notice("pid \(pid): exit status consumed (\(code))")
 
             return (
                 stdout: String(decoding: stdoutData, as: UTF8.self),
                 stderr: String(decoding: stderrData, as: UTF8.self),
-                exitCode: try await exit.code()
+                exitCode: code
             )
         }
 
@@ -130,6 +146,7 @@ public struct RcloneProcessClient: RcloneProcessRunning {
             try? stderrPipe.fileHandleForWriting.close()
             throw error
         }
+        processLog.notice("pid \(process.processIdentifier): spawned \(rcloneSubcommand(arguments), privacy: .public) (streaming)")
 
         return RcloneStreamingHandle(lines: stream, completion: completionTask)
     }
@@ -157,6 +174,7 @@ private struct ProcessExit: Sendable {
         (codes, continuation) = AsyncStream.makeStream(of: Int32.self, bufferingPolicy: .bufferingNewest(1))
         let continuation = continuation
         process.terminationHandler = { finished in
+            processLog.notice("pid \(finished.processIdentifier): terminated, status \(finished.terminationStatus)")
             continuation.yield(finished.terminationStatus)
             continuation.finish()
         }
@@ -267,12 +285,18 @@ private func runProcess(
         try? stderrPipe.fileHandleForWriting.close()
         throw error
     }
+    let pid = process.processIdentifier
+    processLog.notice("pid \(pid): spawned \(rcloneSubcommand(arguments), privacy: .public)")
 
     let stdout = await stdoutTask.value
+    processLog.notice("pid \(pid): stdout closed")
     let stderr = await stderrTask.value
+    processLog.notice("pid \(pid): stderr closed")
+    let code = try await exit.code()
+    processLog.notice("pid \(pid): exit status consumed (\(code))")
     return (
         stdout: String(decoding: stdout, as: UTF8.self),
         stderr: String(decoding: stderr, as: UTF8.self),
-        exitCode: try await exit.code()
+        exitCode: code
     )
 }

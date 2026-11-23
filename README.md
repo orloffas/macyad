@@ -168,6 +168,14 @@ The screenshots in this README are produced by `MacyadUITests/ScreenshotUITests.
 
 **A pair refuses to push or pull.** Open the pair's latest journal entry — a blocked run always says which side changed and lists the files. `Check Yandex` re-runs the comparison without touching anything.
 
+**An operation stays at "running…" and nothing else runs.** All runs share one queue, so a stuck run holds up the rest. Before restarting MacYaD, save the stage log — it shows the last step the run reached, which is what a bug report needs:
+
+```bash
+/usr/bin/log show --last 6h --predicate 'subsystem == "me.orloff.macyad"' > macyad-stages.log
+```
+
+It holds pair IDs, rclone subcommands, process IDs and exit codes — no file names or paths. Then quit and reopen MacYaD; the stuck journal entry is marked as interrupted.
+
 **macOS asks for folder access after every rebuild.** Expected with ad-hoc signing; see the stable signing note in [Installation](#installation).
 
 **Starting over.** Quit the app and remove its state:
@@ -366,6 +374,14 @@ xcodegen generate                 # Macyad.xcodeproj генерируется, �
 **Любой запуск падает с `410 - GoneError`.** Яндекс блокирует встроенное OAuth-приложение rclone: токен исправен, проблема в приложении, через которое он выдан. Подключитесь через своё приложение: [`docs/yandex-oauth-app.ru.md`](docs/yandex-oauth-app.ru.md).
 
 **Пара отказывается делать push или pull.** Откройте последнюю запись журнала этой пары — у заблокированного запуска всегда написано, какая сторона изменилась, и приложен список файлов. `Check Yandex` перезапускает сравнение, ничего не трогая.
+
+**Операция висит на «running…», и больше ничего не запускается.** Все запуски идут через одну очередь, поэтому зависший держит остальные. Прежде чем перезапускать MacYaD, сохраните журнал этапов: в нём последний шаг, до которого дошёл запуск, — именно это нужно для багрепорта:
+
+```bash
+/usr/bin/log show --last 6h --predicate 'subsystem == "me.orloff.macyad"' > macyad-stages.log
+```
+
+В нём только идентификаторы пар, подкоманды rclone, номера процессов и коды выхода — без имён файлов и путей. Затем закройте и снова откройте MacYaD: зависшая запись журнала будет помечена как прерванная.
 
 **macOS спрашивает доступ к папкам после каждой пересборки.** Ожидаемо при ad-hoc подписи, лечится стабильным сертификатом — см. [Установка](#установка).
 
