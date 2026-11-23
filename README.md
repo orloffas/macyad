@@ -59,7 +59,8 @@ Worth knowing up front, so nothing here is a surprise:
 - **Sync pairs** — a local folder bound to one Yandex account and one remote path, with its own schedule, exclude patterns and conflict policy.
 - **Three explicit operations** — `Push to Yandex`, `Pull from Yandex` and `Check Yandex`, each available on demand. Only one runs at a time; the rest queue up.
 - **Baseline-aware safety** — before any transfer, the current state is compared against the last agreed baseline, so a change made on the other side blocks the run instead of being silently overwritten.
-- **Conflict review** — when a run is blocked you get the actual file list, with search and filters, and decide per file or in bulk: `Keep local`, `Keep remote`, `Keep both` or `Later`.
+- **Conflict review** — when a run is blocked you get the actual file list, with search and filters, and decide per file or in bulk: `Keep local`, `Keep remote`, `Keep both` or `Later`. If `Keep remote` would delete local files or replace local edits, the app asks first and says how many.
+- **Push All / Check All** — two buttons on the Overview queue every pair at once; the pairs run one at a time.
 - **Non-destructive scheduling** — a scheduled run that finds drift stops and raises a warning. Automation never resolves a conflict on its own.
 - **Live monitor** — the raw `rclone` output as it streams, plus the exact command and its exit status. The last log of a finished run is kept.
 - **Activity journal** — 48 hours of events with severity, full `rclone` logs for anything that went wrong, and the reviewable file list attached to blocked runs.
@@ -92,7 +93,7 @@ Three operations, and the app is deliberate about what each one does:
 
 **Why there is no two-way mode.** `Push` and `Pull` operate on the whole tree. Running both directions automatically would need a per-file engine resolving conflicts on its own — exactly the mechanism that loses files quietly in other clients. Making the two directions mutually exclusive per pair keeps that state unrepresentable.
 
-**Scheduling.** Each pair is `Off`, `Auto-Push` or `Auto-Pull`, with its own interval. A scheduled run executes only when the preflight considers it safe; otherwise the pair turns to `warning` with a reviewable file list, and nothing is transferred. Notifications are sent for warnings and alarms only, and only after you grant permission in Settings.
+**Scheduling.** Each pair is `Off`, `Auto-Push` or `Auto-Pull`, with its own interval. A scheduled run executes only when the preflight considers it safe; otherwise the pair turns to `warning` with a reviewable file list, and nothing is transferred. A failed run turns the pair to `alarm` and pauses its schedule until you run it by hand. The exception is a failure caused only by the network (host not found, connection refused or reset, timeout): it is retried at the pair's normal interval, with one notification per outage. Notifications are sent for warnings and alarms only, and only after you grant permission in Settings.
 
 ## Requirements
 
@@ -257,7 +258,8 @@ MacYaD заменяет клиент, а не хранилище: файлы п�
 - **Sync-пары** — локальная папка, привязанная к одному аккаунту Яндекса и одному remote-пути, со своим расписанием, exclude-паттернами и conflict policy.
 - **Три явные операции** — `Push to Yandex`, `Pull from Yandex` и `Check Yandex`, каждая доступна вручную; одновременно выполняется только одна, остальные встают в очередь.
 - **Baseline-aware защита** — перед любой передачей текущее состояние сравнивается с последним согласованным baseline, поэтому изменение на другой стороне блокирует запуск, а не затирается молча.
-- **Разбор конфликтов** — если запуск заблокирован, вы получаете реальный список файлов с поиском и фильтрами и решаете по каждому файлу или пакетно: «Оставить local», «Оставить remote», «Сохранить обе» или «Позже».
+- **Разбор конфликтов** — если запуск заблокирован, вы получаете реальный список файлов с поиском и фильтрами и решаете по каждому файлу или пакетно: «Оставить local», «Оставить remote», «Сохранить обе» или «Позже». Если «Оставить remote» удалит локальные файлы или заменит локальные правки, приложение сначала спросит и назовёт, сколько файлов затронуто.
+- **Push All / «Проверить все»** — две кнопки на вкладке Обзор ставят в очередь все пары разом; пары выполняются по одной.
 - **Неразрушающее расписание** — плановый запуск, обнаруживший расхождение, останавливается и поднимает предупреждение. Автоматика никогда не решает конфликт сама.
 - **Live monitor** — вывод `rclone` в реальном времени, точная команда и её exit status. Лог последнего завершённого запуска сохраняется.
 - **Журнал Activity** — 48 часов событий с severity, полными логами `rclone` для всего, что пошло не так, и списком проблемных файлов у заблокированных запусков.
@@ -290,7 +292,7 @@ MacYaD заменяет клиент, а не хранилище: файлы п�
 
 **Почему нет двустороннего режима.** `Push` и `Pull` работают с деревом целиком. Автоматическая работа в обе стороны потребовала бы per-file движка, решающего конфликты самостоятельно, — ровно того механизма, который в других клиентах тихо теряет файлы. Взаимоисключающие направления на уровне пары делают это состояние непредставимым.
 
-**Расписание.** Каждая пара — `Выключена`, `Auto-Push` или `Auto-Pull`, со своим интервалом. Плановый запуск выполняется, только если preflight считает его безопасным; иначе пара уходит в `warning` со списком файлов для разбора, и ничего не передаётся. Уведомления отправляются только для warning и alarm и только после того, как вы выдали разрешение в Settings.
+**Расписание.** Каждая пара — `Выключена`, `Auto-Push` или `Auto-Pull`, со своим интервалом. Плановый запуск выполняется, только если preflight считает его безопасным; иначе пара уходит в `warning` со списком файлов для разбора, и ничего не передаётся. Неудачный запуск переводит пару в `alarm`, и её расписание приостанавливается, пока вы не запустите пару вручную. Исключение — сбой, вызванный только сетью (хост не найден, соединение отклонено или оборвано, таймаут): такой запуск повторяется через обычный интервал пары, а уведомление приходит одно на весь сбой. Уведомления отправляются только для warning и alarm и только после того, как вы выдали разрешение в Settings.
 
 ## Требования
 
