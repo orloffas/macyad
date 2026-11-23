@@ -302,4 +302,25 @@ final class ActivityEventTests: XCTestCase {
         XCTAssertFalse(issue(local: true, remote: false, .keepLocal).deletesLocalCopy)
         XCTAssertFalse(issue(local: true, remote: false, .later).deletesLocalCopy)
     }
+
+    func testKeepRemoteDiscardsLocalEditsOnlyWhereTheLocalFileWasEdited() {
+        let entry = PairSnapshotEntry(path: "act.pdf", size: 1, modTime: nil, md5: nil)
+        func issue(_ kind: ActivityFileProblemKind, local: Bool = true, _ decision: FileResolutionDecision = .keepRemote) -> ActivityFileIssue {
+            ActivityFileIssue(
+                relativePath: "act.pdf",
+                problemKind: kind,
+                differences: [],
+                localSnapshot: local ? entry : nil,
+                remoteSnapshot: entry,
+                baselineSnapshot: entry,
+                selectedDecision: decision
+            )
+        }
+
+        XCTAssertTrue(issue(.conflict).discardsLocalEdits)
+        XCTAssertTrue(issue(.localOnlyChanged).discardsLocalEdits)
+        XCTAssertFalse(issue(.remoteOnlyChanged).discardsLocalEdits, "the local file is untouched: just an update")
+        XCTAssertFalse(issue(.conflict, local: false).discardsLocalEdits)
+        XCTAssertFalse(issue(.conflict, .keepBoth).discardsLocalEdits)
+    }
 }

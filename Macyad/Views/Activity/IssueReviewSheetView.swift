@@ -33,7 +33,7 @@ struct IssueReviewSheetView: View {
     @State private var filter: IssueFilter = .all
     @State private var isApplying = false
     @State private var isRawComparisonExpanded = false
-    @State private var isConfirmingLocalDeletion = false
+    @State private var isConfirmingLocalLoss = false
 
     init(
         issueSet: ActivityIssueSet,
@@ -99,6 +99,10 @@ struct IssueReviewSheetView: View {
 
     private var localDeletionCount: Int {
         issues.filter(\.deletesLocalCopy).count
+    }
+
+    private var localEditLossCount: Int {
+        issues.filter(\.discardsLocalEdits).count
     }
 
     private var singleSelectedIssue: ActivityFileIssue? {
@@ -173,8 +177,8 @@ struct IssueReviewSheetView: View {
             }
 
             Button(copy.issueReviewApplyButtonTitle) {
-                if localDeletionCount > 0 {
-                    isConfirmingLocalDeletion = true
+                if localDeletionCount + localEditLossCount > 0 {
+                    isConfirmingLocalLoss = true
                 } else {
                     Task { await applyDecisions() }
                 }
@@ -182,16 +186,16 @@ struct IssueReviewSheetView: View {
             .keyboardShortcut(.defaultAction)
             .disabled(isApplying || issues.allSatisfy { $0.selectedDecision == .later })
             .confirmationDialog(
-                copy.issueReviewDeleteLocalTitle,
-                isPresented: $isConfirmingLocalDeletion,
+                copy.issueReviewLoseLocalTitle,
+                isPresented: $isConfirmingLocalLoss,
                 titleVisibility: .visible
             ) {
-                Button(copy.issueReviewDeleteLocalConfirm(count: localDeletionCount), role: .destructive) {
+                Button(copy.issueReviewLoseLocalConfirm, role: .destructive) {
                     Task { await applyDecisions() }
                 }
                 Button(copy.cancelButtonTitle, role: .cancel) {}
             } message: {
-                Text(copy.issueReviewDeleteLocalMessage(count: localDeletionCount))
+                Text(copy.issueReviewLoseLocalMessage(deleteCount: localDeletionCount, editCount: localEditLossCount))
             }
         }
     }

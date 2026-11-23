@@ -30,7 +30,9 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   from Yandex, "Keep remote" means "delete it here too", and the app did that
   straight away, bypassing the Trash. When a folder was removed on Yandex,
   dozens of local files could go in one click. "Apply decisions" now asks
-  first and says how many local files will be deleted.
+  first and says how many local files will be deleted, and how many files lose
+  local edits to the Yandex version. Just taking a newer version from Yandex,
+  with no local edits, still applies without a prompt.
 
 ## 0.1.3 — 2026-11-20
 

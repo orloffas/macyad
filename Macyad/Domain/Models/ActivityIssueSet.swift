@@ -59,6 +59,13 @@ public struct ActivityFileIssue: Codable, Equatable, Hashable, Identifiable, Sen
         selectedDecision == .keepRemote && remoteSnapshot == nil && localSnapshot != nil
     }
 
+    /// "Keep remote" over a local file that was edited since the last sync: the edits are lost.
+    /// A file changed only on Yandex is just updated and needs no warning.
+    public var discardsLocalEdits: Bool {
+        selectedDecision == .keepRemote && localSnapshot != nil && remoteSnapshot != nil
+            && (problemKind == .conflict || problemKind == .localOnlyChanged)
+    }
+
     public var directoryPath: String {
         let normalizedPath = relativePath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard !normalizedPath.isEmpty else {

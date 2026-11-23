@@ -936,21 +936,36 @@ public struct AppCopy: Sendable {
         isRussian ? "Оставить local" : "Keep local"
     }
 
-    public var issueReviewDeleteLocalTitle: String {
-        isRussian ? "Удалить локальные файлы?" : "Delete local files?"
+    public var issueReviewLoseLocalTitle: String {
+        isRussian ? "Потерять локальные изменения?" : "Lose local changes?"
     }
 
-    public func issueReviewDeleteLocalMessage(count: Int) -> String {
+    public func issueReviewLoseLocalMessage(deleteCount: Int, editCount: Int) -> String {
+        var lines: [String] = []
         if isRussian {
-            let files = russianPlural(count, one: "локальный файл", few: "локальных файла", many: "локальных файлов")
-            return "«\(issueDecisionKeepRemoteTitle)» удалит \(count) \(files): на Яндексе их больше нет. Файлы удаляются насовсем, не в Корзину."
+            if deleteCount > 0 {
+                let files = russianPlural(deleteCount, one: "локальный файл", few: "локальных файла", many: "локальных файлов")
+                lines.append("«\(issueDecisionKeepRemoteTitle)» удалит \(deleteCount) \(files): на Яндексе их больше нет.")
+            }
+            if editCount > 0 {
+                lines.append("Файлы, где локальные правки заменит версия с Яндекса: \(editCount).")
+            }
+            lines.append("В Корзину ничего не попадёт.")
+        } else {
+            if deleteCount > 0 {
+                let files = deleteCount == 1 ? "local file" : "local files"
+                lines.append("\(issueDecisionKeepRemoteTitle) will delete \(deleteCount) \(files) that Yandex no longer has.")
+            }
+            if editCount > 0 {
+                lines.append("Files whose local edits will be replaced by the Yandex version: \(editCount).")
+            }
+            lines.append("Nothing goes to the Trash.")
         }
-        let files = count == 1 ? "local file" : "local files"
-        return "\(issueDecisionKeepRemoteTitle) will delete \(count) \(files) that Yandex no longer has. They are deleted for good, not moved to the Trash."
+        return lines.joined(separator: "\n")
     }
 
-    public func issueReviewDeleteLocalConfirm(count: Int) -> String {
-        isRussian ? "Удалить файлы: \(count)" : "Delete \(count) \(count == 1 ? "File" : "Files")"
+    public var issueReviewLoseLocalConfirm: String {
+        isRussian ? "Применить" : "Apply"
     }
 
     public var issueDecisionKeepRemoteTitle: String {

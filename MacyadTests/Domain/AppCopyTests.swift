@@ -2,16 +2,20 @@ import XCTest
 @testable import MacyadCore
 
 final class AppCopyTests: XCTestCase {
-    func testLocalDeletionConfirmationCountsFiles() {
+    func testLocalLossConfirmationCountsFiles() {
         let english = AppCopy(language: .english)
-        XCTAssertEqual(english.issueReviewDeleteLocalConfirm(count: 1), "Delete 1 File")
-        XCTAssertTrue(english.issueReviewDeleteLocalMessage(count: 3).hasPrefix("Keep remote will delete 3 local files"))
+        XCTAssertTrue(english.issueReviewLoseLocalMessage(deleteCount: 3, editCount: 0).hasPrefix("Keep remote will delete 3 local files"))
+        XCTAssertFalse(english.issueReviewLoseLocalMessage(deleteCount: 3, editCount: 0).contains("local edits"))
+        XCTAssertEqual(
+            english.issueReviewLoseLocalMessage(deleteCount: 0, editCount: 2),
+            "Files whose local edits will be replaced by the Yandex version: 2.\nNothing goes to the Trash."
+        )
 
         let russian = AppCopy(language: .russian)
-        XCTAssertEqual(russian.issueReviewDeleteLocalConfirm(count: 21), "Удалить файлы: 21")
-        XCTAssertTrue(russian.issueReviewDeleteLocalMessage(count: 1).contains("удалит 1 локальный файл:"))
-        XCTAssertTrue(russian.issueReviewDeleteLocalMessage(count: 3).contains("удалит 3 локальных файла:"))
-        XCTAssertTrue(russian.issueReviewDeleteLocalMessage(count: 12).contains("удалит 12 локальных файлов:"))
+        XCTAssertTrue(russian.issueReviewLoseLocalMessage(deleteCount: 1, editCount: 0).contains("удалит 1 локальный файл:"))
+        XCTAssertTrue(russian.issueReviewLoseLocalMessage(deleteCount: 3, editCount: 0).contains("удалит 3 локальных файла:"))
+        XCTAssertTrue(russian.issueReviewLoseLocalMessage(deleteCount: 12, editCount: 5).contains("удалит 12 локальных файлов:"))
+        XCTAssertTrue(russian.issueReviewLoseLocalMessage(deleteCount: 12, editCount: 5).contains("версия с Яндекса: 5."))
     }
 
     func testEnglishCopyUsesEnglishLabels() {
