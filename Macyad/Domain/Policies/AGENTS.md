@@ -11,7 +11,7 @@
 
 | File | Description |
 |------|-------------|
-| `ScheduledSyncEligibilityPolicy.swift` | Определяет допустимость плановой синхронизации для пары: `canRunScheduledSync` возвращает `false`, если `autoSyncMode == .off` или `lastKnownSeverity == .alarm`. Направление (push/pull) выбирает `SchedulerService` по `pair.autoSyncMode` |
+| `ScheduledSyncEligibilityPolicy.swift` | Определяет допустимость плановой синхронизации для пары: `canRunScheduledSync` возвращает `false`, если `autoSyncMode == .off` или `lastKnownSeverity == .alarm` — кроме alarm от сбоя сети (`SyncPair.lastFailureIsTransient`): такая пара повторяется в обычный интервал, иначе один сбой DNS останавливал расписание до ручного запуска (22.11.2026, ~сутки). Направление (push/pull) выбирает `SchedulerService` по `pair.autoSyncMode` |
 
 ## For AI Agents
 

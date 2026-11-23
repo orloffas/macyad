@@ -16,7 +16,7 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **"Keep local" in the issue review recreated a folder on Yandex that had just
+- **«Keep local» in the issue review recreated a folder on Yandex that had just
   been deleted.** A folder name with letters like «й» can be stored in two Unicode
   forms that look identical. Swift treats them as the same name and Yandex does
   not. The review took its paths from the stored snapshot of the last sync, so
@@ -27,17 +27,17 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   «Keep both».
 - **After a network outage, scheduled sync stopped for good.** Any failed run
   put the pair into the alarm state, and alarm pairs were left out of the
-  schedule until someone pressed Push by hand. After one DNS outage, a pair
-  stayed unsynced for almost a day while its card still showed a "Next sync"
+  schedule until someone ran Push to Yandex by hand. After one DNS outage, a pair
+  stayed unsynced for almost a day while its card still showed a «Next sync»
   time. Failures caused only by the network now clear on their own: connection
   refused or reset, host not found, timeout. The pair still shows the error,
   and the schedule tries again at the pair's normal interval. You get one
   notification per outage instead of one per attempt. Other failures, like an
-  expired token or duplicate folders, still wait for you.
-- **"Keep remote" deleted local files without asking.** For a file that is gone
-  from Yandex, "Keep remote" means "delete it here too", and the app did that
+  expired token or duplicate folders, still need you to act.
+- **«Keep remote» deleted local files without asking.** For a file that is gone
+  from Yandex, «Keep remote» means "delete it here too", and the app did that
   straight away, bypassing the Trash. When a folder was removed on Yandex,
-  dozens of local files could go in one click. "Apply decisions" now asks
+  dozens of local files could go in one click. «Apply decisions» now asks
   first and says how many local files will be deleted, and how many files lose
   local edits to the Yandex version. Just taking a newer version from Yandex,
   with no local edits, still applies without a prompt.
