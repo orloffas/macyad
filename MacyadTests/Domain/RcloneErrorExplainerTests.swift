@@ -5,6 +5,18 @@ final class RcloneErrorExplainerTests: XCTestCase {
     private let copy = AppCopy(language: .russian)
     private let pushCommand = ["--config", "/Users/test/rclone.conf", "sync", "/Users/test/Docs", "yandex:Docs"]
 
+    func testOnlyNetworkFailuresAreTransient() {
+        // Verbatim from a scheduled push on 22.11.2026, when DNS was gone for every pair.
+        let dns = #"ERROR : error listing: Get "https://cloud-api.yandex.com/v1/disk/resources?limit=1000": dial tcp: lookup cloud-api.yandex.com: no such host"#
+        XCTAssertTrue(RcloneErrorExplainer.isTransientNetworkFailure(stderr: dns))
+        XCTAssertTrue(RcloneErrorExplainer.isTransientNetworkFailure(stderr: "read tcp 10.0.0.2:5123->1.2.3.4:443: read: connection reset by peer"))
+        XCTAssertFalse(RcloneErrorExplainer.isTransientNetworkFailure(stderr: "Failed to sync: GoneError: Resource is gone (410)"))
+        XCTAssertFalse(RcloneErrorExplainer.isTransientNetworkFailure(stderr: "couldn't fetch token: invalid_grant"))
+        XCTAssertFalse(RcloneErrorExplainer.isTransientNetworkFailure(stderr: "permission denied"))
+        // A lasting cause wins over a network line about another item in the same run.
+        XCTAssertFalse(RcloneErrorExplainer.isTransientNetworkFailure(stderr: "GoneError: Resource is gone (410)\n" + dns))
+    }
+
     func testGoneErrorPointsToOwnOAuthApp() throws {
         let stderr = "2026/11/19 10:03:44 ERROR : Docs/a.txt: Failed to copy: 410 - GoneError: resource gone"
         let result = try XCTUnwrap(RcloneErrorExplainer.explain(stderr: stderr, command: pushCommand, copy: copy))

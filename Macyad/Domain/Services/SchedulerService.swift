@@ -156,6 +156,7 @@ public actor SchedulerService {
 
             var updatedPair = pair
             updatedPair.lastScheduledSyncAttemptAt = now
+            updatedPair.lastFailureIsTransient = false
 
             guard let syncService else {
                 updatedPair.lastKnownSeverity = .alarm
@@ -222,6 +223,7 @@ public actor SchedulerService {
                 ))
             case .info, .alarm:
                 updatedPair.lastKnownSeverity = .alarm
+                updatedPair.lastFailureIsTransient = outcome.isTransientFailure
                 results.append(ScheduledSyncResult(
                     pair: updatedPair,
                     disposition: .failed(

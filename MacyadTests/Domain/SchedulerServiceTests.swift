@@ -92,6 +92,7 @@ final class SchedulerServiceTests: XCTestCase {
 
         XCTAssertEqual(results.count, 1)
         XCTAssertEqual(results[0].pair.lastKnownSeverity, Severity.alarm)
+        XCTAssertFalse(results[0].pair.lastFailureIsTransient, "an unknown failure waits for a person")
         XCTAssertNil(results[0].pair.lastSyncAt)
 
         guard case let .failed(summary, details, _) = results[0].disposition else {
@@ -101,6 +102,37 @@ final class SchedulerServiceTests: XCTestCase {
         XCTAssertTrue(summary.contains("exited with code 9"))
         XCTAssertTrue(summary.contains("network exploded"))
         XCTAssertTrue(details.contains("network exploded"))
+    }
+
+    func testNetworkFailureIsRetriedOnTheNextScheduledSlot() async {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let start = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Offline", severity: .healthy, lastSyncAt: nil)
+        let service = SyncService(
+            processClient: FailingProcessClient(stderr: "ERROR : error listing: Get \"https://cloud-api.yandex.com/v1/disk/resources\": dial tcp: lookup cloud-api.yandex.com: no such host"),
+            localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+            snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+            baselineRepository: InMemoryBaselineStore()
+        )
+        let scheduler = SchedulerService(policy: ScheduledSyncEligibilityPolicy(), syncService: service)
+
+        let first = await scheduler.runScheduledSyncs(for: [pair], now: start)
+        XCTAssertEqual(first[0].pair.lastKnownSeverity, .alarm)
+        XCTAssertTrue(first[0].pair.lastFailureIsTransient)
+
+        let tooEarly = await scheduler.runScheduledSyncs(for: [first[0].pair], now: start.addingTimeInterval(60))
+        XCTAssertEqual(tooEarly[0].disposition, .skippedNotDue)
+
+        let retry = await scheduler.runScheduledSyncs(
+            for: [first[0].pair],
+            now: start.addingTimeInterval(Double(pair.scheduleMinutes * 60))
+        )
+        guard case .failed = retry[0].disposition else {
+            return XCTFail("the alarm pair must run again, got \(retry[0].disposition)")
+        }
     }
 
     func testRunScheduledPushesAllowsInitialPushWhenRemoteIsEmpty() async {
@@ -175,6 +207,9 @@ final class SchedulerServiceTests: XCTestCase {
 
         XCTAssertFalse(policy.canRunScheduledSync(for: makePair(name: "Alarm", severity: .alarm, lastSyncAt: nil)))
         XCTAssertTrue(policy.canRunScheduledSync(for: makePair(name: "Warning", severity: .warning, lastSyncAt: nil)))
+        var offline = makePair(name: "Offline", severity: .alarm, lastSyncAt: nil)
+        offline.lastFailureIsTransient = true
+        XCTAssertTrue(policy.canRunScheduledSync(for: offline))
     }
 
     func testSnapshotAPIGlobalPausedSkipsAllPairs() async {
@@ -344,8 +379,14 @@ private actor RecordingProcessClient: RcloneProcessRunning {
 }
 
 private actor FailingProcessClient: RcloneProcessRunning {
+    private let stderr: String
+
+    init(stderr: String = "network exploded") {
+        self.stderr = stderr
+    }
+
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
-        ("", "network exploded", 9)
+        ("", stderr, 9)
     }
 
     func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle {

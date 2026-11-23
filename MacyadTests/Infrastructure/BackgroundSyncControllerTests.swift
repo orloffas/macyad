@@ -299,6 +299,45 @@ final class BackgroundSyncControllerTests: XCTestCase {
         XCTAssertTrue(sentNotifications[0].body.contains("Photos"))
     }
 
+    func testNetworkOutageNotifiesOnceThenRetriesQuietly() async throws {
+        let previousLanguage = AppLanguageState.current
+        AppLanguageState.update(.english)
+        defer { AppLanguageState.update(previousLanguage) }
+
+        let start = Date(timeIntervalSince1970: 1_716_580_800)
+        let pair = makePair(name: "Photos", lastSyncAt: nil)
+        let pairStore = InMemoryPairStore(pairs: [pair])
+        let activityStore = InMemoryActivityStore()
+        let notificationClient = RecordingNotificationClient()
+        let scheduler = SchedulerService(
+            policy: ScheduledSyncEligibilityPolicy(),
+            syncService: SyncService(
+                processClient: FailingProcessClient(stderr: "ERROR : error listing: Get \"https://cloud-api.yandex.com/v1/disk/resources\": dial tcp: lookup cloud-api.yandex.com: no such host"),
+                localFolderInspector: StubLocalFolderInspector(containsUserVisibleContent: true),
+                snapshotProvider: StubSnapshotProvider(snapshotsByPath: cleanSnapshots(for: [pair])),
+                baselineRepository: InMemoryBaselineStore()
+            )
+        )
+        // Two cycles one schedule interval apart, both while DNS is down.
+        for offset in [0, pair.scheduleMinutes * 60] {
+            let now = start.addingTimeInterval(Double(offset))
+            await BackgroundSyncController(
+                scheduler: scheduler,
+                pairStore: pairStore,
+                preferencesStore: InMemoryPreferencesStore(preferences: .defaults),
+                activityStore: activityStore,
+                notificationClient: notificationClient,
+                now: { now },
+                sleep: { _ in }
+            ).runCycle()
+        }
+
+        let events = try await activityStore.load()
+        XCTAssertEqual(events.filter { $0.severity == .alarm }.count, 2, "the retry ran and was journaled")
+        let sentNotifications = await notificationClient.sentNotifications()
+        XCTAssertEqual(sentNotifications.count, 1)
+    }
+
     func testRunCycleRecordsRemoteOnlyDriftBlockAndSendsNotification() async throws {
         let previousLanguage = AppLanguageState.current
         AppLanguageState.update(.english)
@@ -507,8 +546,14 @@ private actor RecordingProcessClient: RcloneProcessRunning {
 }
 
 private actor FailingProcessClient: RcloneProcessRunning {
+    private let stderr: String
+
+    init(stderr: String = "permission denied") {
+        self.stderr = stderr
+    }
+
     func run(_ arguments: [String]) async throws -> (stdout: String, stderr: String, exitCode: Int32) {
-        ("NOTICE: remote object would be replaced", "permission denied", 12)
+        ("NOTICE: remote object would be replaced", stderr, 12)
     }
 
     func runStreaming(_ arguments: [String]) async throws -> RcloneStreamingHandle {

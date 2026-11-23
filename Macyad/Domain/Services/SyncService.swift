@@ -37,6 +37,8 @@ public struct SyncService: Sendable {
         public let differenceCount: Int?
         public let shouldUpdateLastSync: Bool
         public let updatedBaseline: Bool
+        /// The run failed only because the network was down; the scheduler retries it.
+        public let isTransientFailure: Bool
 
         public init(
             severity: Severity,
@@ -45,7 +47,8 @@ public struct SyncService: Sendable {
             issueSet: ActivityIssueSet? = nil,
             differenceCount: Int? = nil,
             shouldUpdateLastSync: Bool = false,
-            updatedBaseline: Bool = false
+            updatedBaseline: Bool = false,
+            isTransientFailure: Bool = false
         ) {
             self.severity = severity
             self.summary = summary
@@ -54,6 +57,7 @@ public struct SyncService: Sendable {
             self.differenceCount = differenceCount
             self.shouldUpdateLastSync = shouldUpdateLastSync
             self.updatedBaseline = updatedBaseline
+            self.isTransientFailure = isTransientFailure
         }
     }
 
@@ -82,6 +86,10 @@ public struct SyncService: Sendable {
 
         public var errorDescription: String? {
             AppCopy.current.rcloneCommandFailed(command: command, exitCode: exitCode, stderr: stderr)
+        }
+
+        public var isTransient: Bool {
+            RcloneErrorExplainer.isTransientNetworkFailure(stderr: stderr)
         }
 
         public var explanation: RcloneErrorExplainer.Explanation? {
@@ -227,7 +235,7 @@ public struct SyncService: Sendable {
                 )
             }
         } catch let error as CommandFailedError {
-            return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription)
+            return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription, isTransientFailure: error.isTransient)
         } catch {
             return OperationOutcome(severity: .alarm, summary: error.localizedDescription, details: error.localizedDescription)
         }
@@ -316,7 +324,7 @@ public struct SyncService: Sendable {
                 )
             }
         } catch let error as CommandFailedError {
-            return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription)
+            return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription, isTransientFailure: error.isTransient)
         } catch {
             return OperationOutcome(severity: .alarm, summary: error.localizedDescription, details: error.localizedDescription)
         }
@@ -401,7 +409,7 @@ public struct SyncService: Sendable {
                 )
             }
         } catch let error as CommandFailedError {
-            return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription)
+            return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription, isTransientFailure: error.isTransient)
         } catch {
             return OperationOutcome(severity: .alarm, summary: error.localizedDescription, details: error.localizedDescription)
         }
@@ -463,7 +471,7 @@ public struct SyncService: Sendable {
                 issueSet: remainingIssueSet
             )
         } catch let error as CommandFailedError {
-            return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription)
+            return OperationOutcome(severity: .alarm, summary: error.summaryDescription, details: error.detailedDescription, isTransientFailure: error.isTransient)
         } catch {
             return OperationOutcome(severity: .alarm, summary: error.localizedDescription, details: error.localizedDescription)
         }
