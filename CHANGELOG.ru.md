@@ -4,7 +4,7 @@ English version: [CHANGELOG.md](CHANGELOG.md)
 
 Проект использует [семантическое версионирование](https://semver.org/lang/ru/).
 
-## Не выпущено
+## 0.1.4 — 2026-11-24
 
 ### Добавлено
 
