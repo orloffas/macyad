@@ -54,6 +54,13 @@ This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   exit code), baseline refresh, result recorded. It contains pair IDs,
   subcommands and process IDs only, no file names or paths. Troubleshooting in
   the README shows how to save it before restarting the app.
+- **A pair's card showed another pair's run as its own.** The "queued" and
+  "running" indicator was one value for all pairs, so a Push queued for one
+  pair showed on every card, and the first run to finish cleared it while
+  others were still waiting. Each pair now has its own indicator.
+- **"Next sync" promised a run that would not happen.** The card showed a time
+  even when the pair was paused, or stopped by an error that waits for you.
+  It now says «Paused» or «After a manual run» in those cases.
 
 ## 0.1.3 — 2026-11-20
 
