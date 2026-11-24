@@ -942,8 +942,8 @@ public struct AppCopy: Sendable {
 
     public var overviewPushAllHelp: String {
         isRussian
-            ? "Поставить Push to Yandex в очередь для всех пар, кроме пар с Auto-Pull. Пары выполняются по одной."
-            : "Queue Push to Yandex for every pair except Auto-Pull pairs. Pairs run one at a time."
+            ? "Поставить Push to Yandex в очередь для всех пар с Auto-Push. Пары с Auto-Pull и на паузе пропускаются. Пары выполняются по одной."
+            : "Queue Push to Yandex for every Auto-Push pair. Auto-Pull and paused pairs are skipped. Pairs run one at a time."
     }
 
     public var overviewCheckAllTitle: String {

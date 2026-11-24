@@ -164,7 +164,7 @@ final class OverviewViewModelTests: XCTestCase {
         XCTAssertEqual(vm.rows[0].pauseSource, .global)
     }
 
-    func testBulkRunSkipsBusyPairsAndPushSkipsAutoPullPairs() {
+    func testBulkRunSkipsBusyPairsAndPushRunsOnlyAutoPushPairs() {
         let push = makePair(name: "Push", autoSyncMode: .push)
         let off = makePair(name: "Off", autoSyncMode: .off)
         let pull = makePair(name: "Pull", autoSyncMode: .pull)
@@ -173,7 +173,7 @@ final class OverviewViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             OverviewViewModel.bulkRunPairs(pairs, push: true, busy: [busy.id]).map(\.name),
-            ["Push", "Off"]
+            ["Push"]
         )
         XCTAssertEqual(
             OverviewViewModel.bulkRunPairs(pairs, push: false, busy: [busy.id]).map(\.name),
