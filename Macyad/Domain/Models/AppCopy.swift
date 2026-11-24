@@ -1188,6 +1188,14 @@ public struct AppCopy: Sendable {
         isRussian ? "Последняя синхронизация" : "Last sync"
     }
 
+    public var nextSyncPaused: String {
+        isRussian ? "На паузе" : "Paused"
+    }
+
+    public var nextSyncAfterManualRun: String {
+        isRussian ? "После ручного запуска: прошлый остановлен ошибкой" : "After a manual run: the last one stopped with an error"
+    }
+
     public var nextSyncTitle: String {
         isRussian ? "Следующая синхронизация" : "Next sync"
     }
