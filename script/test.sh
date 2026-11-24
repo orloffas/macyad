@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# `xcodebuild` живёт только внутри Xcode.app. Если `xcode-select` переведён на
+# Command Line Tools, он отвечает «tool 'xcodebuild' requires Xcode» и сборка
+# не начинается вовсе. `DEVELOPER_DIR` перебивает выбор `xcode-select` для
+# одного процесса, ничего не меняя в системе; заданное снаружи значение
+# (другой путь к Xcode, Xcode-beta) уважаем.
+export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+
 MODE="${1:-unit}"
 PROJECT="Macyad.xcodeproj"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

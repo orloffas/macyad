@@ -12,7 +12,11 @@
 | File | Description |
 |------|-------------|
 | `CreatePairViewModelTests.swift` | `CreatePairViewModel`: `chooseFolder` заполняет поля из `FolderPicking`, init с дефолтным расписанием, `replaceAvailableAccounts` выбирает первый аккаунт, init из существующей пары (edit-режим), `buildPair` дедуплицирует и парсит exclude-текст, сохраняет id/severity/lastSyncAt |
+| `LiveMonitorViewModelTests.swift` | — |
 | `OnboardingViewModelTests.swift` | `OnboardingViewModel`: `retry()` обновляет `state` через stub `OnboardingServicing`, `copy()` записывает в `PasteboardWriting` и устанавливает `lastCopiedCommand` |
+| `OverviewViewModelTests.swift` | — |
+| `PairDetailViewModelTests.swift` | — |
+| `SettingsViewModelTests.swift` | — |
 
 ## For AI Agents
 
@@ -27,8 +31,6 @@
 ### Testing Requirements
 
 ```bash
-xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
-# или
 ./script/test.sh unit
 ```
 

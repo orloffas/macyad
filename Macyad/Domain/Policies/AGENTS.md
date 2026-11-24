@@ -24,7 +24,7 @@
 
 ### Testing Requirements
 
-Тесты в `MacyadTests/Domain/Policies/`. Запуск: `./script/test.sh unit`. Каждый метод должен быть покрыт тестами на граничные значения входных моделей.
+Тесты в `MacyadTests/Domain/`. Запуск: `./script/test.sh unit`. Каждый метод должен быть покрыт тестами на граничные значения входных моделей.
 
 ### Common Patterns
 
