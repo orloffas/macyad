@@ -476,7 +476,7 @@ struct MainWindowView: View {
                 "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : ——— \(opTitle) queued for \(pair.name) ———"
             )
             appModel.activeManualPairIDs.insert(pair.id)
-            environment.pairDetailViewModel.setOperationPhase(.queued, kind: .manual)
+            environment.pairDetailViewModel.setOperationPhase(.queued, for: pair.id, kind: .manual)
             environment.pairDetailViewModel.setError(nil)
         }
 
@@ -505,7 +505,7 @@ struct MainWindowView: View {
                     liveMonitorViewModel.appendLine(
                         "\(SyncService.liveMonitorTimestamp(for: Date())) macyad : running, capturing snapshots before rclone (this can take a few seconds)…"
                     )
-                    environment.pairDetailViewModel.setOperationPhase(.running, kind: .manual)
+                    environment.pairDetailViewModel.setOperationPhase(.running, for: pair.id, kind: .manual)
                 }
                 let result = await perform(operation, with: syncService, for: pair, observer: observer)
                 operationLog.notice("pair \(stageID, privacy: .public): \(operation.queueLabel, privacy: .public) work done")
@@ -573,7 +573,7 @@ struct MainWindowView: View {
         }
 
         await MainActor.run {
-            environment.pairDetailViewModel.setOperationPhase(.idle)
+            environment.pairDetailViewModel.setOperationPhase(.idle, for: pair.id)
             appModel.activeManualPairIDs.remove(pair.id)
             operationLog.notice("pair \(stageID, privacy: .public): \(operation.queueLabel, privacy: .public) finished")
             // Promote the just-completed run to the archived slot so the
@@ -659,7 +659,7 @@ struct MainWindowView: View {
         }
 
         await MainActor.run {
-            environment.pairDetailViewModel.setOperationPhase(.queued)
+            environment.pairDetailViewModel.setOperationPhase(.queued, for: pair.id)
             environment.pairDetailViewModel.setError(nil)
         }
 
@@ -667,7 +667,7 @@ struct MainWindowView: View {
             let syncService = try await makeSyncService()
             let outcome = try await environment.operationCoordinator.enqueue(pairID: pair.id, label: "review-files") {
                 await MainActor.run {
-                    environment.pairDetailViewModel.setOperationPhase(.running)
+                    environment.pairDetailViewModel.setOperationPhase(.running, for: pair.id)
                 }
                 return await syncService.applyResolutions(issueSet, for: pair)
             }
@@ -695,7 +695,7 @@ struct MainWindowView: View {
                 await MainActor.run {
                     appModel.replaceActivityEvent(replacementEvent)
                     environment.pairDetailViewModel.setLatestSeverity(outcome.severity)
-                    environment.pairDetailViewModel.setOperationPhase(.idle)
+                    environment.pairDetailViewModel.setOperationPhase(.idle, for: pair.id)
                 }
                 return ActivityReviewApplyResult(replacementEvent: replacementEvent, shouldDismissDetail: false)
             }
@@ -724,7 +724,7 @@ struct MainWindowView: View {
                 appModel.replaceActivityEvent(closedSourceEvent)
                 appModel.appendActivityEvent(resultEvent)
                 environment.pairDetailViewModel.setLatestSeverity(outcome.severity)
-                environment.pairDetailViewModel.setOperationPhase(.idle)
+                environment.pairDetailViewModel.setOperationPhase(.idle, for: pair.id)
             }
             return ActivityReviewApplyResult(replacementEvent: nil, shouldDismissDetail: true)
         } catch {
@@ -745,7 +745,7 @@ struct MainWindowView: View {
                 appModel.replaceActivityEvent(failedEvent)
                 environment.pairDetailViewModel.setLatestSeverity(.alarm)
                 environment.pairDetailViewModel.setError(error.localizedDescription)
-                environment.pairDetailViewModel.setOperationPhase(.idle)
+                environment.pairDetailViewModel.setOperationPhase(.idle, for: pair.id)
             }
             return ActivityReviewApplyResult(replacementEvent: failedEvent, shouldDismissDetail: false)
         }

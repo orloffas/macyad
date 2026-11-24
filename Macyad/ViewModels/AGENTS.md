@@ -14,9 +14,9 @@
 | `SettingsViewModel.swift` | Macyad (app) | Управляет настройками (`AppPreferences`): язык, автозапуск, расписание; управляет аккаунтами Yandex через `AccountService`; через `languageDidChange` уведомляет `AppModel` о смене языка |
 | `CreatePairViewModel.swift` | MacyadCore | Форма создания/редактирования `SyncPair`: хранит черновик полей, вызывает `FolderPicking.pickFolder()`, строит финальный `SyncPair` через `PairService.makePair()` / `updatePair()` |
 | `OnboardingViewModel.swift` | MacyadCore | Обёртка над `OnboardingServicing`: публикует `OnboardingState`, управляет флагом `isRefreshing`, копирует команды в буфер обмена через `PasteboardWriting` |
-| `LiveMonitorViewModel.swift` | MacyadCore | — |
-| `OverviewViewModel.swift` | MacyadCore | — |
-| `PairDetailViewModel.swift` | MacyadCore | Лёгкая вьюмодель детальной панели пары: публикует `operationPhase` (`.idle` / `.queued` / `.running`), `latestSeverity`, `lastErrorMessage`; обновляется извне через сеттеры |
+| `LiveMonitorViewModel.swift` | MacyadCore | Буфер строк Live monitor одного запуска и его статус завершения (`setExitStatus`) |
+| `OverviewViewModel.swift` | MacyadCore | Строки таблицы Обзора и отбор пар для Push All / «Проверить все» (`bulkRunPairs`) |
+| `PairDetailViewModel.swift` | MacyadCore | Лёгкая вьюмодель детальной панели пары: фаза операции **по каждой паре** (`operationPhase(for:)`, `setOperationPhase(_:for:kind:)` — одна общая фаза показывала чужой запуск и гасла от первого закончившегося), `nextSync(for:preferences:)` по правилу `ScheduledSyncEligibilityPolicy`, `latestSeverity`, `lastErrorMessage`; обновляется извне через сеттеры |
 
 ## For AI Agents
 
@@ -35,7 +35,7 @@
 - Все классы помечены `@MainActor final`; async-операции запускаются через `Task { ... }` внутри синхронных методов.
 - Локализованные строки берутся через `AppCopy(language: language)` или `AppCopy.current` — не используй строковые литералы напрямую.
 - `SettingsViewModel.languageDidChange` — коллбэк, а не Combine-паблишер: `AppModel` регистрирует его при старте в `MacyadApp.configureAppModel()`.
-- `PairDetailViewModel.operationPhase` обновляется снаружи (из Views, в основном `MainWindowView`) через `setOperationPhase(_:)` и `setOperationInFlight(_:)`.
+- Фаза операции обновляется снаружи (`MainWindowView`) через `setOperationPhase(_:for:kind:)` с id пары.
 
 ## Dependencies
 
