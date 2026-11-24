@@ -56,4 +56,51 @@ final class PairDetailViewModelTests: XCTestCase {
             autoSyncMode: autoSyncMode
         )
     }
+
+    @MainActor
+    func testEachPairKeepsItsOwnOperationPhase() {
+        let viewModel = PairDetailViewModel()
+        let first = UUID()
+        let second = UUID()
+
+        viewModel.setOperationPhase(.queued, for: first, kind: .manual)
+        viewModel.setOperationPhase(.queued, for: second, kind: .manual)
+        viewModel.setOperationPhase(.running, for: first)
+        viewModel.setOperationPhase(.idle, for: first)
+
+        XCTAssertEqual(viewModel.operationPhase(for: first), .idle)
+        XCTAssertEqual(viewModel.operationPhase(for: second), .queued, "the first run finishing must not clear the second")
+        XCTAssertEqual(viewModel.lastOperationKind(for: second), .manual)
+        XCTAssertEqual(viewModel.operationPhase(for: nil), .idle)
+    }
+
+    func testNextSyncFollowsTheSchedulerRule() {
+        let last = Date(timeIntervalSince1970: 1_000)
+        var pair = SyncPair(
+            id: UUID(),
+            name: "Docs",
+            localFolderBookmark: Data(),
+            localFolderDisplayPath: "/Users/test/Docs",
+            remotePath: "yd:/Docs",
+            scheduleMinutes: 15,
+            deletePolicy: .mirrorToYandex,
+            lastKnownSeverity: .healthy,
+            lastSyncAt: last,
+            autoSyncMode: .push
+        )
+        let running = AppPreferences.defaults
+        var paused = AppPreferences.defaults
+        paused.isGlobalSchedulerPaused = true
+
+        XCTAssertEqual(viewModel.nextSync(for: pair, preferences: running), .at(last.addingTimeInterval(900)))
+        XCTAssertEqual(viewModel.nextSync(for: pair, preferences: paused), .paused)
+
+        pair.lastKnownSeverity = .alarm
+        XCTAssertEqual(viewModel.nextSync(for: pair, preferences: running), .afterManualRun)
+        pair.lastFailureIsTransient = true
+        XCTAssertEqual(viewModel.nextSync(for: pair, preferences: running), .at(last.addingTimeInterval(900)), "a network failure is retried")
+
+        pair.autoSyncMode = .off
+        XCTAssertEqual(viewModel.nextSync(for: pair, preferences: running), .paused)
+    }
 }

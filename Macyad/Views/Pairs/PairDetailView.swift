@@ -249,10 +249,10 @@ struct PairDetailView: View {
                 Button(copy.pullButtonTitle) { onPullFromYandex?() }
                     .help(copy.pullActionDescription)
             }
-            .disabled(viewModel.operationPhase != .idle)
+            .disabled(operationPhase != .idle)
 
             HStack(spacing: 8) {
-                if viewModel.operationPhase != .idle {
+                if operationPhase != .idle {
                     ProgressView()
                         .controlSize(.small)
                     Text(operationPhaseTitle)
@@ -270,8 +270,8 @@ struct PairDetailView: View {
                     // and seeded before the operation reaches the front of the
                     // queue, and a queued run is exactly when the user wants to
                     // know what the app is waiting for.
-                    if viewModel.operationPhase != .idle,
-                       viewModel.lastOperationKind != .scheduled,
+                    if operationPhase != .idle,
+                       viewModel.lastOperationKind(for: pair.id) != .scheduled,
                        appModel.activeManualPairIDs.contains(pair.id),
                        let onOpenLiveMonitor {
                         Button(copy.openLiveMonitorButtonTitle) { onOpenLiveMonitor(.running) }
@@ -442,21 +442,24 @@ struct PairDetailView: View {
 
     private func nextScheduledSyncTitle(for pair: SyncPair) -> String {
         let copy = appModel.copy
-
-        guard let lastScheduledReferenceAt = pair.nextScheduledReferenceAt else {
-            return copy.afterFirstSuccessfulSync
+        switch viewModel.nextSync(for: pair, preferences: preferences) {
+        case .paused: return copy.nextSyncPaused
+        case .afterManualRun: return copy.nextSyncAfterManualRun
+        case .afterFirstSync: return copy.afterFirstSuccessfulSync
+        case let .at(date): return copy.formatTimestamp(date)
         }
-
-        let nextRun = lastScheduledReferenceAt.addingTimeInterval(TimeInterval(pair.scheduleMinutes * 60))
-        return copy.formatTimestamp(nextRun)
     }
 
     private func accountName(for pair: SyncPair) -> String {
         appModel.accounts.first(where: { $0.id == pair.accountID })?.displayName ?? pair.parsedRemoteName ?? "—"
     }
 
+    private var operationPhase: PairDetailViewModel.OperationPhase {
+        viewModel.operationPhase(for: pair?.id)
+    }
+
     private var operationPhaseTitle: String {
-        switch viewModel.operationPhase {
+        switch operationPhase {
         case .idle:
             return ""
         case .queued:
