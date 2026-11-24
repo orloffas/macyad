@@ -42,8 +42,16 @@
 - Полный прогон тестов:
   ```bash
   xcodegen generate
-  xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
+  DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+    xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
   ```
+- **`xcodebuild` вызывать только с `DEVELOPER_DIR`.** Он есть лишь внутри
+  `Xcode.app`, и если `xcode-select -p` указывает на Command Line Tools, голый
+  вызов падает с `tool 'xcodebuild' requires Xcode`. Переменная перебивает выбор
+  `xcode-select` для одного процесса и ничего не меняет в системе, поэтому
+  безопасна и там, где активен сам Xcode. Скрипты в `script/` подставляют её
+  сами — через них префикс не нужен. То же относится к `xcrun xcresulttool`
+  в UI-тестах.
 - Для запуска вне sandbox или с отдельным `derivedDataPath`: `./script/test.sh unit`.
 - UI-фичи проверяются через `./script/build_and_run.sh` и реальное взаимодействие.
 
@@ -109,7 +117,7 @@
 
 ## Версии и релизы
 
-Источник правды — `MARKETING_VERSION` в `project.yml` (semver, сейчас `0.1.3`). Приложение читает её через `AppMetadata.version` и показывает в `Settings → About` вместе с build-номером; там же кнопка, копирующая диагностику для багрепорта.
+Источник правды — `MARKETING_VERSION` в `project.yml` (semver). Приложение читает её через `AppMetadata.version` и показывает в `Settings → About` вместе с build-номером; там же кнопка, копирующая диагностику для багрепорта.
 
 Релиз выпускается тегом `v<MARKETING_VERSION>`: пуш тега запускает `.github/workflows/release.yml`, который проверяет совпадение тега с версией в `project.yml`, собирает Release-конфигурацию, пакует DMG и создаёт GitHub Release. Тег, не совпавший с версией в коде, останавливает workflow — сначала поднимай версию в `project.yml` отдельным PR, только потом тегируй `main`.
 

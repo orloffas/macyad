@@ -42,7 +42,7 @@
 
 ### Testing Requirements
 
-Тесты в `MacyadTests/Domain/Models/`. Запуск: `./script/test.sh unit`. Каждый `Codable`-тип должен иметь round-trip тест на encode/decode.
+Тесты в `MacyadTests/Domain/`. Запуск: `./script/test.sh unit`. Каждый `Codable`-тип должен иметь round-trip тест на encode/decode.
 
 ### Common Patterns
 

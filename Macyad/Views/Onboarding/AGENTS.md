@@ -35,7 +35,7 @@ SwiftUI-вьюхи раздела «Подключение». Экран жив�
 ### Testing Requirements
 Логика шагов покрыта `MacyadTests/Domain/OnboardingServiceTests.swift`, чеклист — `MacyadTests/ViewModels/OnboardingViewModelTests.swift`. Запуск: `MACYAD_CODESIGN_IDENTITY="MacYaD Local Development" ./script/test.sh unit`.
 
-Внимание: схема `unit` собирает только `MacyadCore` и **не компилирует вьюхи**. После правок в `Views/` дополнительно собирай app-таргет: `xcodebuild build -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS'`.
+Внимание: схема `unit` собирает только `MacyadCore` и **не компилирует вьюхи**. После правок в `Views/` дополнительно собирай app-таргет: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild build -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS'`.
 
 Ручное тестирование через `./script/build_and_run.sh` (запуск со сброшенным состоянием онбординга). UI-тесты — `MacyadUITests/` (accessibilityIdentifier: `"onboarding.copyCommand"`, `"onboarding.retry"` — идентификатор кнопки сохранён при переименовании её заголовка).
 

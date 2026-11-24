@@ -38,8 +38,6 @@
 ### Testing Requirements
 
 ```bash
-xcodebuild -project Macyad.xcodeproj -scheme Macyad -destination 'platform=macOS,arch=arm64' test
-# или
 ./script/test.sh unit
 ```
 

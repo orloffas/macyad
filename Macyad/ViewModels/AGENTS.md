@@ -4,7 +4,7 @@
 # ViewModels
 
 ## Purpose
-`ObservableObject`-классы, реализующие UI-логику для Views. Три вьюмодели (`CreatePairViewModel`, `OnboardingViewModel`, `PairDetailViewModel`) находятся в таргете `MacyadCore` и могут тестироваться без UI-зависимостей. Две вьюмодели (`AppModel`, `SettingsViewModel`) находятся в таргете `Macyad` — они используют `AppKit`-типы или связывают несколько Domain-сервисов и не могут быть включены в framework без усложнения. Все классы аннотированы `@MainActor`.
+`ObservableObject`-классы, реализующие UI-логику для Views. Пять вьюмоделей (`CreatePairViewModel`, `LiveMonitorViewModel`, `OnboardingViewModel`, `OverviewViewModel`, `PairDetailViewModel`) находятся в таргете `MacyadCore` и могут тестироваться без UI-зависимостей. Две вьюмодели (`AppModel`, `SettingsViewModel`) находятся в таргете `Macyad` — они используют `AppKit`-типы или связывают несколько Domain-сервисов и не могут быть включены в framework без усложнения. Все классы аннотированы `@MainActor`.
 
 ## Key Files
 
@@ -14,6 +14,8 @@
 | `SettingsViewModel.swift` | Macyad (app) | Управляет настройками (`AppPreferences`): язык, автозапуск, расписание; управляет аккаунтами Yandex через `AccountService`; через `languageDidChange` уведомляет `AppModel` о смене языка |
 | `CreatePairViewModel.swift` | MacyadCore | Форма создания/редактирования `SyncPair`: хранит черновик полей, вызывает `FolderPicking.pickFolder()`, строит финальный `SyncPair` через `PairService.makePair()` / `updatePair()` |
 | `OnboardingViewModel.swift` | MacyadCore | Обёртка над `OnboardingServicing`: публикует `OnboardingState`, управляет флагом `isRefreshing`, копирует команды в буфер обмена через `PasteboardWriting` |
+| `LiveMonitorViewModel.swift` | MacyadCore | Буфер строк Live monitor одного запуска и его статус завершения (`setExitStatus`) |
+| `OverviewViewModel.swift` | MacyadCore | Строки таблицы Обзора и отбор пар для Push All / «Проверить все» (`bulkRunPairs`) |
 | `PairDetailViewModel.swift` | MacyadCore | Лёгкая вьюмодель детальной панели пары: фаза операции **по каждой паре** (`operationPhase(for:)`, `setOperationPhase(_:for:kind:)` — одна общая фаза показывала чужой запуск и гасла от первого закончившегося), `nextSync(for:preferences:)` по правилу `ScheduledSyncEligibilityPolicy`, `latestSeverity`, `lastErrorMessage`; обновляется извне через сеттеры |
 
 ## For AI Agents
